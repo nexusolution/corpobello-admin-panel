@@ -1,0 +1,16 @@
+.mobile-header-menu {
+    height: 0;
+    overflow: hidden;
+    transition: all .3s ease-in-out;
+}
+.mobile-header-menu.active {
+    min-height: 70px;
+    overflow: visible;
+}
+
+/* Mobile/tablet overflow toolbar: strip the wide desktop padding from the
+   reused Notifications / Language / Profile components so they sit compactly. */
+.mobile-actions .group\/menu {
+    padding: 0 !important;
+}
+

@@ -1,0 +1,45 @@
+/* tailwind-sidebar package override styles */
+[data-slot='collapsible']
+  [data-slot='sidebar-menu-item']
+  [data-slot='sidebar-menu-button']:hover {
+  background-color: transparent !important;
+}
+
+[data-slot='badge'] {
+  font-size: x-small;
+}
+
+/* Collapsed (mini) sidebar: center icons and shape the active/hover highlight */
+.mini-menu [data-slot='sidebar-menu-button'] {
+  justify-content: center;
+}
+.mini-menu .shadcn_menu_item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 45px;
+  height: 45px;
+  border-radius: 10px;
+  margin-inline: auto;
+}
+/* Avoid competing transitions (200ms items vs 300ms container) that cause a
+   two-step "flash" on collapse; let only the container width animate. */
+.mini-menu [data-slot='sidebar-menu-button'],
+.mini-menu .shadcn_menu_item {
+  transition: none !important;
+}
+
+/* Dropdown-parent ("submenu") triggers use a different element (.side_sub) that
+   stays left-aligned in collapse; center them so they line up with leaf icons. */
+.mini-menu .side_sub {
+  justify-content: center;
+  width: 45px;
+  height: 45px;
+  border-radius: 10px;
+  margin-inline: auto;
+  transition: none !important;
+}
+.mini-menu .side_sub > div {
+  width: auto;
+  justify-content: center;
+}
