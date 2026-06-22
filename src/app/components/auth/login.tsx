@@ -13,10 +13,11 @@ export const Login = () => {
   return (
     <div className='grid lg:grid-cols-2 min-h-screen w-full'>
       {/* LEFT — Form column */}
-      <div className='flex items-center justify-center bg-background px-6 py-12'>
-        <div className='w-full max-w-md'>
-          <div className='text-center mb-8'>
-            <h1 className='text-2xl font-semibold text-dark dark:text-white mb-1'>
+      <div className='flex flex-col bg-background'>
+        <div className='flex-1 flex items-center justify-center px-6 py-12'>
+          <div className='w-full max-w-md'>
+          <div className='text-center mb-10'>
+            <h1 className='text-2xl font-semibold text-dark dark:text-white mb-2'>
               Iniciar sesión
             </h1>
             <p className='text-sm text-link dark:text-darklink'>
@@ -25,7 +26,7 @@ export const Login = () => {
           </div>
 
           {/* Social sign-in */}
-          <div className='grid grid-cols-2 gap-3 mb-6'>
+          <div className='grid grid-cols-2 gap-3 mb-8'>
             <button
               type='button'
               className='flex items-center justify-center gap-2 px-4 py-2.5 border border-border dark:border-darkborder rounded-md text-sm font-medium text-dark dark:text-white hover:bg-lightprimary transition-colors'>
@@ -41,7 +42,7 @@ export const Login = () => {
           </div>
 
           {/* Divider */}
-          <div className='flex items-center gap-3 mb-6'>
+          <div className='flex items-center gap-3 mb-8'>
             <div className='flex-1 h-px bg-border dark:bg-darkborder' />
             <span className='text-xs text-link dark:text-darklink whitespace-nowrap'>
               o con email
@@ -49,7 +50,7 @@ export const Login = () => {
             <div className='flex-1 h-px bg-border dark:bg-darkborder' />
           </div>
 
-          <form className='space-y-4'>
+          <form className='space-y-6'>
             <div>
               <Label htmlFor='email' className='font-medium mb-2 block'>
                 Email
@@ -95,12 +96,12 @@ export const Login = () => {
               </div>
             </div>
 
-            <Button type='submit' className='w-full mt-2' asChild>
+            <Button type='submit' className='w-full mt-4' asChild>
               <Link href='/'>Iniciar sesión</Link>
             </Button>
           </form>
 
-          <p className='text-center text-sm text-link dark:text-darklink mt-8'>
+          <p className='text-center text-sm text-link dark:text-darklink mt-10'>
             ¿No tenés cuenta?{' '}
             <Link
               href='#'
@@ -108,6 +109,35 @@ export const Login = () => {
               Contactá al administrador
             </Link>
           </p>
+          </div>
+        </div>
+
+        {/* Footer — language switcher + links */}
+        <div className='flex items-center justify-between px-6 py-6 text-sm'>
+          <button
+            type='button'
+            className='flex items-center gap-2 text-link dark:text-darklink hover:text-primary transition-colors'>
+            <Icon icon='circle-flags:ar' height={20} width={20} />
+            <span className='font-medium'>Español</span>
+            <Icon icon='tabler:chevron-down' height={14} width={14} />
+          </button>
+          <div className='flex items-center gap-5'>
+            <Link
+              href='#'
+              className='text-primary hover:text-primaryemphasis font-medium'>
+              Términos
+            </Link>
+            <Link
+              href='#'
+              className='text-primary hover:text-primaryemphasis font-medium'>
+              Privacidad
+            </Link>
+            <Link
+              href='#'
+              className='text-primary hover:text-primaryemphasis font-medium'>
+              Soporte
+            </Link>
+          </div>
         </div>
       </div>
 
