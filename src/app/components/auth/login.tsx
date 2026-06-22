@@ -28,12 +28,11 @@ const showValidationAlert = () => {
     confirmButtonColor: '#5d87ff',
     background: isDark ? '#2a3547' : '#ffffff',
     color: isDark ? '#ffffff' : '#2a3547',
-    width: '380px',
+    width: '400px',
     padding: '1.25rem',
     customClass: {
-      title: '!text-base !font-semibold !pb-0',
+      title: '!text-base !font-semibold !pb-0 !mt-3',
       htmlContainer: '!text-sm !mt-2',
-      icon: '!w-14 !h-14 !mt-2 !mb-2',
       confirmButton: '!text-sm !px-5 !py-2 !rounded-md',
       popup: '!rounded-lg',
     },
@@ -208,8 +207,8 @@ export const Login = () => {
           </p>
         </div>
 
-        {/* Footer — sits ~64px below the form, slightly indented from column edges */}
-        <div className='w-full max-w-md mx-auto mt-16 px-4 flex items-center justify-between text-sm'>
+        {/* Footer — pushed lower so it sits closer to the column bottom */}
+        <div className='w-full max-w-md mx-auto mt-32 px-4 flex items-center justify-between text-sm'>
           <button
             type='button'
             className='flex items-center gap-2 text-link dark:text-darklink hover:text-primary transition-colors'>
