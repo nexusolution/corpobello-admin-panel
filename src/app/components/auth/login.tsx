@@ -243,14 +243,13 @@ export const Login = () => {
         {/* Subtle dark overlay for text legibility regardless of image tone */}
         <div className='absolute inset-0 bg-black/20' />
 
-        {/* Brand mark */}
+        {/* Brand mark — Corpo Bello logo */}
         <div className='flex flex-col items-center mb-8 z-10'>
-          <div className='bg-white/15 backdrop-blur-sm rounded-2xl p-4 mb-4'>
-            <Icon icon='solar:heart-pulse-bold' className='text-white' height={44} width={44} />
-          </div>
-          <h2 className='text-3xl font-bold text-white tracking-tight drop-shadow-md'>
-            Corpo Bello
-          </h2>
+          <img
+            src='/images/logos/logo5.png'
+            alt='Corpo Bello'
+            className='h-40 w-auto drop-shadow-lg'
+          />
         </div>
 
         {/* Tagline */}
