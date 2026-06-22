@@ -1,7 +1,10 @@
+'use client'
+
 import Link from 'next/link'
 import Image from 'next/image'
 import { useTheme } from 'next-themes'
 import { usePathname } from 'next/navigation'
+import Swal from 'sweetalert2'
 import SidebarContent from './Sidebaritems'
 import SimpleBar from 'simplebar-react'
 import { Icon } from '@iconify/react'
@@ -19,6 +22,22 @@ import {
   AMSubmenu,
 } from 'tailwind-sidebar'
 import 'tailwind-sidebar/styles.css'
+
+const showUnderDevelopmentAlert = (itemName: string) => {
+  const isDark =
+    typeof document !== 'undefined' &&
+    document.documentElement.classList.contains('dark')
+
+  Swal.fire({
+    title: 'En desarrollo',
+    html: `<p style="margin:0 0 6px 0">La sección <strong>${itemName}</strong> aún no está disponible.</p><p style="margin:0;font-size:13px;opacity:.75">Se habilitará en una etapa posterior del proyecto.</p>`,
+    icon: 'info',
+    confirmButtonText: 'Entendido',
+    confirmButtonColor: '#5d87ff',
+    background: isDark ? '#2a3547' : '#ffffff',
+    color: isDark ? '#ffffff' : '#2a3547',
+  })
+}
 
 const renderSidebarItems = (
   items: any[],
@@ -68,6 +87,34 @@ const renderSidebarItems = (
       ? `mt-0.5 text-link dark:text-darklink !hover:bg-transparent ${isSelected ? '!bg-transparent !text-primary' : ''
       } !px-1.5`
       : `mt-0.5 text-link dark:text-darklink`
+
+    // Under-development items: render without a Link, intercept click with SweetAlert.
+    if (item.underDevelopment) {
+      return (
+        <div
+          key={index}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            showUnderDevelopmentAlert(item.name)
+            onClose?.()
+          }}
+          className='cursor-pointer'>
+          <AMMenuItem
+            key={item.id}
+            icon={iconElement}
+            isSelected={false}
+            badge={!!item.isPro}
+            badgeColor='bg-lightsecondary'
+            badgeTextColor='text-secondary'
+            disabled={item.disabled}
+            badgeContent={item.isPro ? 'Pro' : undefined}
+            className={`${itemClassNames}`}>
+            <span className='truncate flex-1'>{item.title || item.name}</span>
+          </AMMenuItem>
+        </div>
+      )
+    }
 
     return (
       <div onClick={onClose} key={index}>
