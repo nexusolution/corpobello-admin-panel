@@ -24,6 +24,31 @@ export const Login = () => {
             </p>
           </div>
 
+          {/* Social sign-in */}
+          <div className='grid grid-cols-2 gap-3 mb-6'>
+            <button
+              type='button'
+              className='flex items-center justify-center gap-2 px-4 py-2.5 border border-border dark:border-darkborder rounded-md text-sm font-medium text-dark dark:text-white hover:bg-lightprimary transition-colors'>
+              <Icon icon='flat-color-icons:google' height={20} width={20} />
+              <span>Google</span>
+            </button>
+            <button
+              type='button'
+              className='flex items-center justify-center gap-2 px-4 py-2.5 border border-border dark:border-darkborder rounded-md text-sm font-medium text-dark dark:text-white hover:bg-lightprimary transition-colors'>
+              <Icon icon='ri:apple-fill' height={20} width={20} />
+              <span>Apple</span>
+            </button>
+          </div>
+
+          {/* Divider */}
+          <div className='flex items-center gap-3 mb-6'>
+            <div className='flex-1 h-px bg-border dark:bg-darkborder' />
+            <span className='text-xs text-link dark:text-darklink whitespace-nowrap'>
+              o con email
+            </span>
+            <div className='flex-1 h-px bg-border dark:bg-darkborder' />
+          </div>
+
           <form className='space-y-4'>
             <div>
               <Label htmlFor='email' className='font-medium mb-2 block'>
