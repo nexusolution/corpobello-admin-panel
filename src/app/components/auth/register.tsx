@@ -123,9 +123,9 @@ export const Register = () => {
   }
 
   return (
-    <div className='grid lg:grid-cols-2 min-h-screen w-full'>
-      {/* LEFT — Form column */}
-      <div className='flex flex-col justify-center min-h-screen bg-background px-6 py-16'>
+    <div className='min-h-screen w-full flex flex-col lg:grid lg:grid-cols-2'>
+      {/* Form column — bottom on mobile, left on desktop */}
+      <div className='order-2 lg:order-1 flex flex-col justify-center bg-background px-6 py-12 lg:py-16 lg:min-h-screen'>
         {/* Form */}
         <div className='w-full max-w-md mx-auto'>
           <div className='text-center mb-12'>
@@ -138,7 +138,7 @@ export const Register = () => {
           </div>
 
           {/* Social sign-up */}
-          <div className='grid grid-cols-2 gap-3 mb-10'>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 mb-10'>
             <button
               type='button'
               className='flex items-center justify-center gap-2 px-4 py-2.5 border border-border dark:border-darkborder rounded-md text-sm font-medium text-dark dark:text-white hover:bg-lightprimary transition-colors'>
@@ -322,7 +322,7 @@ export const Register = () => {
         </div>
 
         {/* Footer */}
-        <div className='w-full max-w-md mx-auto mt-32 px-4 flex items-center justify-between text-sm'>
+        <div className='w-full max-w-md mx-auto mt-16 lg:mt-32 px-4 flex items-center justify-between text-sm'>
           <button
             type='button'
             className='flex items-center gap-2 text-link dark:text-darklink hover:text-primary transition-colors'>
@@ -350,24 +350,24 @@ export const Register = () => {
         </div>
       </div>
 
-      {/* RIGHT — Brand column with auth-bg image (hidden on mobile) */}
+      {/* Brand column — top on mobile, right on desktop */}
       <div
-        className='hidden lg:flex flex-col items-center justify-center relative overflow-hidden px-12 py-12 bg-cover bg-center'
+        className='order-1 lg:order-2 flex flex-col items-center justify-center relative overflow-hidden px-6 lg:px-12 py-8 lg:py-12 bg-cover bg-center min-h-[200px] lg:min-h-screen'
         style={{ backgroundImage: "url('/images/backgrounds/auth-bg.png')" }}>
         {/* Subtle dark overlay for text legibility regardless of image tone */}
         <div className='absolute inset-0 bg-black/20' />
 
-        {/* Brand mark — Corpo Bello logo */}
-        <div className='flex flex-col items-center mb-8 z-10'>
+        {/* Brand mark — Corpo Bello logo (smaller on mobile) */}
+        <div className='flex flex-col items-center lg:mb-8 z-10'>
           <img
             src='/images/logos/logo5.png'
             alt='Corpo Bello'
-            className='h-40 w-auto drop-shadow-lg'
+            className='h-20 lg:h-40 w-auto drop-shadow-lg'
           />
         </div>
 
-        {/* Tagline */}
-        <div className='text-center max-w-md z-10'>
+        {/* Tagline — hidden on mobile/tablet, shown on desktop */}
+        <div className='hidden lg:block text-center max-w-md z-10'>
           <h3 className='text-2xl font-bold text-white mb-3 drop-shadow-md'>
             Gestión clínica simple y eficaz
           </h3>
