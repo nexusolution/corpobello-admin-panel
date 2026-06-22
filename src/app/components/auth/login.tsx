@@ -112,31 +112,33 @@ export const Login = () => {
           </div>
         </div>
 
-        {/* Footer — language switcher + links */}
-        <div className='flex items-center justify-between px-6 py-6 text-sm'>
-          <button
-            type='button'
-            className='flex items-center gap-2 text-link dark:text-darklink hover:text-primary transition-colors'>
-            <Icon icon='circle-flags:ar' height={20} width={20} />
-            <span className='font-medium'>Español</span>
-            <Icon icon='tabler:chevron-down' height={14} width={14} />
-          </button>
-          <div className='flex items-center gap-5'>
-            <Link
-              href='#'
-              className='text-primary hover:text-primaryemphasis font-medium'>
-              Términos
-            </Link>
-            <Link
-              href='#'
-              className='text-primary hover:text-primaryemphasis font-medium'>
-              Privacidad
-            </Link>
-            <Link
-              href='#'
-              className='text-primary hover:text-primaryemphasis font-medium'>
-              Soporte
-            </Link>
+        {/* Footer — language switcher + links (aligned to form width) */}
+        <div className='px-6 py-6'>
+          <div className='w-full max-w-md mx-auto flex items-center justify-between text-sm'>
+            <button
+              type='button'
+              className='flex items-center gap-2 text-link dark:text-darklink hover:text-primary transition-colors'>
+              <Icon icon='circle-flags:ar' height={20} width={20} />
+              <span className='font-medium'>Español</span>
+              <Icon icon='tabler:chevron-down' height={14} width={14} />
+            </button>
+            <div className='flex items-center gap-5'>
+              <Link
+                href='#'
+                className='text-primary hover:text-primaryemphasis font-medium'>
+                Términos
+              </Link>
+              <Link
+                href='#'
+                className='text-primary hover:text-primaryemphasis font-medium'>
+                Privacidad
+              </Link>
+              <Link
+                href='#'
+                className='text-primary hover:text-primaryemphasis font-medium'>
+                Soporte
+              </Link>
+            </div>
           </div>
         </div>
       </div>
