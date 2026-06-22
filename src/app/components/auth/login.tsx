@@ -1,82 +1,137 @@
 'use client'
 
-import FullLogo from '@/app/(DashboardLayout)/layout/shared/logo/FullLogo'
-import CardBox from '../shared/CardBox'
 import Link from 'next/link'
+import { useState } from 'react'
+import { Icon } from '@iconify/react'
 import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 export const Login = () => {
+  const [showPassword, setShowPassword] = useState(false)
+
   return (
-    <>
-      <div className='h-screen w-full flex justify-center items-center bg-lightprimary'>
-        <div className='md:min-w-[450px] min-w-max'>
-          <CardBox className='gap-0'>
-            <div className='flex justify-center mb-4'>
-              <FullLogo />
-            </div>
-            <p className='text-sm text-charcoal text-center mb-6'>
-              Your Social Campaigns
+    <div className='grid lg:grid-cols-2 min-h-screen w-full'>
+      {/* LEFT — Form column */}
+      <div className='flex items-center justify-center bg-background px-6 py-12'>
+        <div className='w-full max-w-md'>
+          <div className='text-center mb-8'>
+            <h1 className='text-2xl font-semibold text-dark dark:text-white mb-1'>
+              Iniciar sesión
+            </h1>
+            <p className='text-sm text-link dark:text-darklink'>
+              Panel de gestión Corpo Bello
             </p>
+          </div>
+
+          <form className='space-y-4'>
             <div>
-              <div className='mb-2 block'>
-                <Label htmlFor='username1' className='font-medium'>
-                  Username
-                </Label>
-              </div>
+              <Label htmlFor='email' className='font-medium mb-2 block'>
+                Email
+              </Label>
               <Input
-                id='username1'
-                type='text'
-                placeholder='Enter your username'
+                id='email'
+                type='email'
+                placeholder='tuemail@ejemplo.com'
                 required
               />
             </div>
-            <div className='mt-6'>
-              <div className='mb-2 block'>
-                <Label htmlFor='password1' className='font-medium'>
-                  Password
+
+            <div>
+              <div className='flex items-center justify-between mb-2'>
+                <Label htmlFor='password' className='font-medium'>
+                  Contraseña
                 </Label>
+                <Link
+                  href='#'
+                  className='text-xs font-medium text-primary hover:text-primaryemphasis'>
+                  ¿Olvidaste tu contraseña?
+                </Link>
               </div>
-              <Input
-                id='password1'
-                type='password'
-                placeholder='Enter your password'
-                required
-              />
-            </div>
-            <div className='flex flex-wrap gap-6 items-center justify-between my-6'>
-              <div className='flex items-center gap-2'>
-                <Checkbox id='remember' checked />
-                <Label
-                  className='text-link font-normal text-sm'
-                  htmlFor='remember'>
-                  Remember this device
-                </Label>
+              <div className='relative'>
+                <Input
+                  id='password'
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder='••••••••'
+                  className='pr-10'
+                  required
+                />
+                <button
+                  type='button'
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  onClick={() => setShowPassword((s) => !s)}
+                  className='absolute right-3 top-1/2 -translate-y-1/2 text-link dark:text-darklink hover:text-primary'>
+                  <Icon
+                    icon={showPassword ? 'solar:eye-closed-line-duotone' : 'solar:eye-line-duotone'}
+                    height={20}
+                    width={20}
+                  />
+                </button>
               </div>
-              <Link
-                href='#'
-                className='text-sm font-medium text-primary hover:text-primaryemphasis'>
-                Forgot Password ?
-              </Link>
             </div>
-            <Button className='w-full' asChild>
-              <Link href='/'>Sign In</Link>
+
+            <Button type='submit' className='w-full mt-2' asChild>
+              <Link href='/'>Iniciar sesión</Link>
             </Button>
-            <div className='flex items center gap-2 justify-center mt-6 flex-wrap'>
-              <p className='text-base font-medium text-link dark:text-darklink'>
-                New to Modernize?
-              </p>
-              <Link
-                href='/auth/register'
-                className='text-sm font-medium text-primary hover:text-primaryemphasis'>
-                Create an account
-              </Link>
-            </div>
-          </CardBox>
+          </form>
+
+          <p className='text-center text-sm text-link dark:text-darklink mt-8'>
+            ¿No tenés cuenta?{' '}
+            <Link
+              href='#'
+              className='font-medium text-primary hover:text-primaryemphasis'>
+              Contactá al administrador
+            </Link>
+          </p>
         </div>
       </div>
-    </>
+
+      {/* RIGHT — Brand column (hidden on mobile) */}
+      <div className='hidden lg:flex flex-col items-center justify-center relative overflow-hidden bg-gradient-to-br from-primary to-secondary px-12 py-12'>
+        {/* Decorative background blobs */}
+        <div className='absolute -top-24 -right-24 w-80 h-80 bg-white/10 rounded-full blur-3xl' />
+        <div className='absolute -bottom-32 -left-24 w-96 h-96 bg-white/10 rounded-full blur-3xl' />
+
+        {/* Brand mark */}
+        <div className='flex flex-col items-center mb-10 z-10'>
+          <div className='bg-white/15 backdrop-blur-sm rounded-2xl p-4 mb-4'>
+            <Icon icon='solar:heart-pulse-bold' className='text-white' height={44} width={44} />
+          </div>
+          <h2 className='text-3xl font-bold text-white tracking-tight'>
+            Corpo Bello
+          </h2>
+        </div>
+
+        {/* Decorative stat-card cluster */}
+        <div className='relative w-full max-w-sm h-60 mb-10 z-10'>
+          <div className='absolute top-0 left-0 bg-white rounded-xl shadow-2xl p-4 w-44 rotate-[-3deg]'>
+            <p className='text-xs text-link mb-1'>Pacientes activos</p>
+            <p className='text-2xl font-bold text-dark'>248</p>
+            <p className='text-xs text-success font-medium'>+12% este mes</p>
+          </div>
+          <div className='absolute top-8 right-0 bg-white rounded-xl shadow-2xl p-4 w-44 rotate-[3deg]'>
+            <p className='text-xs text-link mb-1'>Turnos hoy</p>
+            <p className='text-2xl font-bold text-dark'>14</p>
+            <p className='text-xs text-link'>3 pendientes</p>
+          </div>
+          <div className='absolute top-32 left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-2xl p-4 w-44'>
+            <p className='text-xs text-link mb-1'>Conversaciones</p>
+            <p className='text-2xl font-bold text-dark'>7</p>
+            <p className='text-xs text-warning font-medium'>en curso</p>
+          </div>
+        </div>
+
+        {/* Tagline */}
+        <div className='text-center max-w-md z-10'>
+          <h3 className='text-2xl font-bold text-white mb-3'>
+            Gestión clínica simple y eficaz
+          </h3>
+          <p className='text-white/85 text-sm leading-relaxed'>
+            Todas las herramientas que necesitás para operar el consultorio en
+            un solo panel: pacientes, agenda, fichas y configuración del bot.
+          </p>
+        </div>
+      </div>
+    </div>
   )
 }
