@@ -30,12 +30,22 @@ const showUnderDevelopmentAlert = (itemName: string) => {
 
   Swal.fire({
     title: 'En desarrollo',
-    html: `<p style="margin:0 0 6px 0">La sección <strong>${itemName}</strong> aún no está disponible.</p><p style="margin:0;font-size:13px;opacity:.75">Se habilitará en una etapa posterior del proyecto.</p>`,
+    text: `${itemName} se habilitará en una etapa posterior.`,
     icon: 'info',
+    iconColor: '#5d87ff',
     confirmButtonText: 'Entendido',
     confirmButtonColor: '#5d87ff',
     background: isDark ? '#2a3547' : '#ffffff',
     color: isDark ? '#ffffff' : '#2a3547',
+    width: '360px',
+    padding: '1rem',
+    customClass: {
+      title: '!text-base !font-semibold !pb-0',
+      htmlContainer: '!text-sm !mt-2',
+      icon: '!w-12 !h-12 !mt-2 !mb-1 [&_.swal2-icon-content]:!text-2xl',
+      confirmButton: '!text-sm !px-4 !py-1.5',
+      popup: '!rounded-lg',
+    },
   })
 }
 
