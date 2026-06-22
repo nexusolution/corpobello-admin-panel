@@ -236,47 +236,29 @@ export const Login = () => {
         </div>
       </div>
 
-      {/* RIGHT — Brand column (hidden on mobile) */}
-      <div className='hidden lg:flex flex-col items-center justify-center relative overflow-hidden bg-gradient-to-br from-primary to-secondary px-12 py-12'>
-        {/* Decorative background blobs */}
-        <div className='absolute -top-24 -right-24 w-80 h-80 bg-white/10 rounded-full blur-3xl' />
-        <div className='absolute -bottom-32 -left-24 w-96 h-96 bg-white/10 rounded-full blur-3xl' />
+      {/* RIGHT — Brand column with auth-bg image (hidden on mobile) */}
+      <div
+        className='hidden lg:flex flex-col items-center justify-center relative overflow-hidden px-12 py-12 bg-cover bg-center'
+        style={{ backgroundImage: "url('/images/backgrounds/auth-bg.png')" }}>
+        {/* Subtle dark overlay for text legibility regardless of image tone */}
+        <div className='absolute inset-0 bg-black/20' />
 
         {/* Brand mark */}
-        <div className='flex flex-col items-center mb-10 z-10'>
+        <div className='flex flex-col items-center mb-8 z-10'>
           <div className='bg-white/15 backdrop-blur-sm rounded-2xl p-4 mb-4'>
             <Icon icon='solar:heart-pulse-bold' className='text-white' height={44} width={44} />
           </div>
-          <h2 className='text-3xl font-bold text-white tracking-tight'>
+          <h2 className='text-3xl font-bold text-white tracking-tight drop-shadow-md'>
             Corpo Bello
           </h2>
         </div>
 
-        {/* Decorative stat-card cluster */}
-        <div className='relative w-full max-w-sm h-60 mb-10 z-10'>
-          <div className='absolute top-0 left-0 bg-white rounded-xl shadow-2xl p-4 w-44 rotate-[-3deg]'>
-            <p className='text-xs text-link mb-1'>Pacientes activos</p>
-            <p className='text-2xl font-bold text-dark'>248</p>
-            <p className='text-xs text-success font-medium'>+12% este mes</p>
-          </div>
-          <div className='absolute top-8 right-0 bg-white rounded-xl shadow-2xl p-4 w-44 rotate-[3deg]'>
-            <p className='text-xs text-link mb-1'>Turnos hoy</p>
-            <p className='text-2xl font-bold text-dark'>14</p>
-            <p className='text-xs text-link'>3 pendientes</p>
-          </div>
-          <div className='absolute top-32 left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-2xl p-4 w-44'>
-            <p className='text-xs text-link mb-1'>Conversaciones</p>
-            <p className='text-2xl font-bold text-dark'>7</p>
-            <p className='text-xs text-warning font-medium'>en curso</p>
-          </div>
-        </div>
-
         {/* Tagline */}
         <div className='text-center max-w-md z-10'>
-          <h3 className='text-2xl font-bold text-white mb-3'>
+          <h3 className='text-2xl font-bold text-white mb-3 drop-shadow-md'>
             Gestión clínica simple y eficaz
           </h3>
-          <p className='text-white/85 text-sm leading-relaxed'>
+          <p className='text-white/90 text-sm leading-relaxed drop-shadow'>
             Todas las herramientas que necesitás para operar el consultorio en
             un solo panel: pacientes, agenda, fichas y configuración del bot.
           </p>
