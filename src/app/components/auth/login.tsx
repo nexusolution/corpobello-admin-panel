@@ -241,7 +241,7 @@ export const Login = () => {
 
       {/* Brand column — top on mobile, right on desktop */}
       <div
-        className='order-1 lg:order-2 flex flex-col items-center justify-center relative overflow-hidden px-6 lg:px-12 py-8 lg:py-12 bg-cover bg-center min-h-[200px] lg:min-h-screen'
+        className='order-1 lg:order-2 flex flex-col items-center justify-center relative overflow-hidden px-6 lg:px-12 py-4 lg:py-12 bg-cover bg-center lg:min-h-screen'
         style={{ backgroundImage: "url('/images/backgrounds/auth-bg.png')" }}>
         {/* Subtle dark overlay for text legibility regardless of image tone */}
         <div className='absolute inset-0 bg-black/20' />
