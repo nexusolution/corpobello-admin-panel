@@ -363,7 +363,7 @@ export const Register = () => {
         {/* Brand mark — Corpo Bello logo (smaller on mobile) */}
         <div className='flex flex-col items-center lg:mb-8 z-10'>
           <img
-            src='/images/logos/logo5.png'
+            src='/images/logos/logo_2.webp'
             alt='Corpo Bello'
             className='h-20 lg:h-40 w-auto drop-shadow-lg'
           />
