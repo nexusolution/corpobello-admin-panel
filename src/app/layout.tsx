@@ -9,7 +9,7 @@ const plus_jakarta_sans = Plus_Jakarta_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'Corpo Bello — Panel',
+  title: 'Panel Corpo Bello',
   description: 'Panel de gestión Corpo Bello',
 }
 
