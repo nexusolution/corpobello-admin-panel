@@ -53,18 +53,21 @@ const showValidationAlert = () => {
   Swal.fire({
     title: 'Ups, hay errores',
     text: 'Revisá los campos marcados y volvé a intentarlo.',
-    icon: 'error',
-    iconColor: '#ef4444',
+    // Custom red X — swal2's built-in error icon clips when shrunk
+    // (its X strokes use fixed-offset positioning), so render our own.
+    iconHtml:
+      '<span style="font-size:26px;line-height:1;color:#ef4444;font-weight:700;">&times;</span>',
     confirmButtonText: 'Entendido',
     confirmButtonColor: '#5d87ff',
     background: isDark ? '#2a3547' : '#ffffff',
     color: isDark ? '#ffffff' : '#2a3547',
-    width: '400px',
-    padding: '1.25rem',
+    width: '360px',
+    padding: '1rem',
     customClass: {
-      title: '!text-base !font-semibold !pb-0 !mt-3',
+      title: '!text-base !font-semibold !pb-0',
       htmlContainer: '!text-sm !mt-2',
-      confirmButton: '!text-sm !px-5 !py-2 !rounded-md',
+      icon: '!w-12 !h-12 !mt-2 !mb-1 !border-2 !border-error',
+      confirmButton: '!text-sm !px-4 !py-1.5',
       popup: '!rounded-lg',
     },
   })
