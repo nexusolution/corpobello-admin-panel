@@ -1,8 +1,11 @@
 import { uniqueId } from 'lodash'
+import { type TranslationKey } from '@/lib/i18n/dictionaries'
 
 export interface ChildItem {
   id?: number | string
   name?: string
+  /** Translation key — preferred over `name` so the item label follows the active locale. */
+  nameKey?: TranslationKey
   icon?: any
   children?: ChildItem[]
   item?: any
@@ -21,6 +24,8 @@ export interface ChildItem {
 
 export interface MenuItem {
   heading?: string
+  /** Translation key for the section heading — preferred over static `heading`. */
+  headingKey?: TranslationKey
   name?: string
   icon?: any
   id?: number
@@ -38,15 +43,18 @@ export interface MenuItem {
 const SidebarContent: MenuItem[] = [
   {
     heading: 'Operación',
+    headingKey: 'sidebar.operations',
     children: [
       {
         name: 'Inicio',
+        nameKey: 'sidebar.home',
         icon: 'solar:home-smile-angle-line-duotone',
         id: uniqueId(),
         url: '/',
       },
       {
         name: 'Agenda',
+        nameKey: 'sidebar.agenda',
         icon: 'solar:calendar-mark-line-duotone',
         id: uniqueId(),
         url: '#',
@@ -54,12 +62,14 @@ const SidebarContent: MenuItem[] = [
       },
       {
         name: 'Pacientes',
+        nameKey: 'sidebar.patients',
         icon: 'solar:user-heart-rounded-line-duotone',
         id: uniqueId(),
         url: '/pacientes',
       },
       {
         name: 'Kanban',
+        nameKey: 'sidebar.kanban',
         icon: 'solar:layers-minimalistic-line-duotone',
         id: uniqueId(),
         url: '/kanban',
@@ -68,9 +78,11 @@ const SidebarContent: MenuItem[] = [
   },
   {
     heading: 'Clínica',
+    headingKey: 'sidebar.clinical',
     children: [
       {
         name: 'Fichas',
+        nameKey: 'sidebar.records',
         icon: 'solar:clipboard-heart-line-duotone',
         id: uniqueId(),
         url: '#',
@@ -78,6 +90,7 @@ const SidebarContent: MenuItem[] = [
       },
       {
         name: 'Consentimientos',
+        nameKey: 'sidebar.consents',
         icon: 'solar:document-text-line-duotone',
         id: uniqueId(),
         url: '#',
@@ -87,9 +100,11 @@ const SidebarContent: MenuItem[] = [
   },
   {
     heading: 'Inventario',
+    headingKey: 'sidebar.inventory',
     children: [
       {
         name: 'Productos',
+        nameKey: 'sidebar.products',
         icon: 'solar:box-minimalistic-line-duotone',
         id: uniqueId(),
         url: '#',
@@ -97,6 +112,7 @@ const SidebarContent: MenuItem[] = [
       },
       {
         name: 'Movimientos',
+        nameKey: 'sidebar.movements',
         icon: 'solar:transfer-horizontal-line-duotone',
         id: uniqueId(),
         url: '#',
@@ -106,9 +122,11 @@ const SidebarContent: MenuItem[] = [
   },
   {
     heading: 'Reportes',
+    headingKey: 'sidebar.reports',
     children: [
       {
         name: 'Cierre diario',
+        nameKey: 'sidebar.dailyClose',
         icon: 'solar:wallet-money-line-duotone',
         id: uniqueId(),
         url: '#',
@@ -117,6 +135,7 @@ const SidebarContent: MenuItem[] = [
       },
       {
         name: 'Reportes operativos',
+        nameKey: 'sidebar.operationalReports',
         icon: 'solar:chart-square-line-duotone',
         id: uniqueId(),
         url: '#',
@@ -127,9 +146,11 @@ const SidebarContent: MenuItem[] = [
   },
   {
     heading: 'Administración',
+    headingKey: 'sidebar.administration',
     children: [
       {
         name: 'Usuarios',
+        nameKey: 'sidebar.users',
         icon: 'solar:shield-user-line-duotone',
         id: uniqueId(),
         url: '/usuarios',
@@ -137,6 +158,7 @@ const SidebarContent: MenuItem[] = [
       },
       {
         name: 'Configuración',
+        nameKey: 'sidebar.config',
         icon: 'solar:tuning-3-line-duotone',
         id: uniqueId(),
         url: '/configuracion',
@@ -144,6 +166,7 @@ const SidebarContent: MenuItem[] = [
       },
       {
         name: 'Auditoría',
+        nameKey: 'sidebar.audit',
         icon: 'solar:clipboard-list-line-duotone',
         id: uniqueId(),
         url: '#',

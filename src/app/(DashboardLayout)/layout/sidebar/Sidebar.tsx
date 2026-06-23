@@ -22,18 +22,22 @@ import {
   AMSubmenu,
 } from 'tailwind-sidebar'
 import 'tailwind-sidebar/styles.css'
+import { useTranslation } from '@/lib/i18n/context'
+import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
-const showUnderDevelopmentAlert = (itemName: string) => {
+type TFn = (key: TranslationKey, params?: Record<string, string>) => string
+
+const showUnderDevelopmentAlert = (itemName: string, t: TFn) => {
   const isDark =
     typeof document !== 'undefined' &&
     document.documentElement.classList.contains('dark')
 
   Swal.fire({
-    title: 'En desarrollo',
-    text: `${itemName} se habilitará en una etapa posterior.`,
+    title: t('alerts.underDevelopmentTitle'),
+    text: t('alerts.underDevelopmentBody', { section: itemName }),
     icon: 'info',
     iconColor: '#5d87ff',
-    confirmButtonText: 'Entendido',
+    confirmButtonText: t('alerts.underDevelopmentButton'),
     confirmButtonColor: '#5d87ff',
     background: isDark ? '#2a3547' : '#ffffff',
     color: isDark ? '#ffffff' : '#2a3547',
@@ -52,6 +56,7 @@ const showUnderDevelopmentAlert = (itemName: string) => {
 const renderSidebarItems = (
   items: any[],
   currentPath: string,
+  t: TFn,
   onClose?: () => void,
   isSubItem: boolean = false
 ) => {
@@ -65,12 +70,16 @@ const renderSidebarItems = (
       <Icon icon={'ri:checkbox-blank-circle-line'} height={9} width={9} />
     )
 
+    // Resolve translatable labels — fall back to static text if no key set.
+    const resolvedHeading = item.headingKey ? t(item.headingKey) : item.heading
+    const resolvedName = item.nameKey ? t(item.nameKey) : item.name
+
     // Heading
-    if (item.heading) {
+    if (resolvedHeading) {
       return (
-        <div className='mb-1' key={item.heading}>
+        <div className='mb-1' key={resolvedHeading}>
           <AMMenu
-            subHeading={item.heading}
+            subHeading={resolvedHeading}
             ClassName='hide-menu leading-21 text-charcoal font-bold uppercase text-xs dark:text-darkcharcoal'
           />
         </div>
@@ -83,9 +92,9 @@ const renderSidebarItems = (
         <AMSubmenu
           key={item.id}
           icon={iconElement}
-          title={item.name}
+          title={resolvedName}
           ClassName='mt-0.5 text-link dark:text-darklink'>
-          {renderSidebarItems(item.children, currentPath, onClose, true)}
+          {renderSidebarItems(item.children, currentPath, t, onClose, true)}
         </AMSubmenu>
       )
     }
@@ -106,7 +115,7 @@ const renderSidebarItems = (
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            showUnderDevelopmentAlert(item.name)
+            showUnderDevelopmentAlert(resolvedName, t)
             onClose?.()
           }}
           className='cursor-pointer'>
@@ -120,7 +129,7 @@ const renderSidebarItems = (
             disabled={item.disabled}
             badgeContent={item.isPro ? 'Pro' : undefined}
             className={`${itemClassNames}`}>
-            <span className='truncate flex-1'>{item.title || item.name}</span>
+            <span className='truncate flex-1'>{item.title || resolvedName}</span>
           </AMMenuItem>
         </div>
       )
@@ -141,7 +150,7 @@ const renderSidebarItems = (
           badgeContent={item.isPro ? 'Pro' : undefined}
           component={Link}
           className={`${itemClassNames}`}>
-          <span className='truncate flex-1'>{item.title || item.name}</span>
+          <span className='truncate flex-1'>{item.title || resolvedName}</span>
         </AMMenuItem>
       </div>
     )
@@ -157,6 +166,7 @@ const SidebarLayout = ({
 }) => {
   const pathname = usePathname()
   const { theme } = useTheme()
+  const { t } = useTranslation()
 
   // Only allow "light" or "dark" for AMSidebar
   const sidebarMode = theme === 'light' || theme === 'dark' ? theme : undefined
@@ -200,10 +210,18 @@ const SidebarLayout = ({
             <div key={index}>
               {renderSidebarItems(
                 [
-                  ...(section.heading ? [{ heading: section.heading }] : []),
+                  ...(section.heading || section.headingKey
+                    ? [
+                        {
+                          heading: section.heading,
+                          headingKey: section.headingKey,
+                        },
+                      ]
+                    : []),
                   ...(section.children || []),
                 ],
                 pathname,
+                t,
                 onClose
               )}
             </div>

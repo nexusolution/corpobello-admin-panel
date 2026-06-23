@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Header from './layout/header/Header'
 import Sidebar from './layout/sidebar/Sidebar'
+import { LanguageProvider } from '@/lib/i18n/context'
 
 export default function Layout({
   children,
@@ -13,7 +14,7 @@ export default function Layout({
   const [hovered, setHovered] = useState(false)
 
   return (
-    <>
+    <LanguageProvider>
       <div className='flex w-full min-h-screen'>
         <div
           className={`page-wrapper flex w-full ${
@@ -34,6 +35,6 @@ export default function Layout({
           </div>
         </div>
       </div>
-    </>
+    </LanguageProvider>
   )
 }
