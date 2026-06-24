@@ -161,7 +161,7 @@ function PageSizeSelect({
       <DropdownMenuTrigger asChild>
         <button
           type='button'
-          className='inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border dark:border-darkborder text-sm text-dark dark:text-white hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40'>
+          className='inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md border-2 border-border dark:border-darkborder text-sm text-dark dark:text-white hover:border-primary focus:outline-none focus:border-primary transition-colors'>
           <span>{value}</span>
           <Icon
             icon='tabler:chevron-down'

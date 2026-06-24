@@ -137,7 +137,7 @@ export const Login = () => {
                 aria-invalid={!!errors.email}
                 className={
                   errors.email
-                    ? 'border-error focus-visible:ring-error'
+                    ? 'border-error focus-visible:border-error'
                     : undefined
                 }
               />
@@ -172,7 +172,7 @@ export const Login = () => {
                   aria-invalid={!!errors.password}
                   className={
                     errors.password
-                      ? 'pr-10 border-error focus-visible:ring-error'
+                      ? 'pr-10 border-error focus-visible:border-error'
                       : 'pr-10'
                   }
                 />
