@@ -60,6 +60,12 @@ export const dictionaries = {
     'kanban.tooltip.notes': 'Notas internas',
     'kanban.tooltip.photos': 'Fotos adjuntas',
     'kanban.tooltip.more': 'Acciones de la tarjeta',
+    'kanban.tooltip.addLead': 'Agregar lead',
+    'kanban.tooltip.columnActions': 'Acciones de la columna',
+    // Kanban menu actions
+    'kanban.menu.edit': 'Editar',
+    'kanban.menu.delete': 'Eliminar',
+    'kanban.menu.clearAll': 'Vaciar columna',
   },
   en: {
     // Sidebar — section headings
@@ -118,6 +124,12 @@ export const dictionaries = {
     'kanban.tooltip.notes': 'Internal notes',
     'kanban.tooltip.photos': 'Attached photos',
     'kanban.tooltip.more': 'Card actions',
+    'kanban.tooltip.addLead': 'Add lead',
+    'kanban.tooltip.columnActions': 'Column actions',
+    // Kanban menu actions
+    'kanban.menu.edit': 'Edit',
+    'kanban.menu.delete': 'Delete',
+    'kanban.menu.clearAll': 'Clear all',
   },
 } as const
 

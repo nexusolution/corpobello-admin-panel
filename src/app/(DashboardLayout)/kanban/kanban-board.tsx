@@ -36,6 +36,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 
@@ -55,7 +61,15 @@ function initials(name: string): string {
     .join('')
 }
 
-function LeadCardBody({ lead, t }: { lead: Lead; t: TFn }) {
+function LeadCardBody({
+  lead,
+  t,
+  onDelete,
+}: {
+  lead: Lead
+  t: TFn
+  onDelete?: (id: string) => void
+}) {
   return (
     <>
       <div className='flex items-start justify-between gap-2 mb-2'>
@@ -122,8 +136,8 @@ function LeadCardBody({ lead, t }: { lead: Lead; t: TFn }) {
           </Tooltip>
         </div>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <button
               type='button'
               aria-label={t('kanban.tooltip.more')}
@@ -134,15 +148,42 @@ function LeadCardBody({ lead, t }: { lead: Lead; t: TFn }) {
               className='hover:text-primary'>
               <Icon icon='tabler:dots' height={18} width={18} />
             </button>
-          </TooltipTrigger>
-          <TooltipContent>{t('kanban.tooltip.more')}</TooltipContent>
-        </Tooltip>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align='end' className='w-40'>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                // Edit currently navigates to detail (same target as card click)
+                window.location.href = `/pacientes/${lead.id}`
+              }}>
+              <Icon icon='solar:pen-line-duotone' height={16} width={16} className='mr-2' />
+              {t('kanban.menu.edit')}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete?.(lead.id)
+              }}
+              className='text-error focus:text-error focus:bg-error/10'>
+              <Icon icon='solar:trash-bin-trash-line-duotone' height={16} width={16} className='mr-2' />
+              {t('kanban.menu.delete')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </>
   )
 }
 
-function SortableLeadCard({ lead, t }: { lead: Lead; t: TFn }) {
+function SortableLeadCard({
+  lead,
+  t,
+  onDelete,
+}: {
+  lead: Lead
+  t: TFn
+  onDelete: (id: string) => void
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: lead.id })
 
@@ -161,7 +202,7 @@ function SortableLeadCard({ lead, t }: { lead: Lead; t: TFn }) {
         href={`/pacientes/${lead.id}`}
         onClick={(e) => e.stopPropagation()}
         className='block'>
-        <LeadCardBody lead={lead} t={t} />
+        <LeadCardBody lead={lead} t={t} onDelete={onDelete} />
       </Link>
     </div>
   )
@@ -173,16 +214,20 @@ function KanbanColumn({
   dotColor,
   leads,
   emptyLabel,
-  moreLabel,
   t,
+  onAddLead,
+  onClearColumn,
+  onDeleteLead,
 }: {
   columnId: LeadStatus
   name: string
   dotColor: string
   leads: Lead[]
   emptyLabel: string
-  moreLabel: string
   t: TFn
+  onAddLead: (columnId: LeadStatus) => void
+  onClearColumn: (columnId: LeadStatus) => void
+  onDeleteLead: (id: string) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: columnId })
 
@@ -200,12 +245,50 @@ function KanbanColumn({
             {leads.length}
           </span>
         </div>
-        <button
-          type='button'
-          className='text-link dark:text-darklink hover:text-primary'
-          aria-label={moreLabel}>
-          <Icon icon='tabler:dots' height={16} width={16} />
-        </button>
+
+        <div className='flex items-center gap-1'>
+          {/* + Add lead */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type='button'
+                aria-label={t('kanban.tooltip.addLead')}
+                onClick={() => onAddLead(columnId)}
+                className='h-6 w-6 flex items-center justify-center rounded-full border border-border dark:border-darkborder text-link dark:text-darklink hover:text-primary hover:border-primary transition-colors'>
+                <Icon icon='tabler:plus' height={14} width={14} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{t('kanban.tooltip.addLead')}</TooltipContent>
+          </Tooltip>
+
+          {/* Column actions dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type='button'
+                aria-label={t('kanban.tooltip.columnActions')}
+                className='h-6 w-6 flex items-center justify-center rounded text-link dark:text-darklink hover:text-primary'>
+                <Icon icon='tabler:dots' height={16} width={16} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align='end' className='w-44'>
+              <DropdownMenuItem onClick={() => { /* edit column — schema-level, deferred */ }}>
+                <Icon icon='solar:pen-line-duotone' height={16} width={16} className='mr-2' />
+                {t('kanban.menu.edit')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { /* delete column — schema-level, deferred */ }}>
+                <Icon icon='solar:trash-bin-trash-line-duotone' height={16} width={16} className='mr-2' />
+                {t('kanban.menu.delete')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onClearColumn(columnId)}
+                className='text-error focus:text-error focus:bg-error/10'>
+                <Icon icon='solar:close-circle-line-duotone' height={16} width={16} className='mr-2' />
+                {t('kanban.menu.clearAll')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       <SortableContext
@@ -214,7 +297,7 @@ function KanbanColumn({
         strategy={verticalListSortingStrategy}>
         <div className='flex flex-col gap-2 min-h-[20px]'>
           {leads.map((lead) => (
-            <SortableLeadCard key={lead.id} lead={lead} t={t} />
+            <SortableLeadCard key={lead.id} lead={lead} t={t} onDelete={onDeleteLead} />
           ))}
           {leads.length === 0 && (
             <p className='text-xs text-link dark:text-darklink text-center py-6 italic'>
@@ -295,9 +378,21 @@ export function KanbanBoard() {
     setActiveId(null)
   }
 
+  function handleDeleteLead(id: string) {
+    setLeads((prev) => prev.filter((l) => l.id !== id))
+  }
+
+  function handleClearColumn(columnId: LeadStatus) {
+    setLeads((prev) => prev.filter((l) => l.status !== columnId))
+  }
+
+  function handleAddLead(_columnId: LeadStatus) {
+    // Real add-lead flow comes when bot data layer + creation form land.
+    // For the visual prototype, this is a no-op.
+  }
+
   const activeLead = activeId ? leads.find((l) => l.id === activeId) : null
   const emptyLabel = t('kanban.emptyColumn')
-  const moreLabel = t('kanban.columnMore')
 
   return (
     <div className='space-y-6'>
@@ -363,8 +458,10 @@ export function KanbanBoard() {
               dotColor={column.dotColor}
               leads={leadsByStatus[column.id] ?? []}
               emptyLabel={emptyLabel}
-              moreLabel={moreLabel}
               t={t}
+              onAddLead={handleAddLead}
+              onClearColumn={handleClearColumn}
+              onDeleteLead={handleDeleteLead}
             />
           ))}
         </div>
