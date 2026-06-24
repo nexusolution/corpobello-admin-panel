@@ -310,6 +310,65 @@ function KanbanColumn({
   )
 }
 
+function SucursalSelect({
+  value,
+  onChange,
+  allLabel,
+}: {
+  value: Sucursal | 'all'
+  onChange: (v: Sucursal | 'all') => void
+  allLabel: string
+}) {
+  const options: Array<{ value: Sucursal | 'all'; label: string }> = [
+    { value: 'all', label: allLabel },
+    { value: 'caballito', label: SUCURSAL_LABELS.caballito },
+    { value: 'merlo', label: SUCURSAL_LABELS.merlo },
+    { value: 'moreno', label: SUCURSAL_LABELS.moreno },
+  ]
+  const current = options.find((o) => o.value === value) ?? options[0]
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type='button'
+          className='inline-flex items-center justify-between gap-3 min-w-[200px] px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm font-medium text-dark dark:text-white hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40 transition-colors'>
+          <span>{current.label}</span>
+          <Icon
+            icon='tabler:chevron-down'
+            height={14}
+            width={14}
+            className='text-link dark:text-darklink'
+          />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align='start' className='w-[200px]'>
+        {options.map((opt) => {
+          const isSelected = opt.value === value
+          return (
+            <DropdownMenuItem
+              key={opt.value}
+              onClick={() => onChange(opt.value)}
+              className={
+                isSelected
+                  ? 'bg-lightprimary text-primary focus:bg-lightprimary focus:text-primary'
+                  : ''
+              }>
+              <Icon
+                icon='tabler:check'
+                height={16}
+                width={16}
+                className={`mr-2 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
+              />
+              {opt.label}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export function KanbanBoard() {
   const { t } = useTranslation()
   const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS)
@@ -424,15 +483,11 @@ export function KanbanBoard() {
           />
         </div>
 
-        <select
+        <SucursalSelect
           value={sucursalFilter}
-          onChange={(e) => setSucursalFilter(e.target.value as Sucursal | 'all')}
-          className='px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/40'>
-          <option value='all'>{t('kanban.allSucursales')}</option>
-          <option value='caballito'>{SUCURSAL_LABELS.caballito}</option>
-          <option value='merlo'>{SUCURSAL_LABELS.merlo}</option>
-          <option value='moreno'>{SUCURSAL_LABELS.moreno}</option>
-        </select>
+          onChange={setSucursalFilter}
+          allLabel={t('kanban.allSucursales')}
+        />
 
         <button
           type='button'
