@@ -606,7 +606,7 @@ export function KanbanBoard() {
         <div
           className='grid gap-4 pb-4'
           style={{
-            gridTemplateColumns: `repeat(${Math.max(1, pagedColumns.length)}, minmax(0, 1fr))`,
+            gridTemplateColumns: `repeat(${COLUMNS_PER_PAGE}, minmax(0, 1fr))`,
           }}>
           {pagedColumns.map((column) => (
             <KanbanColumn
