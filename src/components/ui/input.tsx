@@ -2,11 +2,11 @@ import * as React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
-// Focus convention across the project: solid 2px border that turns primary
-// on focus. No ring/shadow. Variant base widths stay 2 always so focus
-// doesn't shift layout.
+// Focus convention across the project: 1px border that turns primary on
+// focus. No ring/shadow. The color change is enough to make focus clear
+// without the bold 2px outline.
 const inputVariants = cva(
-  'flex h-10 w-full border-2 rounded-lg px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 file:border-0 file:rounded-sm file:text-sm file:font-medium file:text-primary file:mr-5 focus-visible:outline-0 focus-visible:ring-0',
+  'flex h-10 w-full border rounded-lg px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 file:border-0 file:rounded-sm file:text-sm file:font-medium file:text-primary file:mr-5 focus-visible:outline-0 focus-visible:ring-0',
   {
     variants: {
       variant: {

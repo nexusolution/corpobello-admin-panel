@@ -92,7 +92,7 @@ function SearchBox({
         onChange={(e) => onChange(e.target.value)}
         onBlur={handleBlur}
         placeholder={placeholder}
-        className='w-full pl-9 pr-9 py-2 rounded-md border-2 border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+        className='w-full pl-9 pr-9 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
       />
       <button
         type='button'
@@ -161,7 +161,7 @@ function PageSizeSelect({
       <DropdownMenuTrigger asChild>
         <button
           type='button'
-          className='inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md border-2 border-border dark:border-darkborder text-sm text-dark dark:text-white hover:border-primary focus:outline-none focus:border-primary transition-colors'>
+          className='inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border dark:border-darkborder text-sm text-dark dark:text-white hover:border-primary focus:outline-none focus:border-primary transition-colors'>
           <span>{value}</span>
           <Icon
             icon='tabler:chevron-down'

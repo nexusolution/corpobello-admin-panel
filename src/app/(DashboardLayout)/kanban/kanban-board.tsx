@@ -368,7 +368,7 @@ function SearchBox({
         onChange={(e) => onChange(e.target.value)}
         onBlur={handleBlur}
         placeholder={placeholder}
-        className='w-full pl-9 pr-9 py-2 rounded-md border-2 border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+        className='w-full pl-9 pr-9 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
       />
       <button
         type='button'
@@ -403,7 +403,7 @@ function SucursalSelect({
       <DropdownMenuTrigger asChild>
         <button
           type='button'
-          className='inline-flex items-center justify-between gap-3 min-w-[200px] px-3 py-2 rounded-md border-2 border-border dark:border-darkborder bg-background text-sm font-medium text-dark dark:text-white hover:border-primary focus:outline-none focus:border-primary transition-colors'>
+          className='inline-flex items-center justify-between gap-3 min-w-[200px] px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm font-medium text-dark dark:text-white hover:border-primary focus:outline-none focus:border-primary transition-colors'>
           <span>{current.label}</span>
           <Icon
             icon='tabler:chevron-down'
