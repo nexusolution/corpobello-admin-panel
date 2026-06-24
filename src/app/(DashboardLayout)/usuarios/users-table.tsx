@@ -8,6 +8,7 @@ import {
   SUCURSAL_LABELS,
   type AppUser,
   type UserRole,
+  type UserSucursal,
 } from './mock-data'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
@@ -189,6 +190,126 @@ function PageSizeSelect({
   )
 }
 
+// ---------- Inline draft row (new user creation) ----------
+
+type DraftUser = {
+  fullName: string
+  email: string
+  role: UserRole
+  sucursal: UserSucursal
+}
+
+function DraftRow({
+  draft,
+  onChange,
+  onSave,
+  onCancel,
+  t,
+}: {
+  draft: DraftUser
+  onChange: (next: DraftUser) => void
+  onSave: () => void
+  onCancel: () => void
+  t: TFn
+}) {
+  const isValid =
+    draft.fullName.trim().length > 0 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim())
+
+  const cellInputClass =
+    'w-full px-2 py-1 rounded border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+
+  return (
+    <tr className='border-b border-border dark:border-darkborder bg-lightprimary/10'>
+      <td className='py-3 px-3' />
+      <td className='py-3 px-3'>
+        <input
+          type='text'
+          autoFocus
+          value={draft.fullName}
+          onChange={(e) => onChange({ ...draft, fullName: e.target.value })}
+          placeholder={t('users.draft.namePlaceholder')}
+          className={cellInputClass}
+        />
+      </td>
+      <td className='py-3 px-3'>
+        <select
+          value={draft.role}
+          onChange={(e) =>
+            onChange({ ...draft, role: e.target.value as UserRole })
+          }
+          className={cellInputClass}>
+          <option value='operador'>{t('users.role.operador')}</option>
+          <option value='admin'>{t('users.role.admin')}</option>
+        </select>
+      </td>
+      <td className='py-3 px-3'>
+        <input
+          type='email'
+          value={draft.email}
+          onChange={(e) => onChange({ ...draft, email: e.target.value })}
+          placeholder={t('users.draft.emailPlaceholder')}
+          className={cellInputClass}
+        />
+      </td>
+      <td className='py-3 px-3'>
+        <select
+          value={draft.sucursal ?? ''}
+          onChange={(e) =>
+            onChange({
+              ...draft,
+              sucursal:
+                e.target.value === ''
+                  ? null
+                  : (e.target.value as Exclude<UserSucursal, null>),
+            })
+          }
+          className={cellInputClass}>
+          <option value=''>{t('users.draft.sucursalNone')}</option>
+          <option value='caballito'>{SUCURSAL_LABELS.caballito}</option>
+          <option value='merlo'>{SUCURSAL_LABELS.merlo}</option>
+          <option value='moreno'>{SUCURSAL_LABELS.moreno}</option>
+        </select>
+      </td>
+      <td className='py-3 px-3'>
+        <span className='inline-flex items-center gap-1.5 text-xs font-medium text-success'>
+          <span className='h-2 w-2 rounded-full bg-success' />
+          {t('users.status.active')}
+        </span>
+      </td>
+      <td className='py-3 px-3'>
+        <div className='flex items-center justify-end gap-1'>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type='button'
+                disabled={!isValid}
+                aria-label={t('users.action.save')}
+                onClick={onSave}
+                className='h-8 w-8 inline-flex items-center justify-center rounded-full bg-lightsuccess text-success hover:bg-success hover:text-white disabled:opacity-40 disabled:hover:bg-lightsuccess disabled:hover:text-success transition-colors'>
+                <Icon icon='tabler:check' height={16} width={16} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{t('users.action.save')}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type='button'
+                aria-label={t('users.action.cancel')}
+                onClick={onCancel}
+                className='h-8 w-8 inline-flex items-center justify-center rounded-full bg-lighterror text-error hover:bg-error hover:text-white transition-colors'>
+                <Icon icon='tabler:x' height={16} width={16} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{t('users.action.cancel')}</TooltipContent>
+          </Tooltip>
+        </div>
+      </td>
+    </tr>
+  )
+}
+
 // ---------- Main table ----------
 
 type RoleFilter = 'all' | UserRole
@@ -203,6 +324,7 @@ export function UsersTable() {
   const [nameSort, setNameSort] = useState<SortDir>('asc')
   const [pageSize, setPageSize] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
+  const [draft, setDraft] = useState<DraftUser | null>(null)
 
   // Filter + sort
   const filtered = useMemo(() => {
@@ -270,6 +392,36 @@ export function UsersTable() {
   function deleteSelected() {
     setUsers((prev) => prev.filter((u) => !selected.has(u.id)))
     setSelected(new Set())
+  }
+  function startCreate() {
+    setDraft({
+      fullName: '',
+      email: '',
+      role: 'operador',
+      sucursal: null,
+    })
+    setCurrentPage(1)
+  }
+  function saveDraft() {
+    if (!draft) return
+    const isValid =
+      draft.fullName.trim().length > 0 &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim())
+    if (!isValid) return
+    const newUser: AppUser = {
+      id: `new-${Date.now()}`,
+      fullName: draft.fullName.trim(),
+      email: draft.email.trim(),
+      role: draft.role,
+      sucursal: draft.sucursal,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+    }
+    setUsers((prev) => [newUser, ...prev])
+    setDraft(null)
+  }
+  function cancelDraft() {
+    setDraft(null)
   }
 
   // Filter pills config
@@ -360,7 +512,9 @@ export function UsersTable() {
 
           <button
             type='button'
-            className='px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
+            onClick={startCreate}
+            disabled={draft !== null}
+            className='px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis disabled:opacity-50 disabled:cursor-not-allowed transition-colors'>
             {t('users.create')}
           </button>
         </div>
@@ -414,7 +568,16 @@ export function UsersTable() {
               </tr>
             </thead>
             <tbody>
-              {paged.length === 0 ? (
+              {draft && (
+                <DraftRow
+                  draft={draft}
+                  onChange={setDraft}
+                  onSave={saveDraft}
+                  onCancel={cancelDraft}
+                  t={t}
+                />
+              )}
+              {paged.length === 0 && !draft ? (
                 <tr>
                   <td
                     colSpan={7}
