@@ -92,7 +92,7 @@ function SearchBox({
         onChange={(e) => onChange(e.target.value)}
         onBlur={handleBlur}
         placeholder={placeholder}
-        className='w-full pl-9 pr-9 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/40'
+        className='w-full pl-9 pr-9 py-2 rounded-md border-2 border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
       />
       <button
         type='button'
@@ -232,7 +232,6 @@ export function UsersTable() {
   // Selection helpers
   const allOnPageSelected =
     paged.length > 0 && paged.every((u) => selected.has(u.id))
-  const someOnPageSelected = paged.some((u) => selected.has(u.id))
 
   function togglePageSelection() {
     const next = new Set(selected)
@@ -268,6 +267,10 @@ export function UsersTable() {
       return next
     })
   }
+  function deleteSelected() {
+    setUsers((prev) => prev.filter((u) => !selected.has(u.id)))
+    setSelected(new Set())
+  }
 
   // Filter pills config
   const filterPills: { value: RoleFilter; labelKey: TranslationKey }[] = [
@@ -295,7 +298,7 @@ export function UsersTable() {
           <h2 className='text-lg font-semibold text-dark dark:text-white'>
             {t('users.pageTitle')}
           </h2>
-          <div className='flex items-center gap-1'>
+          <div className='flex items-center gap-2'>
             <SearchBox
               value={search}
               onChange={setSearch}
@@ -312,6 +315,22 @@ export function UsersTable() {
               </TooltipTrigger>
               <TooltipContent>{t('users.action.exportCsv')}</TooltipContent>
             </Tooltip>
+            {selected.size > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type='button'
+                    aria-label={t('users.action.deleteSelected')}
+                    onClick={deleteSelected}
+                    className='h-9 w-9 flex items-center justify-center rounded-md bg-error text-white hover:bg-error/90 transition-colors'>
+                    <Icon icon='solar:trash-bin-trash-line-duotone' height={20} width={20} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {t('users.action.deleteSelected')} ({selected.size})
+                </TooltipContent>
+              </Tooltip>
+            )}
           </div>
         </div>
 
@@ -347,7 +366,7 @@ export function UsersTable() {
         </div>
 
         {/* Table */}
-        <div className='overflow-x-auto'>
+        <div className='rounded-md border border-border dark:border-darkborder overflow-x-auto'>
           <table className='w-full text-sm'>
             <thead>
               <tr className='border-b border-border dark:border-darkborder text-link dark:text-darklink'>
@@ -533,18 +552,6 @@ export function UsersTable() {
           </div>
         </div>
 
-        {/* Bulk selection bar (only shows when something is selected) */}
-        {someOnPageSelected && (
-          <div className='mt-4 px-4 py-2 rounded-md bg-lightprimary text-primary text-sm flex items-center justify-between'>
-            <span>{selected.size} seleccionados</span>
-            <button
-              type='button'
-              onClick={() => setSelected(new Set())}
-              className='hover:underline'>
-              Limpiar
-            </button>
-          </div>
-        )}
       </div>
     </div>
   )
