@@ -31,6 +31,11 @@ import {
 } from './mock-data'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 
@@ -86,22 +91,52 @@ function LeadCardBody({ lead, t }: { lead: Lead; t: TFn }) {
         </div>
       )}
 
-      <div className='flex items-center justify-between text-xs text-link dark:text-darklink'>
-        <span>{formatLastActivity(lead.lastActivityHoursAgo, t)}</span>
-        <div className='flex items-center gap-3'>
-          {lead.notesCount > 0 && (
-            <span className='flex items-center gap-1'>
-              <Icon icon='solar:notes-line-duotone' height={14} width={14} />
-              {lead.notesCount}
-            </span>
-          )}
-          {lead.photosCount > 0 && (
-            <span className='flex items-center gap-1'>
-              <Icon icon='solar:camera-line-duotone' height={14} width={14} />
-              {lead.photosCount}
-            </span>
-          )}
+      <p className='text-xs text-link dark:text-darklink mb-3'>
+        {formatLastActivity(lead.lastActivityHoursAgo, t)}
+      </p>
+
+      {/* Separator */}
+      <div className='border-t border-border dark:border-darkborder -mx-3 mt-1 mb-3' />
+
+      {/* Footer: notes / photos counts + actions menu (all with tooltips) */}
+      <div className='flex items-center justify-between text-link dark:text-darklink'>
+        <div className='flex items-center gap-4 text-sm'>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className='flex items-center gap-1.5 cursor-help'>
+                <Icon icon='solar:notes-line-duotone' height={18} width={18} />
+                {lead.notesCount}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{t('kanban.tooltip.notes')}</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className='flex items-center gap-1.5 cursor-help'>
+                <Icon icon='solar:camera-line-duotone' height={18} width={18} />
+                {lead.photosCount}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{t('kanban.tooltip.photos')}</TooltipContent>
+          </Tooltip>
         </div>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type='button'
+              aria-label={t('kanban.tooltip.more')}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+              }}
+              className='hover:text-primary'>
+              <Icon icon='tabler:dots' height={18} width={18} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{t('kanban.tooltip.more')}</TooltipContent>
+        </Tooltip>
       </div>
     </>
   )

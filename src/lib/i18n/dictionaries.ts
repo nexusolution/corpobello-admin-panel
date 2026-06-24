@@ -56,6 +56,10 @@ export const dictionaries = {
     'kanban.time.hours': 'hace {n} h',
     'kanban.time.days': 'hace {n} d',
     'kanban.time.months': 'hace {n} m',
+    // Kanban card tooltips
+    'kanban.tooltip.notes': 'Notas internas',
+    'kanban.tooltip.photos': 'Fotos adjuntas',
+    'kanban.tooltip.more': 'Acciones de la tarjeta',
   },
   en: {
     // Sidebar — section headings
@@ -110,6 +114,10 @@ export const dictionaries = {
     'kanban.time.hours': '{n}h ago',
     'kanban.time.days': '{n}d ago',
     'kanban.time.months': '{n}mo ago',
+    // Kanban card tooltips
+    'kanban.tooltip.notes': 'Internal notes',
+    'kanban.tooltip.photos': 'Attached photos',
+    'kanban.tooltip.more': 'Card actions',
   },
 } as const
 
