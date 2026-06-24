@@ -234,7 +234,7 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`w-72 shrink-0 flex flex-col rounded-lg bg-muted/40 dark:bg-darkmuted/40 p-3 transition-colors ${
+      className={`min-w-0 flex flex-col rounded-lg bg-muted/40 dark:bg-darkmuted/40 p-3 transition-colors ${
         isOver ? 'ring-2 ring-primary/40' : ''
       }`}>
       <div className='flex items-center justify-between mb-3'>
@@ -603,7 +603,11 @@ export function KanbanBoard() {
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}>
-        <div className='flex gap-4 overflow-x-auto pb-4'>
+        <div
+          className='grid gap-4 pb-4'
+          style={{
+            gridTemplateColumns: `repeat(${Math.max(1, pagedColumns.length)}, minmax(0, 1fr))`,
+          }}>
           {pagedColumns.map((column) => (
             <KanbanColumn
               key={column.id}
@@ -621,7 +625,7 @@ export function KanbanBoard() {
         </div>
         <DragOverlay>
           {activeLead && (
-            <div className='rounded-md border border-border dark:border-darkborder bg-card p-3 shadow-lg ring-2 ring-primary w-72'>
+            <div className='rounded-md border border-border dark:border-darkborder bg-card p-3 shadow-lg ring-2 ring-primary w-80'>
               <LeadCardBody lead={activeLead} t={t} />
             </div>
           )}
