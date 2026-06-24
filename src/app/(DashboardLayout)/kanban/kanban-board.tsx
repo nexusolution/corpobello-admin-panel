@@ -344,8 +344,8 @@ function SearchBox({
             type='button'
             aria-label={placeholder}
             onClick={() => setExpanded(true)}
-            className='h-10 w-10 flex items-center justify-center rounded-md border border-border dark:border-darkborder text-link dark:text-darklink hover:border-primary hover:text-primary transition-colors'>
-            <Icon icon='solar:magnifer-linear' height={18} width={18} />
+            className='h-10 w-10 flex items-center justify-center rounded-md text-link dark:text-darklink hover:text-primary transition-colors'>
+            <Icon icon='solar:magnifer-linear' height={20} width={20} />
           </button>
         </TooltipTrigger>
         <TooltipContent>{placeholder}</TooltipContent>
