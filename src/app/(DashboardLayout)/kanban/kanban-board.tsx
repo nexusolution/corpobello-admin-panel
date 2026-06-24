@@ -11,7 +11,6 @@ import {
   useDroppable,
   useSensor,
   useSensors,
-  type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
@@ -30,13 +29,17 @@ import {
   type LeadStatus,
   type Sucursal,
 } from './mock-data'
+import { useTranslation } from '@/lib/i18n/context'
+import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
-function formatLastActivity(hours: number): string {
-  if (hours < 1) return 'hace unos minutos'
-  if (hours < 24) return `hace ${Math.floor(hours)} h`
+type TFn = (key: TranslationKey, params?: Record<string, string>) => string
+
+function formatLastActivity(hours: number, t: TFn): string {
+  if (hours < 1) return t('kanban.time.justNow')
+  if (hours < 24) return t('kanban.time.hours', { n: String(Math.floor(hours)) })
   const days = Math.floor(hours / 24)
-  if (days < 30) return `hace ${days} d`
-  return `hace ${Math.floor(days / 30)} m`
+  if (days < 30) return t('kanban.time.days', { n: String(days) })
+  return t('kanban.time.months', { n: String(Math.floor(days / 30)) })
 }
 
 function initials(name: string): string {
@@ -47,7 +50,7 @@ function initials(name: string): string {
     .join('')
 }
 
-function LeadCardBody({ lead }: { lead: Lead }) {
+function LeadCardBody({ lead, t }: { lead: Lead; t: TFn }) {
   return (
     <>
       <div className='flex items-start justify-between gap-2 mb-2'>
@@ -84,7 +87,7 @@ function LeadCardBody({ lead }: { lead: Lead }) {
       )}
 
       <div className='flex items-center justify-between text-xs text-link dark:text-darklink'>
-        <span>{formatLastActivity(lead.lastActivityHoursAgo)}</span>
+        <span>{formatLastActivity(lead.lastActivityHoursAgo, t)}</span>
         <div className='flex items-center gap-3'>
           {lead.notesCount > 0 && (
             <span className='flex items-center gap-1'>
@@ -104,7 +107,7 @@ function LeadCardBody({ lead }: { lead: Lead }) {
   )
 }
 
-function SortableLeadCard({ lead }: { lead: Lead }) {
+function SortableLeadCard({ lead, t }: { lead: Lead; t: TFn }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: lead.id })
 
@@ -123,7 +126,7 @@ function SortableLeadCard({ lead }: { lead: Lead }) {
         href={`/pacientes/${lead.id}`}
         onClick={(e) => e.stopPropagation()}
         className='block'>
-        <LeadCardBody lead={lead} />
+        <LeadCardBody lead={lead} t={t} />
       </Link>
     </div>
   )
@@ -134,11 +137,17 @@ function KanbanColumn({
   name,
   dotColor,
   leads,
+  emptyLabel,
+  moreLabel,
+  t,
 }: {
   columnId: LeadStatus
   name: string
   dotColor: string
   leads: Lead[]
+  emptyLabel: string
+  moreLabel: string
+  t: TFn
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: columnId })
 
@@ -159,7 +168,7 @@ function KanbanColumn({
         <button
           type='button'
           className='text-link dark:text-darklink hover:text-primary'
-          aria-label='Más opciones'>
+          aria-label={moreLabel}>
           <Icon icon='tabler:dots' height={16} width={16} />
         </button>
       </div>
@@ -170,11 +179,11 @@ function KanbanColumn({
         strategy={verticalListSortingStrategy}>
         <div className='flex flex-col gap-2 min-h-[20px]'>
           {leads.map((lead) => (
-            <SortableLeadCard key={lead.id} lead={lead} />
+            <SortableLeadCard key={lead.id} lead={lead} t={t} />
           ))}
           {leads.length === 0 && (
             <p className='text-xs text-link dark:text-darklink text-center py-6 italic'>
-              Sin leads
+              {emptyLabel}
             </p>
           )}
         </div>
@@ -184,6 +193,7 @@ function KanbanColumn({
 }
 
 export function KanbanBoard() {
+  const { t } = useTranslation()
   const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [showSecondary, setShowSecondary] = useState(false)
@@ -231,7 +241,6 @@ export function KanbanBoard() {
     const activeLead = leads.find((l) => l.id === active.id)
     if (!activeLead) return
 
-    // Determine target column id: over.id can be a column id or another lead id.
     const overId = over.id as string
     const overIsColumn = COLUMNS.some((c) => c.id === overId)
     const targetStatus: LeadStatus = overIsColumn
@@ -252,11 +261,23 @@ export function KanbanBoard() {
   }
 
   const activeLead = activeId ? leads.find((l) => l.id === activeId) : null
+  const emptyLabel = t('kanban.emptyColumn')
+  const moreLabel = t('kanban.columnMore')
 
   return (
-    <div>
+    <div className='space-y-6'>
+      {/* Page header */}
+      <div>
+        <h1 className='text-2xl font-semibold text-dark dark:text-white'>
+          {t('kanban.pageTitle')}
+        </h1>
+        <p className='text-sm text-link dark:text-darklink mt-1'>
+          {t('kanban.pageSubtitle')}
+        </p>
+      </div>
+
       {/* Filters bar */}
-      <div className='flex items-center gap-3 mb-6 flex-wrap'>
+      <div className='flex items-center gap-3 flex-wrap'>
         <div className='relative flex-1 min-w-[220px] max-w-md'>
           <Icon
             icon='solar:magnifer-linear'
@@ -268,7 +289,7 @@ export function KanbanBoard() {
             type='text'
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder='Buscar por nombre o últimos 4 del teléfono'
+            placeholder={t('kanban.searchPlaceholder')}
             className='w-full pl-9 pr-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/40'
           />
         </div>
@@ -277,17 +298,17 @@ export function KanbanBoard() {
           value={sucursalFilter}
           onChange={(e) => setSucursalFilter(e.target.value as Sucursal | 'all')}
           className='px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/40'>
-          <option value='all'>Todas las sucursales</option>
-          <option value='caballito'>Caballito</option>
-          <option value='merlo'>Merlo</option>
-          <option value='moreno'>Moreno</option>
+          <option value='all'>{t('kanban.allSucursales')}</option>
+          <option value='caballito'>{SUCURSAL_LABELS.caballito}</option>
+          <option value='merlo'>{SUCURSAL_LABELS.merlo}</option>
+          <option value='moreno'>{SUCURSAL_LABELS.moreno}</option>
         </select>
 
         <button
           type='button'
           onClick={() => setShowSecondary((s) => !s)}
           className='px-3 py-2 rounded-md text-sm font-medium text-primary border border-primary/30 hover:bg-lightprimary transition-colors'>
-          {showSecondary ? 'Ocultar archivados' : 'Mostrar archivados'}
+          {showSecondary ? t('kanban.hideArchived') : t('kanban.showArchived')}
         </button>
       </div>
 
@@ -303,16 +324,19 @@ export function KanbanBoard() {
             <KanbanColumn
               key={column.id}
               columnId={column.id}
-              name={column.name}
+              name={t(column.nameKey)}
               dotColor={column.dotColor}
               leads={leadsByStatus[column.id] ?? []}
+              emptyLabel={emptyLabel}
+              moreLabel={moreLabel}
+              t={t}
             />
           ))}
         </div>
         <DragOverlay>
           {activeLead && (
             <div className='rounded-md border border-border dark:border-darkborder bg-card p-3 shadow-lg ring-2 ring-primary w-72'>
-              <LeadCardBody lead={activeLead} />
+              <LeadCardBody lead={activeLead} t={t} />
             </div>
           )}
         </DragOverlay>

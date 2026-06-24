@@ -1,6 +1,8 @@
 // Mock data for the Kanban preview. Replaced by Supabase queries once auth
 // + data layer land in a later session.
 
+import type { TranslationKey } from '@/lib/i18n/dictionaries'
+
 export type Sucursal = 'caballito' | 'merlo' | 'moreno'
 
 export type LeadStatus =
@@ -32,7 +34,8 @@ export type Lead = {
 
 export type ColumnDef = {
   id: LeadStatus
-  name: string
+  /** i18n key — resolved at render time so the column header follows the active locale. */
+  nameKey: TranslationKey
   /** Tailwind bg-* class for the status dot. */
   dotColor: string
   primary: boolean
@@ -40,17 +43,17 @@ export type ColumnDef = {
 
 export const COLUMNS: ColumnDef[] = [
   // Primary pipeline
-  { id: 'nuevo', name: 'Nuevo', dotColor: 'bg-info', primary: true },
-  { id: 'en_conversacion', name: 'En conversación', dotColor: 'bg-warning', primary: true },
-  { id: 'cotizado', name: 'Cotizado', dotColor: 'bg-secondary', primary: true },
-  { id: 'reservado', name: 'Reservado', dotColor: 'bg-primary', primary: true },
-  { id: 'comprobante', name: 'Comprobante recibido', dotColor: 'bg-purple-500', primary: true },
-  { id: 'confirmado', name: 'Confirmado', dotColor: 'bg-success', primary: true },
+  { id: 'nuevo', nameKey: 'kanban.col.nuevo', dotColor: 'bg-info', primary: true },
+  { id: 'en_conversacion', nameKey: 'kanban.col.enConversacion', dotColor: 'bg-warning', primary: true },
+  { id: 'cotizado', nameKey: 'kanban.col.cotizado', dotColor: 'bg-secondary', primary: true },
+  { id: 'reservado', nameKey: 'kanban.col.reservado', dotColor: 'bg-primary', primary: true },
+  { id: 'comprobante', nameKey: 'kanban.col.comprobante', dotColor: 'bg-purple-500', primary: true },
+  { id: 'confirmado', nameKey: 'kanban.col.confirmado', dotColor: 'bg-success', primary: true },
   // Secondary (collapsible)
-  { id: 'sin_respuesta', name: 'Sin respuesta', dotColor: 'bg-gray-400', primary: false },
-  { id: 'pausado', name: 'Pausado', dotColor: 'bg-gray-400', primary: false },
-  { id: 'archivado', name: 'Archivado', dotColor: 'bg-gray-400', primary: false },
-  { id: 'cancelado', name: 'Cancelado', dotColor: 'bg-error', primary: false },
+  { id: 'sin_respuesta', nameKey: 'kanban.col.sinRespuesta', dotColor: 'bg-gray-400', primary: false },
+  { id: 'pausado', nameKey: 'kanban.col.pausado', dotColor: 'bg-gray-400', primary: false },
+  { id: 'archivado', nameKey: 'kanban.col.archivado', dotColor: 'bg-gray-400', primary: false },
+  { id: 'cancelado', nameKey: 'kanban.col.cancelado', dotColor: 'bg-error', primary: false },
 ]
 
 export const SUCURSAL_LABELS: Record<Sucursal, string> = {

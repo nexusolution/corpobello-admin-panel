@@ -31,6 +31,31 @@ export const dictionaries = {
     'alerts.underDevelopmentTitle': 'En desarrollo',
     'alerts.underDevelopmentBody': '{section} se habilitará en una etapa posterior.',
     'alerts.underDevelopmentButton': 'Entendido',
+    // Kanban page
+    'kanban.pageTitle': 'Pipeline de pacientes',
+    'kanban.pageSubtitle': 'Arrastrá una tarjeta entre columnas para cambiar el estado del lead.',
+    'kanban.searchPlaceholder': 'Buscar por nombre o últimos 4 del teléfono',
+    'kanban.allSucursales': 'Todas las sucursales',
+    'kanban.showArchived': 'Mostrar archivados',
+    'kanban.hideArchived': 'Ocultar archivados',
+    'kanban.emptyColumn': 'Sin leads',
+    'kanban.columnMore': 'Más opciones',
+    // Kanban columns
+    'kanban.col.nuevo': 'Nuevo',
+    'kanban.col.enConversacion': 'En conversación',
+    'kanban.col.cotizado': 'Cotizado',
+    'kanban.col.reservado': 'Reservado',
+    'kanban.col.comprobante': 'Comprobante recibido',
+    'kanban.col.confirmado': 'Confirmado',
+    'kanban.col.sinRespuesta': 'Sin respuesta',
+    'kanban.col.pausado': 'Pausado',
+    'kanban.col.archivado': 'Archivado',
+    'kanban.col.cancelado': 'Cancelado',
+    // Kanban relative time
+    'kanban.time.justNow': 'hace unos minutos',
+    'kanban.time.hours': 'hace {n} h',
+    'kanban.time.days': 'hace {n} d',
+    'kanban.time.months': 'hace {n} m',
   },
   en: {
     // Sidebar — section headings
@@ -60,6 +85,31 @@ export const dictionaries = {
     'alerts.underDevelopmentTitle': 'Under development',
     'alerts.underDevelopmentBody': '{section} will be enabled in a later stage.',
     'alerts.underDevelopmentButton': 'Got it',
+    // Kanban page
+    'kanban.pageTitle': 'Patient pipeline',
+    'kanban.pageSubtitle': 'Drag a card between columns to update the lead status.',
+    'kanban.searchPlaceholder': 'Search by name or last 4 of phone',
+    'kanban.allSucursales': 'All branches',
+    'kanban.showArchived': 'Show archived',
+    'kanban.hideArchived': 'Hide archived',
+    'kanban.emptyColumn': 'No leads',
+    'kanban.columnMore': 'More options',
+    // Kanban columns
+    'kanban.col.nuevo': 'New',
+    'kanban.col.enConversacion': 'In conversation',
+    'kanban.col.cotizado': 'Quoted',
+    'kanban.col.reservado': 'Booked',
+    'kanban.col.comprobante': 'Receipt received',
+    'kanban.col.confirmado': 'Confirmed',
+    'kanban.col.sinRespuesta': 'No response',
+    'kanban.col.pausado': 'Paused',
+    'kanban.col.archivado': 'Archived',
+    'kanban.col.cancelado': 'Cancelled',
+    // Kanban relative time
+    'kanban.time.justNow': 'a few minutes ago',
+    'kanban.time.hours': '{n}h ago',
+    'kanban.time.days': '{n}d ago',
+    'kanban.time.months': '{n}mo ago',
   },
 } as const
 
