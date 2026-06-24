@@ -66,6 +66,10 @@ export const dictionaries = {
     'kanban.menu.edit': 'Editar',
     'kanban.menu.delete': 'Eliminar',
     'kanban.menu.clearAll': 'Vaciar columna',
+    // Kanban pagination
+    'kanban.pagination.previous': 'Página anterior',
+    'kanban.pagination.next': 'Página siguiente',
+    'kanban.pagination.label': '{current} / {total}',
   },
   en: {
     // Sidebar — section headings
@@ -130,6 +134,10 @@ export const dictionaries = {
     'kanban.menu.edit': 'Edit',
     'kanban.menu.delete': 'Delete',
     'kanban.menu.clearAll': 'Clear all',
+    // Kanban pagination
+    'kanban.pagination.previous': 'Previous page',
+    'kanban.pagination.next': 'Next page',
+    'kanban.pagination.label': '{current} / {total}',
   },
 } as const
 

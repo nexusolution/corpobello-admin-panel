@@ -440,6 +440,8 @@ function SucursalSelect({
   )
 }
 
+const COLUMNS_PER_PAGE = 4
+
 export function KanbanBoard() {
   const { t } = useTranslation()
   const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS)
@@ -447,12 +449,21 @@ export function KanbanBoard() {
   const [showSecondary, setShowSecondary] = useState(false)
   const [sucursalFilter, setSucursalFilter] = useState<Sucursal | 'all'>('all')
   const [search, setSearch] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   )
 
   const visibleColumns = COLUMNS.filter((c) => showSecondary || c.primary)
+
+  // Paginate: show COLUMNS_PER_PAGE columns at a time
+  const totalPages = Math.max(1, Math.ceil(visibleColumns.length / COLUMNS_PER_PAGE))
+  const safePage = Math.min(currentPage, totalPages)
+  const pagedColumns = visibleColumns.slice(
+    (safePage - 1) * COLUMNS_PER_PAGE,
+    safePage * COLUMNS_PER_PAGE
+  )
 
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
@@ -556,6 +567,33 @@ export function KanbanBoard() {
           className='px-3 py-2 rounded-md text-sm font-medium text-primary border border-primary/30 hover:bg-lightprimary transition-colors'>
           {showSecondary ? t('kanban.hideArchived') : t('kanban.showArchived')}
         </button>
+
+        {totalPages > 1 && (
+          <div className='ml-auto flex items-center gap-1 text-link dark:text-darklink'>
+            <button
+              type='button'
+              aria-label={t('kanban.pagination.previous')}
+              disabled={safePage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              className='h-8 w-8 flex items-center justify-center rounded-md hover:bg-lightprimary hover:text-primary disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-link transition-colors'>
+              <Icon icon='tabler:chevron-left' height={18} width={18} />
+            </button>
+            <span className='px-2 text-sm font-medium text-dark dark:text-white tabular-nums'>
+              {t('kanban.pagination.label', {
+                current: String(safePage),
+                total: String(totalPages),
+              })}
+            </span>
+            <button
+              type='button'
+              aria-label={t('kanban.pagination.next')}
+              disabled={safePage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              className='h-8 w-8 flex items-center justify-center rounded-md hover:bg-lightprimary hover:text-primary disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-link transition-colors'>
+              <Icon icon='tabler:chevron-right' height={18} width={18} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Board */}
@@ -566,7 +604,7 @@ export function KanbanBoard() {
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}>
         <div className='flex gap-4 overflow-x-auto pb-4'>
-          {visibleColumns.map((column) => (
+          {pagedColumns.map((column) => (
             <KanbanColumn
               key={column.id}
               columnId={column.id}
