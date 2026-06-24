@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Icon } from '@iconify/react'
 import {
@@ -310,6 +310,77 @@ function KanbanColumn({
   )
 }
 
+function SearchBox({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string
+  onChange: (v: string) => void
+  placeholder: string
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (expanded) inputRef.current?.focus()
+  }, [expanded])
+
+  function handleBlur() {
+    // Auto-collapse only when there is no query to preserve
+    if (!value) setExpanded(false)
+  }
+
+  function handleClear() {
+    onChange('')
+    setExpanded(false)
+  }
+
+  if (!expanded) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type='button'
+            aria-label={placeholder}
+            onClick={() => setExpanded(true)}
+            className='h-10 w-10 flex items-center justify-center rounded-md border border-border dark:border-darkborder text-link dark:text-darklink hover:border-primary hover:text-primary transition-colors'>
+            <Icon icon='solar:magnifer-linear' height={18} width={18} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>{placeholder}</TooltipContent>
+      </Tooltip>
+    )
+  }
+
+  return (
+    <div className='relative w-[320px]'>
+      <Icon
+        icon='solar:magnifer-linear'
+        height={16}
+        width={16}
+        className='absolute left-3 top-1/2 -translate-y-1/2 text-link dark:text-darklink pointer-events-none'
+      />
+      <input
+        ref={inputRef}
+        type='text'
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={handleBlur}
+        placeholder={placeholder}
+        className='w-full pl-9 pr-9 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/40'
+      />
+      <button
+        type='button'
+        aria-label='Cerrar búsqueda'
+        onClick={handleClear}
+        className='absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-link dark:text-darklink hover:text-primary'>
+        <Icon icon='solar:close-circle-line-duotone' height={16} width={16} />
+      </button>
+    </div>
+  )
+}
+
 function SucursalSelect({
   value,
   onChange,
@@ -467,21 +538,11 @@ export function KanbanBoard() {
 
       {/* Filters bar */}
       <div className='flex items-center gap-3 flex-wrap'>
-        <div className='relative flex-1 min-w-[220px] max-w-md'>
-          <Icon
-            icon='solar:magnifer-linear'
-            height={16}
-            width={16}
-            className='absolute left-3 top-1/2 -translate-y-1/2 text-link dark:text-darklink'
-          />
-          <input
-            type='text'
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('kanban.searchPlaceholder')}
-            className='w-full pl-9 pr-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/40'
-          />
-        </div>
+        <SearchBox
+          value={search}
+          onChange={setSearch}
+          placeholder={t('kanban.searchPlaceholder')}
+        />
 
         <SucursalSelect
           value={sucursalFilter}
