@@ -354,18 +354,25 @@ function AddUserDialog({
       cancelButtonColor: isDark ? '#3f4a5d' : '#e5e7eb',
       background: isDark ? '#2a3547' : '#ffffff',
       color: isDark ? '#ffffff' : '#2a3547',
-      width: '380px',
-      padding: '1rem',
+      width: '360px',
+      padding: '1.5rem 1rem',
       reverseButtons: false,
       customClass: {
-        title: '!text-base !font-semibold !pb-0 !mt-2',
-        icon: '!w-12 !h-12 !mt-2 !mb-1',
-        actions: '!gap-2 !mt-3',
+        title: '!text-base !font-semibold !pb-0 !mt-3',
+        icon: '!w-12 !h-12 !mt-2 !mb-2',
+        actions: '!gap-2 !mt-5',
         confirmButton: '!text-sm !px-4 !py-1.5 !rounded-md',
         cancelButton: `!text-sm !px-4 !py-1.5 !rounded-md ${
           isDark ? '!text-white' : '!text-dark'
         }`,
         popup: '!rounded-lg',
+      },
+      didOpen: (popup) => {
+        // Radix Dialog locks pointer-events on body when modal is open; the
+        // swal container is a body child and inherits it. Restore it here so
+        // the confirm/cancel buttons stay clickable.
+        const container = popup.parentElement
+        if (container) container.style.pointerEvents = 'auto'
       },
     }).then((res) => {
       if (res.isConfirmed) onOpenChange(false)
