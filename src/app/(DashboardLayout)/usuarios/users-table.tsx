@@ -238,6 +238,68 @@ const ROLE_OPTIONS: ReadonlyArray<{
   },
 ]
 
+function DialogSucursalSelect({
+  value,
+  onChange,
+  noneLabel,
+}: {
+  value: UserSucursal
+  onChange: (next: UserSucursal) => void
+  noneLabel: string
+}) {
+  const options: Array<{ value: UserSucursal; label: string }> = [
+    { value: null, label: noneLabel },
+    { value: 'caballito', label: SUCURSAL_LABELS.caballito },
+    { value: 'merlo', label: SUCURSAL_LABELS.merlo },
+    { value: 'moreno', label: SUCURSAL_LABELS.moreno },
+  ]
+  const current = options.find((o) => o.value === value) ?? options[0]
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type='button'
+          className='w-full inline-flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm font-medium text-dark dark:text-white hover:border-primary focus:outline-none focus:border-primary transition-colors'>
+          <span>{current.label}</span>
+          <Icon
+            icon='tabler:chevron-down'
+            height={14}
+            width={14}
+            className='text-link dark:text-darklink'
+          />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align='start'
+        className='w-[var(--radix-dropdown-menu-trigger-width)]'>
+        {options.map((opt) => {
+          const isSelected = opt.value === value
+          const key = opt.value ?? '__none__'
+          return (
+            <DropdownMenuItem
+              key={key}
+              onClick={() => onChange(opt.value)}
+              className={
+                isSelected
+                  ? 'bg-lightprimary text-primary focus:bg-lightprimary focus:text-primary'
+                  : ''
+              }>
+              <Icon
+                icon='tabler:check'
+                height={16}
+                width={16}
+                className={`mr-2 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
+              />
+              {opt.label}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 function AddUserDialog({
   open,
   onOpenChange,
@@ -302,7 +364,7 @@ function AddUserDialog({
               <div className='relative'>
                 <Avatar
                   key={draft.avatarUrl ?? 'empty'}
-                  className='size-20 ring-1 ring-border dark:ring-darkborder'>
+                  className='size-28 !rounded-xl ring-1 ring-border dark:ring-darkborder'>
                   {draft.avatarUrl && (
                     <AvatarImage
                       src={draft.avatarUrl}
@@ -310,11 +372,11 @@ function AddUserDialog({
                       className='object-cover'
                     />
                   )}
-                  <AvatarFallback className='bg-lightprimary text-primary'>
+                  <AvatarFallback className='!rounded-xl bg-lightprimary text-primary'>
                     <Icon
                       icon='solar:user-bold-duotone'
-                      height={42}
-                      width={42}
+                      height={56}
+                      width={56}
                     />
                   </AvatarFallback>
                 </Avatar>
@@ -424,27 +486,14 @@ function AddUserDialog({
 
           {/* Sucursal */}
           <div>
-            <Label htmlFor='draft-sucursal' className='font-medium mb-1.5 block'>
+            <Label className='font-medium mb-1.5 block'>
               {t('users.dialog.sucursalLabel')}
             </Label>
-            <select
-              id='draft-sucursal'
-              value={draft.sucursal ?? ''}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  sucursal:
-                    e.target.value === ''
-                      ? null
-                      : (e.target.value as Exclude<UserSucursal, null>),
-                })
-              }
-              className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
-              <option value=''>{t('users.dialog.sucursalNone')}</option>
-              <option value='caballito'>{SUCURSAL_LABELS.caballito}</option>
-              <option value='merlo'>{SUCURSAL_LABELS.merlo}</option>
-              <option value='moreno'>{SUCURSAL_LABELS.moreno}</option>
-            </select>
+            <DialogSucursalSelect
+              value={draft.sucursal}
+              onChange={(next) => setDraft({ ...draft, sucursal: next })}
+              noneLabel={t('users.dialog.sucursalNone')}
+            />
           </div>
 
           {/* Footer buttons */}
