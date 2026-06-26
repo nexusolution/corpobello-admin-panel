@@ -288,8 +288,10 @@ function AddUserDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='max-w-[560px] max-h-[90vh] overflow-y-auto'>
-        <DialogHeader>
-          <DialogTitle>{t('users.dialog.title')}</DialogTitle>
+        <DialogHeader className='border-b border-border dark:border-darkborder pb-3 mb-2'>
+          <DialogTitle className='text-lg text-dark dark:text-white'>
+            {t('users.dialog.title')}
+          </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className='space-y-5 mt-2'>
@@ -298,7 +300,9 @@ function AddUserDialog({
             <Label className='font-medium'>{t('users.dialog.avatarLabel')}</Label>
             <div className='flex items-start gap-4 mt-2'>
               <div className='relative'>
-                <Avatar className='size-20 ring-1 ring-border dark:ring-darkborder'>
+                <Avatar
+                  key={draft.avatarUrl ?? 'empty'}
+                  className='size-20 ring-1 ring-border dark:ring-darkborder'>
                   {draft.avatarUrl && (
                     <AvatarImage
                       src={draft.avatarUrl}
