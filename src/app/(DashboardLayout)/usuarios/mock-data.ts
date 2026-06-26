@@ -12,6 +12,8 @@ export type AppUser = {
   sucursal: UserSucursal
   status: UserStatus
   createdAt: string // ISO
+  /** Optional avatar image URL. When absent the UI falls back to a default user icon. */
+  avatarUrl?: string
 }
 
 export const SUCURSAL_LABELS: Record<Exclude<UserSucursal, null>, string> = {
@@ -29,6 +31,7 @@ export const MOCK_USERS: AppUser[] = [
     sucursal: null,
     status: 'active',
     createdAt: '2026-04-15T10:00:00Z',
+    avatarUrl: '/images/profile/user-1.jpg',
   },
   {
     id: '2',
@@ -38,6 +41,7 @@ export const MOCK_USERS: AppUser[] = [
     sucursal: 'caballito',
     status: 'active',
     createdAt: '2026-04-20T09:00:00Z',
+    avatarUrl: '/images/profile/user-2.jpg',
   },
   {
     id: '3',
@@ -47,6 +51,7 @@ export const MOCK_USERS: AppUser[] = [
     sucursal: 'merlo',
     status: 'active',
     createdAt: '2026-04-22T11:30:00Z',
+    // No avatar — falls back to default user icon
   },
   {
     id: '4',
@@ -56,6 +61,7 @@ export const MOCK_USERS: AppUser[] = [
     sucursal: 'caballito',
     status: 'active',
     createdAt: '2026-05-02T14:00:00Z',
+    avatarUrl: '/images/profile/user-3.jpg',
   },
   {
     id: '5',
@@ -65,6 +71,7 @@ export const MOCK_USERS: AppUser[] = [
     sucursal: 'moreno',
     status: 'active',
     createdAt: '2026-05-10T16:00:00Z',
+    // No avatar — falls back to default user icon
   },
   {
     id: '6',
@@ -74,6 +81,7 @@ export const MOCK_USERS: AppUser[] = [
     sucursal: 'merlo',
     status: 'inactive',
     createdAt: '2026-03-12T08:00:00Z',
+    avatarUrl: '/images/profile/user-4.jpg',
   },
   {
     id: '7',
@@ -83,6 +91,7 @@ export const MOCK_USERS: AppUser[] = [
     sucursal: null,
     status: 'active',
     createdAt: '2026-04-18T12:00:00Z',
+    // No avatar — falls back to default user icon
   },
   {
     id: '8',
@@ -92,5 +101,6 @@ export const MOCK_USERS: AppUser[] = [
     sucursal: 'caballito',
     status: 'active',
     createdAt: '2026-05-20T10:00:00Z',
+    avatarUrl: '/images/profile/user-5.jpg',
   },
 ]

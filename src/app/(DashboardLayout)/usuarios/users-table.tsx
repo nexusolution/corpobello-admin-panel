@@ -12,6 +12,7 @@ import {
 } from './mock-data'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   DropdownMenu,
@@ -26,14 +27,6 @@ import {
 } from '@/components/ui/tooltip'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? '')
-    .join('')
-}
 
 // ---------- Search box (icon-button that expands) ----------
 
@@ -599,9 +592,22 @@ export function UsersTable() {
                     </td>
                     <td className='py-3 px-3'>
                       <div className='flex items-center gap-3'>
-                        <div className='h-8 w-8 rounded-full bg-lightprimary text-primary flex items-center justify-center text-xs font-semibold'>
-                          {initials(user.fullName)}
-                        </div>
+                        <Avatar className='size-8 ring-1 ring-border dark:ring-darkborder'>
+                          {user.avatarUrl && (
+                            <AvatarImage
+                              src={user.avatarUrl}
+                              alt={user.fullName}
+                              className='object-cover'
+                            />
+                          )}
+                          <AvatarFallback className='bg-lightprimary text-primary'>
+                            <Icon
+                              icon='solar:user-bold-duotone'
+                              height={18}
+                              width={18}
+                            />
+                          </AvatarFallback>
+                        </Avatar>
                         <span className='text-dark dark:text-white font-medium'>
                           {user.fullName}
                         </span>
