@@ -666,6 +666,64 @@ export function UsersTable() {
     setUsers((prev) => prev.filter((u) => !selected.has(u.id)))
     setSelected(new Set())
   }
+
+  // Destructive-action confirm. No Radix Dialog is open at this layer, so we
+  // can call Swal.fire directly without the close-then-show dance used in
+  // AddUserDialog's cancel-confirm.
+  async function confirmDelete(
+    titleKey: TranslationKey,
+    body: string
+  ): Promise<boolean> {
+    const isDark =
+      typeof document !== 'undefined' &&
+      document.documentElement.classList.contains('dark')
+    const result = await Swal.fire({
+      title: t(titleKey),
+      text: body,
+      icon: 'warning',
+      iconColor: '#ef4444',
+      showCancelButton: true,
+      confirmButtonText: t('users.delete.confirmYes'),
+      cancelButtonText: t('users.delete.confirmNo'),
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: isDark ? '#3f4a5d' : '#e5e7eb',
+      background: isDark ? '#2a3547' : '#ffffff',
+      color: isDark ? '#ffffff' : '#2a3547',
+      width: '360px',
+      padding: '1.5rem 1rem',
+      reverseButtons: false,
+      customClass: {
+        title: '!text-base !font-semibold !pb-0 !mt-3',
+        htmlContainer: '!text-sm !mt-2',
+        icon: '!w-12 !h-12 !mt-2 !mb-2',
+        actions: '!gap-2 !mt-5',
+        confirmButton: '!text-sm !px-4 !py-1.5 !rounded-md',
+        cancelButton: `!text-sm !px-4 !py-1.5 !rounded-md ${
+          isDark ? '!text-white' : '!text-dark'
+        }`,
+        popup: '!rounded-lg',
+      },
+    })
+    return result.isConfirmed
+  }
+
+  async function handleDeleteUser(user: AppUser) {
+    const ok = await confirmDelete(
+      'users.delete.confirmTitle',
+      t('users.delete.confirmBody', { name: user.fullName })
+    )
+    if (ok) deleteUser(user.id)
+  }
+
+  async function handleDeleteSelected() {
+    const count = selected.size
+    if (count === 0) return
+    const ok = await confirmDelete(
+      'users.delete.confirmTitleBulk',
+      t('users.delete.confirmBodyBulk', { count: String(count) })
+    )
+    if (ok) deleteSelected()
+  }
   function createUser(draft: DraftUser) {
     const newUser: AppUser = {
       id: `new-${Date.now()}`,
@@ -731,7 +789,7 @@ export function UsersTable() {
                   <button
                     type='button'
                     aria-label={t('users.action.deleteSelected')}
-                    onClick={deleteSelected}
+                    onClick={handleDeleteSelected}
                     className='h-9 w-9 flex items-center justify-center rounded-md bg-error text-white hover:bg-error/90 transition-colors'>
                     <Icon icon='solar:trash-bin-trash-line-duotone' height={20} width={20} />
                   </button>
@@ -917,7 +975,7 @@ export function UsersTable() {
                               : t('users.action.activate')}
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => deleteUser(user.id)}
+                            onClick={() => handleDeleteUser(user)}
                             className='text-error focus:text-error focus:bg-error/10'>
                             <Icon icon='solar:trash-bin-trash-line-duotone' height={16} width={16} className='mr-2' />
                             {t('users.action.delete')}
