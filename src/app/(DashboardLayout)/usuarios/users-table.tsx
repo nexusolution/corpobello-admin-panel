@@ -19,6 +19,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -301,18 +304,33 @@ function DialogSucursalSelect({
   )
 }
 
+function userToDraft(u: AppUser): DraftUser {
+  return {
+    fullName: u.fullName,
+    email: u.email,
+    role: u.role,
+    sucursal: u.sucursal,
+    avatarUrl: u.avatarUrl,
+  }
+}
+
 function AddUserDialog({
   open,
   onOpenChange,
+  editingUser,
   onCreate,
+  onUpdate,
   t,
 }: {
   open: boolean
   onOpenChange: (next: boolean) => void
+  editingUser: AppUser | null
   onCreate: (user: DraftUser) => void
+  onUpdate: (id: string, user: DraftUser) => void
   t: TFn
 }) {
-  const [draft, setDraft] = useState<DraftUser>(EMPTY_DRAFT)
+  const baseline = editingUser ? userToDraft(editingUser) : EMPTY_DRAFT
+  const [draft, setDraft] = useState<DraftUser>(baseline)
   const fileInputRef = useRef<HTMLInputElement>(null)
   // When the user picks "No, volver" in the cancel-confirm, we reopen the
   // dialog with the draft still in place. The reset effect below would wipe
@@ -320,25 +338,27 @@ function AddUserDialog({
   const skipNextResetRef = useRef(false)
 
   // Reset draft state every time the dialog opens (except after a reopen).
+  // In edit mode, "reset" means re-seed from editingUser; in create mode it
+  // means clear to EMPTY_DRAFT.
   useEffect(() => {
     if (!open) return
     if (skipNextResetRef.current) {
       skipNextResetRef.current = false
       return
     }
-    setDraft(EMPTY_DRAFT)
-  }, [open])
+    setDraft(editingUser ? userToDraft(editingUser) : EMPTY_DRAFT)
+  }, [open, editingUser])
 
   const isValid =
     draft.fullName.trim().length > 0 &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim())
 
   const isDirty =
-    draft.fullName.length > 0 ||
-    draft.email.length > 0 ||
-    draft.avatarUrl !== undefined ||
-    draft.role !== EMPTY_DRAFT.role ||
-    draft.sucursal !== EMPTY_DRAFT.sucursal
+    draft.fullName !== baseline.fullName ||
+    draft.email !== baseline.email ||
+    draft.avatarUrl !== baseline.avatarUrl ||
+    draft.role !== baseline.role ||
+    draft.sucursal !== baseline.sucursal
 
   function handleOpenChange(next: boolean) {
     if (next) {
@@ -358,7 +378,11 @@ function AddUserDialog({
       typeof document !== 'undefined' &&
       document.documentElement.classList.contains('dark')
     Swal.fire({
-      title: t('users.dialog.cancelConfirmTitle'),
+      title: t(
+        editingUser
+          ? 'users.dialog.cancelEditConfirmTitle'
+          : 'users.dialog.cancelConfirmTitle'
+      ),
       icon: 'warning',
       iconColor: '#ffae1f',
       showCancelButton: true,
@@ -405,11 +429,16 @@ function AddUserDialog({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!isValid) return
-    onCreate({
+    const normalized: DraftUser = {
       ...draft,
       fullName: draft.fullName.trim(),
       email: draft.email.trim(),
-    })
+    }
+    if (editingUser) {
+      onUpdate(editingUser.id, normalized)
+    } else {
+      onCreate(normalized)
+    }
     onOpenChange(false)
   }
 
@@ -418,7 +447,7 @@ function AddUserDialog({
       <DialogContent className='max-w-[560px] max-h-[90vh] overflow-y-auto'>
         <DialogHeader className='border-b border-border dark:border-darkborder pb-3 mb-2'>
           <DialogTitle className='text-lg text-dark dark:text-white'>
-            {t('users.dialog.title')}
+            {t(editingUser ? 'users.dialog.editTitle' : 'users.dialog.title')}
           </DialogTitle>
         </DialogHeader>
 
@@ -572,9 +601,13 @@ function AddUserDialog({
             </button>
             <button
               type='submit'
-              disabled={!isValid}
+              disabled={!isValid || (editingUser !== null && !isDirty)}
               className='px-4 py-2 rounded-md text-sm font-medium bg-primary text-white hover:bg-primaryemphasis disabled:opacity-50 disabled:cursor-not-allowed transition-colors'>
-              {t('users.dialog.submit')}
+              {t(
+                editingUser
+                  ? 'users.dialog.saveChanges'
+                  : 'users.dialog.submit'
+              )}
             </button>
           </div>
         </form>
@@ -620,6 +653,7 @@ export function UsersTable() {
   const [pageSize, setPageSize] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
   const [createOpen, setCreateOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<AppUser | null>(null)
 
   function toggleSort(col: SortableColumn) {
     if (sortColumn === col) {
@@ -799,6 +833,36 @@ export function UsersTable() {
     setUsers((prev) => [newUser, ...prev])
     setCurrentPage(1)
   }
+  function updateUser(id: string, draft: DraftUser) {
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === id
+          ? {
+              ...u,
+              fullName: draft.fullName,
+              email: draft.email,
+              role: draft.role,
+              sucursal: draft.sucursal,
+              avatarUrl: draft.avatarUrl,
+            }
+          : u
+      )
+    )
+    setEditingUser(null)
+  }
+  function changeRole(id: string, role: UserRole) {
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, role } : u))
+    )
+  }
+  function openCreate() {
+    setEditingUser(null)
+    setCreateOpen(true)
+  }
+  function openEdit(user: AppUser) {
+    setEditingUser(user)
+    setCreateOpen(true)
+  }
 
   // Filter pills config
   const filterPills: { value: RoleFilter; labelKey: TranslationKey }[] = [
@@ -940,7 +1004,7 @@ export function UsersTable() {
 
           <button
             type='button'
-            onClick={() => setCreateOpen(true)}
+            onClick={openCreate}
             className='px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
             {t('users.create')}
           </button>
@@ -1067,14 +1131,43 @@ export function UsersTable() {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align='end' className='w-44'>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openEdit(user)}>
                             <Icon icon='solar:pen-line-duotone' height={16} width={16} className='mr-2' />
                             {t('users.action.edit')}
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Icon icon='solar:shield-user-line-duotone' height={16} width={16} className='mr-2' />
-                            {t('users.action.changeRole')}
-                          </DropdownMenuItem>
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger>
+                              <Icon icon='solar:shield-user-line-duotone' height={16} width={16} className='mr-2' />
+                              {t('users.action.changeRole')}
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className='w-44'>
+                              {(['admin', 'operador', 'profesional'] as const).map((r) => {
+                                const isCurrent = user.role === r
+                                const labelKey: TranslationKey =
+                                  r === 'admin'
+                                    ? 'users.role.admin'
+                                    : r === 'operador'
+                                    ? 'users.role.operador'
+                                    : 'users.role.profesional'
+                                return (
+                                  <DropdownMenuItem
+                                    key={r}
+                                    disabled={isCurrent}
+                                    onClick={() => changeRole(user.id, r)}>
+                                    <Icon
+                                      icon='tabler:check'
+                                      height={14}
+                                      width={14}
+                                      className={`mr-2 ${
+                                        isCurrent ? 'opacity-100' : 'opacity-0'
+                                      }`}
+                                    />
+                                    {t(labelKey)}
+                                  </DropdownMenuItem>
+                                )
+                              })}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
                           <DropdownMenuItem onClick={() => toggleActive(user.id)}>
                             <Icon
                               icon={
@@ -1152,11 +1245,13 @@ export function UsersTable() {
 
       </div>
 
-      {/* Create user dialog */}
+      {/* Create / edit user dialog */}
       <AddUserDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
+        editingUser={editingUser}
         onCreate={createUser}
+        onUpdate={updateUser}
         t={t}
       />
     </div>
