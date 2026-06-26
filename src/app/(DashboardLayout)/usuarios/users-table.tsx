@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '@iconify/react'
+import Swal from 'sweetalert2'
 
 import {
   MOCK_USERS,
@@ -323,6 +324,54 @@ function AddUserDialog({
     draft.fullName.trim().length > 0 &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim())
 
+  const isDirty =
+    draft.fullName.length > 0 ||
+    draft.email.length > 0 ||
+    draft.avatarUrl !== undefined ||
+    draft.role !== EMPTY_DRAFT.role ||
+    draft.sucursal !== EMPTY_DRAFT.sucursal
+
+  function handleOpenChange(next: boolean) {
+    if (next) {
+      onOpenChange(true)
+      return
+    }
+    if (!isDirty) {
+      onOpenChange(false)
+      return
+    }
+    const isDark =
+      typeof document !== 'undefined' &&
+      document.documentElement.classList.contains('dark')
+    Swal.fire({
+      title: t('users.dialog.cancelConfirmTitle'),
+      icon: 'warning',
+      iconColor: '#ffae1f',
+      showCancelButton: true,
+      confirmButtonText: t('users.dialog.cancelConfirmYes'),
+      cancelButtonText: t('users.dialog.cancelConfirmNo'),
+      confirmButtonColor: '#5d87ff',
+      cancelButtonColor: isDark ? '#3f4a5d' : '#e5e7eb',
+      background: isDark ? '#2a3547' : '#ffffff',
+      color: isDark ? '#ffffff' : '#2a3547',
+      width: '380px',
+      padding: '1rem',
+      reverseButtons: false,
+      customClass: {
+        title: '!text-base !font-semibold !pb-0 !mt-2',
+        icon: '!w-12 !h-12 !mt-2 !mb-1',
+        actions: '!gap-2 !mt-3',
+        confirmButton: '!text-sm !px-4 !py-1.5 !rounded-md',
+        cancelButton: `!text-sm !px-4 !py-1.5 !rounded-md ${
+          isDark ? '!text-white' : '!text-dark'
+        }`,
+        popup: '!rounded-lg',
+      },
+    }).then((res) => {
+      if (res.isConfirmed) onOpenChange(false)
+    })
+  }
+
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -348,7 +397,7 @@ function AddUserDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className='max-w-[560px] max-h-[90vh] overflow-y-auto'>
         <DialogHeader className='border-b border-border dark:border-darkborder pb-3 mb-2'>
           <DialogTitle className='text-lg text-dark dark:text-white'>
@@ -500,7 +549,7 @@ function AddUserDialog({
           <div className='flex items-center justify-end gap-3 pt-2'>
             <button
               type='button'
-              onClick={() => onOpenChange(false)}
+              onClick={() => handleOpenChange(false)}
               className='px-4 py-2 rounded-md text-sm font-medium text-dark dark:text-white border border-border dark:border-darkborder hover:bg-muted/40 transition-colors'>
               {t('users.dialog.discard')}
             </button>
