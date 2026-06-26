@@ -587,6 +587,24 @@ function AddUserDialog({
 
 type RoleFilter = 'all' | UserRole
 type SortDir = 'asc' | 'desc'
+type SortableColumn = 'name' | 'role' | 'email' | 'sucursal' | 'status'
+type ToggleableColumn = SortableColumn
+
+const SORTABLE_COLUMNS: readonly SortableColumn[] = [
+  'name',
+  'role',
+  'email',
+  'sucursal',
+  'status',
+] as const
+
+const COLUMN_LABEL_KEY: Record<SortableColumn, TranslationKey> = {
+  name: 'users.col.name',
+  role: 'users.col.role',
+  email: 'users.col.email',
+  sucursal: 'users.col.sucursal',
+  status: 'users.col.status',
+}
 
 export function UsersTable() {
   const { t } = useTranslation()
@@ -594,10 +612,32 @@ export function UsersTable() {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [nameSort, setNameSort] = useState<SortDir>('asc')
+  const [sortColumn, setSortColumn] = useState<SortableColumn>('name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const [visibleColumns, setVisibleColumns] = useState<Set<ToggleableColumn>>(
+    () => new Set(SORTABLE_COLUMNS)
+  )
   const [pageSize, setPageSize] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
   const [createOpen, setCreateOpen] = useState(false)
+
+  function toggleSort(col: SortableColumn) {
+    if (sortColumn === col) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortColumn(col)
+      setSortDir('asc')
+    }
+  }
+
+  function toggleColumn(col: ToggleableColumn) {
+    setVisibleColumns((prev) => {
+      const next = new Set(prev)
+      if (next.has(col)) next.delete(col)
+      else next.add(col)
+      return next
+    })
+  }
 
   // Filter + sort
   const filtered = useMemo(() => {
@@ -612,11 +652,32 @@ export function UsersTable() {
       )
     }
     list = [...list].sort((a, b) => {
-      const cmp = a.fullName.localeCompare(b.fullName, 'es')
-      return nameSort === 'asc' ? cmp : -cmp
+      let cmp = 0
+      switch (sortColumn) {
+        case 'name':
+          cmp = a.fullName.localeCompare(b.fullName, 'es')
+          break
+        case 'role':
+          cmp = a.role.localeCompare(b.role, 'es')
+          break
+        case 'email':
+          cmp = a.email.localeCompare(b.email, 'es')
+          break
+        case 'sucursal': {
+          const al = a.sucursal ? SUCURSAL_LABELS[a.sucursal] : ''
+          const bl = b.sucursal ? SUCURSAL_LABELS[b.sucursal] : ''
+          cmp = al.localeCompare(bl, 'es')
+          break
+        }
+        case 'status':
+          // active < inactive when ascending
+          cmp = a.status.localeCompare(b.status, 'es')
+          break
+      }
+      return sortDir === 'asc' ? cmp : -cmp
     })
     return list
-  }, [users, roleFilter, search, nameSort])
+  }, [users, roleFilter, search, sortColumn, sortDir])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage = Math.min(currentPage, totalPages)
@@ -772,6 +833,57 @@ export function UsersTable() {
               onChange={setSearch}
               placeholder={t('users.search.placeholder')}
             />
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type='button'
+                      aria-label={t('users.col.toggleColumns')}
+                      className='h-9 w-9 flex items-center justify-center rounded-md text-link dark:text-darklink hover:text-primary transition-colors'>
+                      <Icon icon='solar:settings-line-duotone' height={20} width={20} />
+                    </button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>{t('users.col.toggleColumns')}</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align='end' className='w-48'>
+                {SORTABLE_COLUMNS.map((col) => {
+                  const isVisible = visibleColumns.has(col)
+                  return (
+                    <DropdownMenuItem
+                      key={col}
+                      onSelect={(e) => {
+                        e.preventDefault()
+                        toggleColumn(col)
+                      }}>
+                      <Icon
+                        icon='tabler:check'
+                        height={16}
+                        width={16}
+                        className={`mr-2 ${
+                          isVisible ? 'opacity-100' : 'opacity-0'
+                        }`}
+                      />
+                      {t(COLUMN_LABEL_KEY[col])}
+                    </DropdownMenuItem>
+                  )
+                })}
+                <div className='h-px bg-border dark:bg-darkborder my-1' />
+                <DropdownMenuItem
+                  disabled
+                  onSelect={(e) => e.preventDefault()}
+                  className='opacity-50 cursor-not-allowed'>
+                  <Icon
+                    icon='tabler:check'
+                    height={16}
+                    width={16}
+                    className='mr-2'
+                  />
+                  {t('users.col.actions')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -846,37 +958,31 @@ export function UsersTable() {
                     aria-label='Seleccionar todos en la página'
                   />
                 </th>
-                <th className='py-3 px-3 text-left font-medium'>
-                  <button
-                    type='button'
-                    onClick={() =>
-                      setNameSort((d) => (d === 'asc' ? 'desc' : 'asc'))
-                    }
-                    className='inline-flex items-center gap-1 hover:text-primary'>
-                    {t('users.col.name')}
-                    <Icon
-                      icon={
-                        nameSort === 'asc'
-                          ? 'tabler:arrow-up'
-                          : 'tabler:arrow-down'
-                      }
-                      height={12}
-                      width={12}
-                    />
-                  </button>
-                </th>
-                <th className='py-3 px-3 text-left font-medium'>
-                  {t('users.col.role')}
-                </th>
-                <th className='py-3 px-3 text-left font-medium'>
-                  {t('users.col.email')}
-                </th>
-                <th className='py-3 px-3 text-left font-medium'>
-                  {t('users.col.sucursal')}
-                </th>
-                <th className='py-3 px-3 text-left font-medium'>
-                  {t('users.col.status')}
-                </th>
+                {SORTABLE_COLUMNS.map((col) =>
+                  visibleColumns.has(col) ? (
+                    <th
+                      key={col}
+                      className='py-3 px-3 text-left font-medium'>
+                      <button
+                        type='button'
+                        onClick={() => toggleSort(col)}
+                        className='inline-flex items-center gap-1 hover:text-primary'>
+                        {t(COLUMN_LABEL_KEY[col])}
+                        <Icon
+                          icon={
+                            sortColumn !== col
+                              ? 'tabler:arrows-sort'
+                              : sortDir === 'asc'
+                              ? 'tabler:arrow-up'
+                              : 'tabler:arrow-down'
+                          }
+                          height={12}
+                          width={12}
+                        />
+                      </button>
+                    </th>
+                  ) : null
+                )}
                 <th className='py-3 px-3 text-right font-medium w-16'>
                   {t('users.col.actions')}
                 </th>
@@ -886,7 +992,7 @@ export function UsersTable() {
               {paged.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={1 + visibleColumns.size + 1}
                     className='py-12 text-center text-link dark:text-darklink italic'>
                     {t('users.empty')}
                   </td>
@@ -903,43 +1009,53 @@ export function UsersTable() {
                         aria-label={`Seleccionar ${user.fullName}`}
                       />
                     </td>
-                    <td className='py-3 px-3'>
-                      <div className='flex items-center gap-3'>
-                        <Avatar className='size-10 ring-1 ring-border dark:ring-darkborder'>
-                          {user.avatarUrl && (
-                            <AvatarImage
-                              src={user.avatarUrl}
-                              alt={user.fullName}
-                              className='object-cover'
-                            />
-                          )}
-                          <AvatarFallback className='bg-lightprimary text-primary'>
-                            <Icon
-                              icon='solar:user-bold-duotone'
-                              height={22}
-                              width={22}
-                            />
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className='text-dark dark:text-white font-medium'>
-                          {user.fullName}
-                        </span>
-                      </div>
-                    </td>
-                    <td className='py-3 px-3'>
-                      <RoleBadge role={user.role} t={t} />
-                    </td>
-                    <td className='py-3 px-3 text-link dark:text-darklink'>
-                      {user.email}
-                    </td>
-                    <td className='py-3 px-3 text-link dark:text-darklink'>
-                      {user.sucursal
-                        ? SUCURSAL_LABELS[user.sucursal]
-                        : t('users.sucursal.none')}
-                    </td>
-                    <td className='py-3 px-3'>
-                      <StatusBadge status={user.status} t={t} />
-                    </td>
+                    {visibleColumns.has('name') && (
+                      <td className='py-3 px-3'>
+                        <div className='flex items-center gap-3'>
+                          <Avatar className='size-10 ring-1 ring-border dark:ring-darkborder'>
+                            {user.avatarUrl && (
+                              <AvatarImage
+                                src={user.avatarUrl}
+                                alt={user.fullName}
+                                className='object-cover'
+                              />
+                            )}
+                            <AvatarFallback className='bg-lightprimary text-primary'>
+                              <Icon
+                                icon='solar:user-bold-duotone'
+                                height={22}
+                                width={22}
+                              />
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className='text-dark dark:text-white font-medium'>
+                            {user.fullName}
+                          </span>
+                        </div>
+                      </td>
+                    )}
+                    {visibleColumns.has('role') && (
+                      <td className='py-3 px-3'>
+                        <RoleBadge role={user.role} t={t} />
+                      </td>
+                    )}
+                    {visibleColumns.has('email') && (
+                      <td className='py-3 px-3 text-link dark:text-darklink'>
+                        {user.email}
+                      </td>
+                    )}
+                    {visibleColumns.has('sucursal') && (
+                      <td className='py-3 px-3 text-link dark:text-darklink'>
+                        {user.sucursal
+                          ? SUCURSAL_LABELS[user.sucursal]
+                          : t('users.sucursal.none')}
+                      </td>
+                    )}
+                    {visibleColumns.has('status') && (
+                      <td className='py-3 px-3'>
+                        <StatusBadge status={user.status} t={t} />
+                      </td>
+                    )}
                     <td className='py-3 px-3 text-right'>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
