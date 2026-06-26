@@ -1057,8 +1057,65 @@ export function UsersTable() {
                 <tr>
                   <td
                     colSpan={1 + visibleColumns.size + 1}
-                    className='py-12 text-center text-link dark:text-darklink italic'>
-                    {t('users.empty')}
+                    className='py-16 px-3'>
+                    {users.length === 0 ? (
+                      <div className='flex flex-col items-center justify-center text-center gap-3'>
+                        <div className='size-16 rounded-full bg-lightprimary/60 flex items-center justify-center'>
+                          <Icon
+                            icon='solar:users-group-rounded-line-duotone'
+                            height={32}
+                            width={32}
+                            className='text-primary'
+                          />
+                        </div>
+                        <div className='space-y-1'>
+                          <p className='text-base font-semibold text-dark dark:text-white'>
+                            {t('users.empty.title')}
+                          </p>
+                          <p className='text-sm text-link dark:text-darklink max-w-[320px]'>
+                            {t('users.empty.body')}
+                          </p>
+                        </div>
+                        <button
+                          type='button'
+                          onClick={openCreate}
+                          className='mt-1 inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
+                          <Icon icon='tabler:plus' height={16} width={16} />
+                          {t('users.create')}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className='flex flex-col items-center justify-center text-center gap-3'>
+                        <div className='size-16 rounded-full bg-muted/60 dark:bg-darkmuted/40 flex items-center justify-center'>
+                          <Icon
+                            icon='solar:magnifer-line-duotone'
+                            height={28}
+                            width={28}
+                            className='text-link dark:text-darklink'
+                          />
+                        </div>
+                        <div className='space-y-1'>
+                          <p className='text-base font-semibold text-dark dark:text-white'>
+                            {t('users.noResults.title')}
+                          </p>
+                          <p className='text-sm text-link dark:text-darklink max-w-[340px]'>
+                            {t('users.noResults.body')}
+                          </p>
+                        </div>
+                        {(search || roleFilter !== 'all') && (
+                          <button
+                            type='button'
+                            onClick={() => {
+                              setSearch('')
+                              setRoleFilter('all')
+                              setCurrentPage(1)
+                            }}
+                            className='mt-1 px-4 py-2 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 dark:hover:bg-darkmuted/40 transition-colors'>
+                            {t('users.noResults.clearFilters')}
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ) : (
