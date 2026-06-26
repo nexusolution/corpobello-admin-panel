@@ -314,10 +314,19 @@ function AddUserDialog({
 }) {
   const [draft, setDraft] = useState<DraftUser>(EMPTY_DRAFT)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // When the user picks "No, volver" in the cancel-confirm, we reopen the
+  // dialog with the draft still in place. The reset effect below would wipe
+  // it, so skip the reset for that one reopen.
+  const skipNextResetRef = useRef(false)
 
-  // Reset draft state every time the dialog opens.
+  // Reset draft state every time the dialog opens (except after a reopen).
   useEffect(() => {
-    if (open) setDraft(EMPTY_DRAFT)
+    if (!open) return
+    if (skipNextResetRef.current) {
+      skipNextResetRef.current = false
+      return
+    }
+    setDraft(EMPTY_DRAFT)
   }, [open])
 
   const isValid =
@@ -340,6 +349,11 @@ function AddUserDialog({
       onOpenChange(false)
       return
     }
+    // Close the Radix dialog BEFORE opening SweetAlert. Otherwise Radix's
+    // modal focus scope blocks pointer events on the swal buttons. If the
+    // user picks "No, volver" we reopen and the skipNextResetRef preserves
+    // the draft.
+    onOpenChange(false)
     const isDark =
       typeof document !== 'undefined' &&
       document.documentElement.classList.contains('dark')
@@ -367,15 +381,11 @@ function AddUserDialog({
         }`,
         popup: '!rounded-lg',
       },
-      didOpen: (popup) => {
-        // Radix Dialog locks pointer-events on body when modal is open; the
-        // swal container is a body child and inherits it. Restore it here so
-        // the confirm/cancel buttons stay clickable.
-        const container = popup.parentElement
-        if (container) container.style.pointerEvents = 'auto'
-      },
     }).then((res) => {
-      if (res.isConfirmed) onOpenChange(false)
+      if (res.isConfirmed) return // discard — stay closed
+      // User chose "No, volver" or dismissed the popup → reopen with draft.
+      skipNextResetRef.current = true
+      onOpenChange(true)
     })
   }
 
