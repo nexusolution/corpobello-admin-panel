@@ -592,7 +592,7 @@ export function UsersTable() {
                     </td>
                     <td className='py-3 px-3'>
                       <div className='flex items-center gap-3'>
-                        <Avatar className='size-8 ring-1 ring-border dark:ring-darkborder'>
+                        <Avatar className='size-10 ring-1 ring-border dark:ring-darkborder'>
                           {user.avatarUrl && (
                             <AvatarImage
                               src={user.avatarUrl}
@@ -603,8 +603,8 @@ export function UsersTable() {
                           <AvatarFallback className='bg-lightprimary text-primary'>
                             <Icon
                               icon='solar:user-bold-duotone'
-                              height={18}
-                              width={18}
+                              height={22}
+                              width={22}
                             />
                           </AvatarFallback>
                         </Avatar>
