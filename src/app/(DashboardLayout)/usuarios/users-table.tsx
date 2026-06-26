@@ -25,6 +25,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Label } from '@/components/ui/label'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 
@@ -105,11 +113,19 @@ function RoleBadge({ role, t }: { role: UserRole; t: TFn }) {
   const styles =
     role === 'admin'
       ? 'bg-lightprimary text-primary'
-      : 'bg-lightsuccess text-success'
+      : role === 'operador'
+      ? 'bg-lightsuccess text-success'
+      : 'bg-lightwarning text-warning'
+  const labelKey: TranslationKey =
+    role === 'admin'
+      ? 'users.role.admin'
+      : role === 'operador'
+      ? 'users.role.operador'
+      : 'users.role.profesional'
   return (
     <span
       className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${styles}`}>
-      {t(role === 'admin' ? 'users.role.admin' : 'users.role.operador')}
+      {t(labelKey)}
     </span>
   )
 }
@@ -183,123 +199,268 @@ function PageSizeSelect({
   )
 }
 
-// ---------- Inline draft row (new user creation) ----------
+// ---------- Add User dialog ----------
 
 type DraftUser = {
   fullName: string
   email: string
   role: UserRole
   sucursal: UserSucursal
+  avatarUrl?: string
 }
 
-function DraftRow({
-  draft,
-  onChange,
-  onSave,
-  onCancel,
+const EMPTY_DRAFT: DraftUser = {
+  fullName: '',
+  email: '',
+  role: 'operador',
+  sucursal: null,
+}
+
+const ROLE_OPTIONS: ReadonlyArray<{
+  value: UserRole
+  labelKey: TranslationKey
+  descriptionKey: TranslationKey
+}> = [
+  {
+    value: 'admin',
+    labelKey: 'users.role.admin',
+    descriptionKey: 'users.role.adminDescription',
+  },
+  {
+    value: 'operador',
+    labelKey: 'users.role.operador',
+    descriptionKey: 'users.role.operadorDescription',
+  },
+  {
+    value: 'profesional',
+    labelKey: 'users.role.profesional',
+    descriptionKey: 'users.role.profesionalDescription',
+  },
+]
+
+function AddUserDialog({
+  open,
+  onOpenChange,
+  onCreate,
   t,
 }: {
-  draft: DraftUser
-  onChange: (next: DraftUser) => void
-  onSave: () => void
-  onCancel: () => void
+  open: boolean
+  onOpenChange: (next: boolean) => void
+  onCreate: (user: DraftUser) => void
   t: TFn
 }) {
+  const [draft, setDraft] = useState<DraftUser>(EMPTY_DRAFT)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Reset draft state every time the dialog opens.
+  useEffect(() => {
+    if (open) setDraft(EMPTY_DRAFT)
+  }, [open])
+
   const isValid =
     draft.fullName.trim().length > 0 &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim())
 
-  const cellInputClass =
-    'w-full px-2 py-1 rounded border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result === 'string') {
+        setDraft((d) => ({ ...d, avatarUrl: result }))
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!isValid) return
+    onCreate({
+      ...draft,
+      fullName: draft.fullName.trim(),
+      email: draft.email.trim(),
+    })
+    onOpenChange(false)
+  }
 
   return (
-    <tr className='border-b border-border dark:border-darkborder bg-lightprimary/10'>
-      <td className='py-3 px-3' />
-      <td className='py-3 px-3'>
-        <input
-          type='text'
-          autoFocus
-          value={draft.fullName}
-          onChange={(e) => onChange({ ...draft, fullName: e.target.value })}
-          placeholder={t('users.draft.namePlaceholder')}
-          className={cellInputClass}
-        />
-      </td>
-      <td className='py-3 px-3'>
-        <select
-          value={draft.role}
-          onChange={(e) =>
-            onChange({ ...draft, role: e.target.value as UserRole })
-          }
-          className={cellInputClass}>
-          <option value='operador'>{t('users.role.operador')}</option>
-          <option value='admin'>{t('users.role.admin')}</option>
-        </select>
-      </td>
-      <td className='py-3 px-3'>
-        <input
-          type='email'
-          value={draft.email}
-          onChange={(e) => onChange({ ...draft, email: e.target.value })}
-          placeholder={t('users.draft.emailPlaceholder')}
-          className={cellInputClass}
-        />
-      </td>
-      <td className='py-3 px-3'>
-        <select
-          value={draft.sucursal ?? ''}
-          onChange={(e) =>
-            onChange({
-              ...draft,
-              sucursal:
-                e.target.value === ''
-                  ? null
-                  : (e.target.value as Exclude<UserSucursal, null>),
-            })
-          }
-          className={cellInputClass}>
-          <option value=''>{t('users.draft.sucursalNone')}</option>
-          <option value='caballito'>{SUCURSAL_LABELS.caballito}</option>
-          <option value='merlo'>{SUCURSAL_LABELS.merlo}</option>
-          <option value='moreno'>{SUCURSAL_LABELS.moreno}</option>
-        </select>
-      </td>
-      <td className='py-3 px-3'>
-        <span className='inline-flex items-center gap-1.5 text-xs font-medium text-success'>
-          <span className='h-2 w-2 rounded-full bg-success' />
-          {t('users.status.active')}
-        </span>
-      </td>
-      <td className='py-3 px-3'>
-        <div className='flex items-center justify-end gap-1'>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type='button'
-                disabled={!isValid}
-                aria-label={t('users.action.save')}
-                onClick={onSave}
-                className='h-8 w-8 inline-flex items-center justify-center rounded-full bg-lightsuccess text-success hover:bg-success hover:text-white disabled:opacity-40 disabled:hover:bg-lightsuccess disabled:hover:text-success transition-colors'>
-                <Icon icon='tabler:check' height={16} width={16} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>{t('users.action.save')}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type='button'
-                aria-label={t('users.action.cancel')}
-                onClick={onCancel}
-                className='h-8 w-8 inline-flex items-center justify-center rounded-full bg-lighterror text-error hover:bg-error hover:text-white transition-colors'>
-                <Icon icon='tabler:x' height={16} width={16} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>{t('users.action.cancel')}</TooltipContent>
-          </Tooltip>
-        </div>
-      </td>
-    </tr>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className='max-w-[560px] max-h-[90vh] overflow-y-auto'>
+        <DialogHeader>
+          <DialogTitle>{t('users.dialog.title')}</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className='space-y-5 mt-2'>
+          {/* Avatar */}
+          <div>
+            <Label className='font-medium'>{t('users.dialog.avatarLabel')}</Label>
+            <div className='flex items-start gap-4 mt-2'>
+              <div className='relative'>
+                <Avatar className='size-20 ring-1 ring-border dark:ring-darkborder'>
+                  {draft.avatarUrl && (
+                    <AvatarImage
+                      src={draft.avatarUrl}
+                      alt='Avatar'
+                      className='object-cover'
+                    />
+                  )}
+                  <AvatarFallback className='bg-lightprimary text-primary'>
+                    <Icon
+                      icon='solar:user-bold-duotone'
+                      height={42}
+                      width={42}
+                    />
+                  </AvatarFallback>
+                </Avatar>
+                <button
+                  type='button'
+                  aria-label={t('users.dialog.avatarEdit')}
+                  onClick={() => fileInputRef.current?.click()}
+                  className='absolute -top-1 -right-1 h-7 w-7 inline-flex items-center justify-center rounded-full bg-background border border-border dark:border-darkborder shadow-sm text-link dark:text-darklink hover:text-primary hover:border-primary transition-colors'>
+                  <Icon icon='solar:pen-line-duotone' height={14} width={14} />
+                </button>
+                {draft.avatarUrl && (
+                  <button
+                    type='button'
+                    aria-label={t('users.dialog.avatarRemove')}
+                    onClick={() =>
+                      setDraft((d) => ({ ...d, avatarUrl: undefined }))
+                    }
+                    className='absolute -bottom-1 -right-1 h-7 w-7 inline-flex items-center justify-center rounded-full bg-background border border-border dark:border-darkborder shadow-sm text-link dark:text-darklink hover:text-error hover:border-error transition-colors'>
+                    <Icon icon='tabler:x' height={14} width={14} />
+                  </button>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type='file'
+                  accept='.png,.jpg,.jpeg,image/png,image/jpeg'
+                  className='hidden'
+                  onChange={handleFile}
+                />
+              </div>
+            </div>
+            <p className='text-xs text-link dark:text-darklink mt-3'>
+              {t('users.dialog.avatarAllowed')}
+            </p>
+          </div>
+
+          {/* Full name */}
+          <div>
+            <Label htmlFor='draft-name' className='font-medium mb-1.5 block'>
+              {t('users.dialog.nameLabel')}{' '}
+              <span className='text-error'>*</span>
+            </Label>
+            <input
+              id='draft-name'
+              type='text'
+              value={draft.fullName}
+              onChange={(e) =>
+                setDraft({ ...draft, fullName: e.target.value })
+              }
+              placeholder={t('users.dialog.namePlaceholder')}
+              className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+            />
+          </div>
+
+          {/* Email */}
+          <div>
+            <Label htmlFor='draft-email' className='font-medium mb-1.5 block'>
+              {t('users.dialog.emailLabel')}{' '}
+              <span className='text-error'>*</span>
+            </Label>
+            <input
+              id='draft-email'
+              type='email'
+              value={draft.email}
+              onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+              placeholder={t('users.dialog.emailPlaceholder')}
+              className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+            />
+          </div>
+
+          {/* Role */}
+          <div>
+            <Label className='font-medium mb-2 block'>
+              {t('users.dialog.roleLabel')}{' '}
+              <span className='text-error'>*</span>
+            </Label>
+            <RadioGroup
+              value={draft.role}
+              onValueChange={(v) => setDraft({ ...draft, role: v as UserRole })}
+              className='space-y-0 rounded-md border border-border dark:border-darkborder overflow-hidden'>
+              {ROLE_OPTIONS.map((opt, i) => (
+                <div
+                  key={opt.value}
+                  className={`flex items-start gap-3 p-3 ${
+                    i < ROLE_OPTIONS.length - 1
+                      ? 'border-b border-border dark:border-darkborder'
+                      : ''
+                  } ${
+                    draft.role === opt.value
+                      ? 'bg-lightprimary/30'
+                      : 'hover:bg-muted/40'
+                  } transition-colors`}>
+                  <RadioGroupItem value={opt.value} id={`role-${opt.value}`} className='mt-0.5' />
+                  <Label
+                    htmlFor={`role-${opt.value}`}
+                    className='flex-1 cursor-pointer'>
+                    <div className='text-sm font-semibold text-dark dark:text-white'>
+                      {t(opt.labelKey)}
+                    </div>
+                    <div className='text-xs text-link dark:text-darklink font-normal mt-0.5'>
+                      {t(opt.descriptionKey)}
+                    </div>
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+
+          {/* Sucursal */}
+          <div>
+            <Label htmlFor='draft-sucursal' className='font-medium mb-1.5 block'>
+              {t('users.dialog.sucursalLabel')}
+            </Label>
+            <select
+              id='draft-sucursal'
+              value={draft.sucursal ?? ''}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  sucursal:
+                    e.target.value === ''
+                      ? null
+                      : (e.target.value as Exclude<UserSucursal, null>),
+                })
+              }
+              className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
+              <option value=''>{t('users.dialog.sucursalNone')}</option>
+              <option value='caballito'>{SUCURSAL_LABELS.caballito}</option>
+              <option value='merlo'>{SUCURSAL_LABELS.merlo}</option>
+              <option value='moreno'>{SUCURSAL_LABELS.moreno}</option>
+            </select>
+          </div>
+
+          {/* Footer buttons */}
+          <div className='flex items-center justify-end gap-3 pt-2'>
+            <button
+              type='button'
+              onClick={() => onOpenChange(false)}
+              className='px-4 py-2 rounded-md text-sm font-medium text-dark dark:text-white border border-border dark:border-darkborder hover:bg-muted/40 transition-colors'>
+              {t('users.dialog.discard')}
+            </button>
+            <button
+              type='submit'
+              disabled={!isValid}
+              className='px-4 py-2 rounded-md text-sm font-medium bg-primary text-white hover:bg-primaryemphasis disabled:opacity-50 disabled:cursor-not-allowed transition-colors'>
+              {t('users.dialog.submit')}
+            </button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -317,7 +478,7 @@ export function UsersTable() {
   const [nameSort, setNameSort] = useState<SortDir>('asc')
   const [pageSize, setPageSize] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
-  const [draft, setDraft] = useState<DraftUser | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
 
   // Filter + sort
   const filtered = useMemo(() => {
@@ -386,35 +547,19 @@ export function UsersTable() {
     setUsers((prev) => prev.filter((u) => !selected.has(u.id)))
     setSelected(new Set())
   }
-  function startCreate() {
-    setDraft({
-      fullName: '',
-      email: '',
-      role: 'operador',
-      sucursal: null,
-    })
-    setCurrentPage(1)
-  }
-  function saveDraft() {
-    if (!draft) return
-    const isValid =
-      draft.fullName.trim().length > 0 &&
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim())
-    if (!isValid) return
+  function createUser(draft: DraftUser) {
     const newUser: AppUser = {
       id: `new-${Date.now()}`,
-      fullName: draft.fullName.trim(),
-      email: draft.email.trim(),
+      fullName: draft.fullName,
+      email: draft.email,
       role: draft.role,
       sucursal: draft.sucursal,
+      avatarUrl: draft.avatarUrl,
       status: 'active',
       createdAt: new Date().toISOString(),
     }
     setUsers((prev) => [newUser, ...prev])
-    setDraft(null)
-  }
-  function cancelDraft() {
-    setDraft(null)
+    setCurrentPage(1)
   }
 
   // Filter pills config
@@ -422,6 +567,7 @@ export function UsersTable() {
     { value: 'all', labelKey: 'users.filter.all' },
     { value: 'admin', labelKey: 'users.filter.admin' },
     { value: 'operador', labelKey: 'users.filter.operador' },
+    { value: 'profesional', labelKey: 'users.filter.profesional' },
   ]
 
   return (
@@ -505,9 +651,8 @@ export function UsersTable() {
 
           <button
             type='button'
-            onClick={startCreate}
-            disabled={draft !== null}
-            className='px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis disabled:opacity-50 disabled:cursor-not-allowed transition-colors'>
+            onClick={() => setCreateOpen(true)}
+            className='px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
             {t('users.create')}
           </button>
         </div>
@@ -561,16 +706,7 @@ export function UsersTable() {
               </tr>
             </thead>
             <tbody>
-              {draft && (
-                <DraftRow
-                  draft={draft}
-                  onChange={setDraft}
-                  onSave={saveDraft}
-                  onCancel={cancelDraft}
-                  t={t}
-                />
-              )}
-              {paged.length === 0 && !draft ? (
+              {paged.length === 0 ? (
                 <tr>
                   <td
                     colSpan={7}
@@ -722,6 +858,14 @@ export function UsersTable() {
         </div>
 
       </div>
+
+      {/* Create user dialog */}
+      <AddUserDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreate={createUser}
+        t={t}
+      />
     </div>
   )
 }

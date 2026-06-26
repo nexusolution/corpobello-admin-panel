@@ -1,6 +1,6 @@
 // Mock app_users — replaced by Supabase queries once auth + data layer land.
 
-export type UserRole = 'admin' | 'operador'
+export type UserRole = 'admin' | 'operador' | 'profesional'
 export type UserStatus = 'active' | 'inactive'
 export type UserSucursal = 'caballito' | 'merlo' | 'moreno' | null
 
