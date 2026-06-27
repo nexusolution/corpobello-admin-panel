@@ -84,7 +84,7 @@ function SearchBox({
   }
 
   return (
-    <div className='relative w-[280px]'>
+    <div className='relative flex-1 sm:flex-none sm:w-[280px]'>
       <Icon
         icon='solar:magnifer-linear'
         height={16}
@@ -98,7 +98,7 @@ function SearchBox({
         onChange={(e) => onChange(e.target.value)}
         onBlur={handleBlur}
         placeholder={placeholder}
-        className='w-full pl-9 pr-9 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+        className='w-full min-w-0 pl-9 pr-9 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
       />
       <button
         type='button'
@@ -885,13 +885,13 @@ export function UsersTable() {
       </div>
 
       {/* Card container */}
-      <div className='rounded-lg border border-border dark:border-darkborder bg-card p-6'>
-        {/* Top row: title + icon actions */}
-        <div className='flex items-center justify-between mb-6'>
+      <div className='rounded-lg border border-border dark:border-darkborder bg-card p-4 sm:p-6'>
+        {/* Top row: title + icon actions — stacks on mobile */}
+        <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6'>
           <h2 className='text-lg font-semibold text-dark dark:text-white'>
             {t('users.pageTitle')}
           </h2>
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-2 w-full sm:w-auto justify-end'>
             <SearchBox
               value={search}
               onChange={setSearch}
@@ -978,34 +978,36 @@ export function UsersTable() {
           </div>
         </div>
 
-        {/* Filter pills + Create user button */}
-        <div className='flex items-center justify-between mb-6 flex-wrap gap-3'>
-          <div className='inline-flex p-1 rounded-md bg-muted/50 dark:bg-darkmuted/40'>
-            {filterPills.map((pill) => {
-              const active = pill.value === roleFilter
-              return (
-                <button
-                  key={pill.value}
-                  type='button'
-                  onClick={() => {
-                    setRoleFilter(pill.value)
-                    setCurrentPage(1)
-                  }}
-                  className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${
-                    active
-                      ? 'bg-primary text-white'
-                      : 'text-link dark:text-darklink hover:text-primary'
-                  }`}>
-                  {t(pill.labelKey)}
-                </button>
-              )
-            })}
+        {/* Filter pills + Create user button — stack on mobile */}
+        <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3'>
+          <div className='-mx-1 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
+            <div className='inline-flex p-1 mx-1 rounded-md bg-muted/50 dark:bg-darkmuted/40'>
+              {filterPills.map((pill) => {
+                const active = pill.value === roleFilter
+                return (
+                  <button
+                    key={pill.value}
+                    type='button'
+                    onClick={() => {
+                      setRoleFilter(pill.value)
+                      setCurrentPage(1)
+                    }}
+                    className={`px-4 py-1.5 rounded text-sm font-medium whitespace-nowrap transition-colors ${
+                      active
+                        ? 'bg-primary text-white'
+                        : 'text-link dark:text-darklink hover:text-primary'
+                    }`}>
+                    {t(pill.labelKey)}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           <button
             type='button'
             onClick={openCreate}
-            className='px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
+            className='w-full sm:w-auto px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
             {t('users.create')}
           </button>
         </div>
