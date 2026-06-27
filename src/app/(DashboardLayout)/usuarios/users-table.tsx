@@ -385,6 +385,10 @@ function AddUserDialog({
       ),
       icon: 'warning',
       iconColor: '#ffae1f',
+      // swal2's built-in warning glyph uses fixed-offset positioning that
+      // clips outside the circle when the icon is shrunk. Render our own.
+      iconHtml:
+        '<span style="font-size:30px;line-height:1;color:#ffae1f;font-weight:700;">!</span>',
       showCancelButton: true,
       confirmButtonText: t('users.dialog.cancelConfirmYes'),
       cancelButtonText: t('users.dialog.cancelConfirmNo'),
@@ -777,6 +781,9 @@ export function UsersTable() {
       text: body,
       icon: 'warning',
       iconColor: '#ef4444',
+      // swal2's built-in warning glyph clips outside the circle when shrunk.
+      iconHtml:
+        '<span style="font-size:30px;line-height:1;color:#ef4444;font-weight:700;">!</span>',
       showCancelButton: true,
       confirmButtonText: t('users.delete.confirmYes'),
       cancelButtonText: t('users.delete.confirmNo'),
