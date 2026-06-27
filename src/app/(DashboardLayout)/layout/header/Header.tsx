@@ -173,9 +173,15 @@ const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
                           return (
                             <DropdownMenuItem
                               key={child.id}
-                              onSelect={(e) => {
-                                e.preventDefault()
-                                showUnderDevelopmentAlert(label, t)
+                              onSelect={() => {
+                                // Let Radix close the dropdown in this tick;
+                                // defer Swal to the next tick so its buttons
+                                // aren't intercepted by the dropdown's focus
+                                // scope. Without this, the first "Got it"
+                                // click is swallowed and a second is needed.
+                                setTimeout(() => {
+                                  showUnderDevelopmentAlert(label, t)
+                                }, 0)
                               }}
                               className='px-4 py-2 flex items-center gap-2 cursor-pointer text-sm hover:bg-lightprimary hover:text-primary'>
                               {child.icon && (
