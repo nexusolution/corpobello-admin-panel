@@ -31,7 +31,7 @@ export default function Layout({
             {/* Top Header  */}
             <Header onToggleSidebar={() => setCollapsed((c) => !c)} />
             {/* Body Content  */}
-            <div className={`container mx-auto px-6 py-30`}>{children}</div>
+            <div className='w-full px-6 py-30'>{children}</div>
           </div>
         </div>
       </div>
