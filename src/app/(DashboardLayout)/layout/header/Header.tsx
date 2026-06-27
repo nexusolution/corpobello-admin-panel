@@ -4,10 +4,12 @@ import { useState, useEffect, useRef } from 'react'
 import { useTheme } from 'next-themes'
 import { Icon } from '@iconify/react'
 import Link from 'next/link'
+import Swal from 'sweetalert2'
 import Profile from './Profile'
 import Language from './Language'
 import Notifications from './Notifications'
 import SidebarLayout from '../sidebar/Sidebar'
+import SidebarContent from '../sidebar/Sidebaritems'
 import FullLogo from '../shared/logo/FullLogo'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
@@ -17,21 +19,49 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
+import { useTranslation } from '@/lib/i18n/context'
+import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
-const appLinks = [
-  { name: 'Notes', url: '/apps/notes' },
-  { name: 'Tickets', url: '/apps/tickets' },
-  { name: 'Blog', url: '/apps/blog/post' },
-]
+type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 
-const navLinks = [
-  { name: 'Chat', url: 'https://modernize-tailwind-nextjs-main.vercel.app/apps/chats' },
-  { name: 'Calendar', url: 'https://modernize-tailwind-nextjs-main.vercel.app/apps/calendar' },
-  { name: 'Email', url: 'https://modernize-tailwind-nextjs-main.vercel.app/apps/email' },
-]
+// Section trigger icon per sidebar heading. Distinct from child icons.
+const SECTION_ICONS: Record<string, string> = {
+  'sidebar.operations': 'solar:widget-2-line-duotone',
+  'sidebar.clinical': 'solar:health-line-duotone',
+  'sidebar.inventory': 'solar:box-line-duotone',
+  'sidebar.reports': 'solar:chart-line-duotone',
+  'sidebar.administration': 'solar:shield-user-line-duotone',
+}
+
+const showUnderDevelopmentAlert = (itemName: string, t: TFn) => {
+  const isDark =
+    typeof document !== 'undefined' &&
+    document.documentElement.classList.contains('dark')
+
+  Swal.fire({
+    title: t('alerts.underDevelopmentTitle'),
+    text: t('alerts.underDevelopmentBody', { section: itemName }),
+    icon: 'info',
+    iconColor: '#5d87ff',
+    confirmButtonText: t('alerts.underDevelopmentButton'),
+    confirmButtonColor: '#5d87ff',
+    background: isDark ? '#2a3547' : '#ffffff',
+    color: isDark ? '#ffffff' : '#2a3547',
+    width: '360px',
+    padding: '1rem',
+    customClass: {
+      title: '!text-base !font-semibold !pb-0',
+      htmlContainer: '!text-sm !mt-2',
+      icon: '!w-12 !h-12 !mt-2 !mb-1 [&_.swal2-icon-content]:!text-2xl',
+      confirmButton: '!text-sm !px-4 !py-1.5',
+      popup: '!rounded-lg',
+    },
+  })
+}
 
 const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
   const { theme, setTheme } = useTheme()
+  const { t } = useTranslation()
   const [isSticky, setIsSticky] = useState(false)
   const [mobileMenu, setMobileMenu] = useState('')
   const [isOpen, setIsOpen] = useState(false)
@@ -117,44 +147,61 @@ const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
                 <Icon icon='tabler:menu-2' height={20} width={20} />
               </button>
 
-              {/* Search Icon */}
-              <button
-                aria-label='Search'
-                className='p-2 rounded-full text-link dark:text-darklink hover:bg-lightprimary hover:text-primary cursor-pointer'>
-                <Icon icon='solar:magnifer-linear' height={20} width={20} />
-              </button>
-
-              {/* Apps Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className='flex items-center gap-1 px-3 py-2 text-sm font-medium text-link dark:text-darklink hover:text-primary cursor-pointer'>
-                    Apps
-                    <Icon icon='tabler:chevron-down' height={16} width={16} />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align='start' className='w-[180px] py-2 rounded-sm'>
-                  {appLinks.map((item) => (
-                    <DropdownMenuItem key={item.name} asChild>
-                      <Link
-                        href={item.url}
-                        className='px-4 py-2 flex items-center w-full text-sm hover:bg-lightprimary hover:text-primary'>
-                        {item.name}
-                      </Link>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Nav Links */}
-              {navLinks.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.url}
-                  target='_blank'
-                  className='px-3 py-2 text-sm font-medium text-link dark:text-darklink hover:text-primary'>
-                  {item.name}
-                </Link>
-              ))}
+              {/* Section dropdowns — mirror the sidebar IA */}
+              {SidebarContent.map((section) => {
+                if (!section.headingKey || !section.children) return null
+                const sectionIcon =
+                  SECTION_ICONS[section.headingKey] ??
+                  'solar:widget-2-line-duotone'
+                return (
+                  <DropdownMenu key={section.headingKey}>
+                    <DropdownMenuTrigger asChild>
+                      <button className='flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-link dark:text-darklink hover:text-primary cursor-pointer'>
+                        <Icon icon={sectionIcon} height={18} width={18} />
+                        {t(section.headingKey)}
+                        <Icon icon='tabler:chevron-down' height={14} width={14} />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align='start'
+                      className='w-[220px] py-2 rounded-md'>
+                      {section.children.map((child) => {
+                        const label = child.nameKey
+                          ? t(child.nameKey)
+                          : child.name ?? ''
+                        if (child.underDevelopment) {
+                          return (
+                            <DropdownMenuItem
+                              key={child.id}
+                              onSelect={(e) => {
+                                e.preventDefault()
+                                showUnderDevelopmentAlert(label, t)
+                              }}
+                              className='px-4 py-2 flex items-center gap-2 cursor-pointer text-sm hover:bg-lightprimary hover:text-primary'>
+                              {child.icon && (
+                                <Icon icon={child.icon} height={16} width={16} />
+                              )}
+                              {label}
+                            </DropdownMenuItem>
+                          )
+                        }
+                        return (
+                          <DropdownMenuItem key={child.id} asChild>
+                            <Link
+                              href={child.url}
+                              className='px-4 py-2 flex items-center gap-2 w-full text-sm hover:bg-lightprimary hover:text-primary'>
+                              {child.icon && (
+                                <Icon icon={child.icon} height={16} width={16} />
+                              )}
+                              {label}
+                            </Link>
+                          </DropdownMenuItem>
+                        )
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )
+              })}
             </div>
             <div className='flex w-full justify-end items-end'>
               <div className='flex gap-0 items-center '>
@@ -210,28 +257,6 @@ const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
 
             {/* Notifications */}
             <Notifications />
-
-            {/* Apps */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  aria-label='Apps'
-                  className='text-link dark:text-darklink hover:text-primary cursor-pointer'>
-                  <Icon icon='tabler:layout-grid' height={20} width={20} />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align='center' className='w-[180px] py-2 rounded-sm'>
-                {appLinks.map((item) => (
-                  <DropdownMenuItem key={item.name} asChild>
-                    <Link
-                      href={item.url}
-                      className='px-4 py-2 flex items-center w-full text-sm hover:bg-lightprimary hover:text-primary'>
-                      {item.name}
-                    </Link>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
 
             {/* Language */}
             <Language />
