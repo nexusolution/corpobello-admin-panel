@@ -242,14 +242,14 @@ export const Login = () => {
       {/* Brand column — top on mobile, right on desktop */}
       <div
         className='order-1 lg:order-2 flex flex-col items-center justify-center relative overflow-hidden px-6 lg:px-12 py-4 lg:py-12 bg-cover bg-center lg:min-h-screen'
-        style={{ backgroundImage: "url('/images/backgrounds/auth-bg3.webp')" }}>
+        style={{ backgroundImage: "url('/images/backgrounds/auth-bg.png')" }}>
         {/* Subtle dark overlay for text legibility regardless of image tone */}
         <div className='absolute inset-0 bg-black/20' />
 
         {/* Brand mark — Corpo Bello logo (smaller on mobile) */}
         <div className='flex flex-col items-center lg:mb-8 z-10'>
           <img
-            src='/images/logos/logo_2.webp'
+            src='/images/logos/auth-logo.webp'
             alt='Corpo Bello'
             className='h-28 lg:h-60 w-auto drop-shadow-lg'
           />
