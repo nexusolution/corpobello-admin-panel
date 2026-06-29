@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useTheme } from 'next-themes'
 import { usePathname } from 'next/navigation'
 import Swal from 'sweetalert2'
 import SidebarContent from './Sidebaritems'
@@ -165,11 +164,10 @@ const SidebarLayout = ({
   isCollapse?: boolean
 }) => {
   const pathname = usePathname()
-  const { theme } = useTheme()
   const { t } = useTranslation()
 
-  // Only allow "light" or "dark" for AMSidebar
-  const sidebarMode = theme === 'light' || theme === 'dark' ? theme : undefined
+  // Sidebar stays dark regardless of theme so menu text reads on the black bg.
+  const sidebarMode: 'light' | 'dark' = 'dark'
 
   return (
     <AMSidebar
@@ -180,7 +178,7 @@ const SidebarLayout = ({
       isCollapse={isCollapse}
       showTrigger={false}
       mode={sidebarMode}
-      className='fixed left-0 top-0 border-r border-border dark:border-darkborder bg-white dark:bg-dark z-10 h-screen'>
+      className='fixed left-0 top-0 border-r border-border dark:border-darkborder bg-black dark:bg-black z-10 h-screen'>
       {/* Logo */}
       <div
         className={`flex items-center brand-logo overflow-hidden bg-primaryemphasis !m-0 !w-full !border-0 ${
@@ -231,7 +229,7 @@ const SidebarLayout = ({
 
       {/* Fixed Profile Card */}
       <div
-        className={`absolute bottom-0 left-0 w-full pt-2 pb-4 bg-white dark:bg-dark ${
+        className={`absolute bottom-0 left-0 w-full pt-2 pb-4 bg-black dark:bg-black ${
           isCollapse ? 'px-2' : 'px-6'
         }`}>
         {isCollapse ? (
