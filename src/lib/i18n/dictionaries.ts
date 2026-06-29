@@ -61,8 +61,10 @@ export const dictionaries = {
     'kanban.tooltip.photos': 'Fotos adjuntas',
     'kanban.tooltip.more': 'Acciones de la tarjeta',
     'kanban.tooltip.addLead': 'Agregar lead',
+    'kanban.tooltip.changeColor': 'Cambiar color',
     'kanban.tooltip.columnActions': 'Acciones de la columna',
     // Kanban menu actions
+    'kanban.menu.addLead': 'Agregar lead',
     'kanban.menu.edit': 'Editar',
     'kanban.menu.delete': 'Eliminar',
     'kanban.menu.clearAll': 'Vaciar columna',
@@ -201,8 +203,10 @@ export const dictionaries = {
     'kanban.tooltip.photos': 'Attached photos',
     'kanban.tooltip.more': 'Card actions',
     'kanban.tooltip.addLead': 'Add lead',
+    'kanban.tooltip.changeColor': 'Change color',
     'kanban.tooltip.columnActions': 'Column actions',
     // Kanban menu actions
+    'kanban.menu.addLead': 'Add lead',
     'kanban.menu.edit': 'Edit',
     'kanban.menu.delete': 'Delete',
     'kanban.menu.clearAll': 'Clear all',

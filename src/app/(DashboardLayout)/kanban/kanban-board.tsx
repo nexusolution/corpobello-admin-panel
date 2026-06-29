@@ -208,6 +208,23 @@ function SortableLeadCard({
   )
 }
 
+// Color picker palette for column dots. Tailwind classes so they pick up the
+// project's theme tokens (info / warning / etc.) plus a few generic hues.
+const COLUMN_COLOR_OPTIONS: readonly string[] = [
+  'bg-info',
+  'bg-warning',
+  'bg-secondary',
+  'bg-primary',
+  'bg-purple-500',
+  'bg-success',
+  'bg-error',
+  'bg-pink-500',
+  'bg-orange-500',
+  'bg-teal-500',
+  'bg-indigo-500',
+  'bg-gray-400',
+] as const
+
 function KanbanColumn({
   columnId,
   name,
@@ -218,6 +235,7 @@ function KanbanColumn({
   onAddLead,
   onClearColumn,
   onDeleteLead,
+  onChangeColor,
 }: {
   columnId: LeadStatus
   name: string
@@ -228,6 +246,7 @@ function KanbanColumn({
   onAddLead: (columnId: LeadStatus) => void
   onClearColumn: (columnId: LeadStatus) => void
   onDeleteLead: (id: string) => void
+  onChangeColor: (columnId: LeadStatus, color: string) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: columnId })
 
@@ -247,19 +266,42 @@ function KanbanColumn({
         </div>
 
         <div className='flex items-center gap-1'>
-          {/* + Add lead */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type='button'
-                aria-label={t('kanban.tooltip.addLead')}
-                onClick={() => onAddLead(columnId)}
-                className='h-6 w-6 flex items-center justify-center rounded-full border border-border dark:border-darkborder text-link dark:text-darklink hover:text-primary hover:border-primary transition-colors'>
-                <Icon icon='tabler:plus' height={14} width={14} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>{t('kanban.tooltip.addLead')}</TooltipContent>
-          </Tooltip>
+          {/* Color picker — the + button now opens a swatch grid */}
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type='button'
+                    aria-label={t('kanban.tooltip.changeColor')}
+                    className='h-6 w-6 flex items-center justify-center rounded-full border border-border dark:border-darkborder text-link dark:text-darklink hover:text-primary hover:border-primary transition-colors'>
+                    <Icon icon='tabler:plus' height={14} width={14} />
+                  </button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>{t('kanban.tooltip.changeColor')}</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align='end' className='p-2 w-auto'>
+              <div className='grid grid-cols-6 gap-1.5'>
+                {COLUMN_COLOR_OPTIONS.map((color) => {
+                  const isCurrent = color === dotColor
+                  return (
+                    <button
+                      key={color}
+                      type='button'
+                      onClick={() => onChangeColor(columnId, color)}
+                      aria-label={color}
+                      className={`size-6 rounded-full ${color} hover:scale-110 transition-transform ${
+                        isCurrent
+                          ? 'ring-2 ring-offset-2 ring-primary ring-offset-card'
+                          : ''
+                      }`}
+                    />
+                  )
+                })}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Column actions dropdown */}
           <DropdownMenu>
@@ -272,6 +314,10 @@ function KanbanColumn({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align='end' className='w-44'>
+              <DropdownMenuItem onClick={() => onAddLead(columnId)}>
+                <Icon icon='tabler:plus' height={16} width={16} className='mr-2' />
+                {t('kanban.menu.addLead')}
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => { /* edit column — schema-level, deferred */ }}>
                 <Icon icon='solar:pen-line-duotone' height={16} width={16} className='mr-2' />
                 {t('kanban.menu.edit')}
@@ -450,6 +496,14 @@ export function KanbanBoard() {
   const [sucursalFilter, setSucursalFilter] = useState<Sucursal | 'all'>('all')
   const [search, setSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+  // Per-column dot color overrides. Falls back to the menu default when unset.
+  const [columnColors, setColumnColors] = useState<
+    Partial<Record<LeadStatus, string>>
+  >({})
+
+  function handleChangeColor(columnId: LeadStatus, color: string) {
+    setColumnColors((prev) => ({ ...prev, [columnId]: color }))
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
@@ -613,13 +667,14 @@ export function KanbanBoard() {
               key={column.id}
               columnId={column.id}
               name={t(column.nameKey)}
-              dotColor={column.dotColor}
+              dotColor={columnColors[column.id] ?? column.dotColor}
               leads={leadsByStatus[column.id] ?? []}
               emptyLabel={emptyLabel}
               t={t}
               onAddLead={handleAddLead}
               onClearColumn={handleClearColumn}
               onDeleteLead={handleDeleteLead}
+              onChangeColor={handleChangeColor}
             />
           ))}
         </div>
