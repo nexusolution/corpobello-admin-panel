@@ -51,6 +51,11 @@ export const dictionaries = {
     'kanban.col.pausado': 'Pausado',
     'kanban.col.archivado': 'Archivado',
     'kanban.col.cancelado': 'Cancelado',
+    'welcome.greeting': 'Bienvenido al panel, {name}',
+    'welcome.todaysSales': 'Ingresos de hoy',
+    'welcome.overallPerformance': 'Rendimiento general',
+    'welcome.expense': 'Gastos',
+    'welcome.sales': 'Ingresos',
     // Kanban relative time
     'kanban.time.justNow': 'hace unos minutos',
     'kanban.time.hours': 'hace {n} h',
@@ -234,6 +239,11 @@ export const dictionaries = {
     'kanban.col.pausado': 'Paused',
     'kanban.col.archivado': 'Archived',
     'kanban.col.cancelado': 'Cancelled',
+    'welcome.greeting': 'Welcome to your dashboard, {name}',
+    'welcome.todaysSales': "Today's Sales",
+    'welcome.overallPerformance': 'Overall Performance',
+    'welcome.expense': 'Expense',
+    'welcome.sales': 'Sales',
     // Kanban relative time
     'kanban.time.justNow': 'a few minutes ago',
     'kanban.time.hours': '{n}h ago',

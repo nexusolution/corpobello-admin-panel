@@ -8,6 +8,7 @@ import { ProductPerformance } from "../components/dashboard/ProductPerformance";
 import { Footer } from "../components/dashboard/Footer";
 import { BestSeller } from "../components/dashboard/BestSeller";
 import TopCards from "../components/dashboard/TopCards";
+import { WelcomeBanner } from "../components/dashboard/WelcomeBanner";
 
 const page = () => {
   return (
@@ -15,6 +16,9 @@ const page = () => {
       <div className="grid grid-cols-12 gap-6">
         <div className="col-span-12">
           <TopCards />
+        </div>
+        <div className="col-span-12">
+          <WelcomeBanner />
         </div>
         <div className="lg:col-span-8 col-span-12">
           <SalesOverview />
