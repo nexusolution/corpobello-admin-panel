@@ -97,9 +97,10 @@ export function WelcomeBanner() {
             {/* Right illustration — hidden on small screens */}
             <div className='hidden sm:block relative w-[260px] shrink-0'>
               <Image
-                src='/images/backgrounds/welcome-bg2.png'
+                src='/images/dashboard/Digital doctor.gif'
                 alt=''
                 fill
+                unoptimized
                 className='object-contain object-right p-2'
                 sizes='260px'
               />
