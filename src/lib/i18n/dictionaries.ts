@@ -68,6 +68,10 @@ export const dictionaries = {
     'kanban.menu.edit': 'Editar',
     'kanban.menu.delete': 'Eliminar',
     'kanban.menu.clearAll': 'Vaciar columna',
+    'kanban.lead.deleteConfirmTitle': '¿Eliminar lead?',
+    'kanban.lead.deleteConfirmBody': '"{name}" será eliminado de forma permanente.',
+    'kanban.lead.deleteConfirmYes': 'Sí, eliminar',
+    'kanban.lead.deleteConfirmNo': 'No, volver',
     // Kanban pagination
     'kanban.pagination.previous': 'Página anterior',
     'kanban.pagination.next': 'Página siguiente',
@@ -210,6 +214,10 @@ export const dictionaries = {
     'kanban.menu.edit': 'Edit',
     'kanban.menu.delete': 'Delete',
     'kanban.menu.clearAll': 'Clear all',
+    'kanban.lead.deleteConfirmTitle': 'Delete lead?',
+    'kanban.lead.deleteConfirmBody': '"{name}" will be permanently deleted.',
+    'kanban.lead.deleteConfirmYes': 'Yes, delete',
+    'kanban.lead.deleteConfirmNo': 'No, return',
     // Kanban pagination
     'kanban.pagination.previous': 'Previous page',
     'kanban.pagination.next': 'Next page',

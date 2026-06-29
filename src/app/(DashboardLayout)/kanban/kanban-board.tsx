@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Icon } from '@iconify/react'
+import Swal from 'sweetalert2'
 import {
   DndContext,
   DragOverlay,
@@ -59,6 +60,69 @@ function initials(name: string): string {
     .slice(0, 2)
     .map((p) => p[0]?.toUpperCase() ?? '')
     .join('')
+}
+
+function isDarkMode(): boolean {
+  return (
+    typeof document !== 'undefined' &&
+    document.documentElement.classList.contains('dark')
+  )
+}
+
+function showUnderDevelopmentAlert(itemName: string, t: TFn) {
+  const isDark = isDarkMode()
+  Swal.fire({
+    title: t('alerts.underDevelopmentTitle'),
+    text: t('alerts.underDevelopmentBody', { section: itemName }),
+    icon: 'info',
+    iconColor: '#5d87ff',
+    confirmButtonText: t('alerts.underDevelopmentButton'),
+    confirmButtonColor: '#5d87ff',
+    background: isDark ? '#2a3547' : '#ffffff',
+    color: isDark ? '#ffffff' : '#2a3547',
+    width: '360px',
+    padding: '1rem',
+    customClass: {
+      title: '!text-base !font-semibold !pb-0',
+      htmlContainer: '!text-sm !mt-2',
+      icon: '!w-12 !h-12 !mt-2 !mb-1 [&_.swal2-icon-content]:!text-2xl',
+      confirmButton: '!text-sm !px-4 !py-1.5',
+      popup: '!rounded-lg',
+    },
+  })
+}
+
+async function confirmDeleteLead(name: string, t: TFn): Promise<boolean> {
+  const isDark = isDarkMode()
+  const result = await Swal.fire({
+    title: t('kanban.lead.deleteConfirmTitle'),
+    text: t('kanban.lead.deleteConfirmBody', { name }),
+    icon: 'warning',
+    iconColor: '#ef4444',
+    iconHtml:
+      '<span style="font-size:30px;line-height:1;color:#ef4444;font-weight:700;">!</span>',
+    showCancelButton: true,
+    confirmButtonText: t('kanban.lead.deleteConfirmYes'),
+    cancelButtonText: t('kanban.lead.deleteConfirmNo'),
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: isDark ? '#3f4a5d' : '#e5e7eb',
+    background: isDark ? '#2a3547' : '#ffffff',
+    color: isDark ? '#ffffff' : '#2a3547',
+    width: '360px',
+    padding: '1.5rem 1rem',
+    customClass: {
+      title: '!text-base !font-semibold !pb-0 !mt-3',
+      htmlContainer: '!text-sm !mt-2',
+      icon: '!w-12 !h-12 !mt-2 !mb-2',
+      actions: '!gap-2 !mt-5',
+      confirmButton: '!text-sm !px-4 !py-1.5 !rounded-md',
+      cancelButton: `!text-sm !px-4 !py-1.5 !rounded-md ${
+        isDark ? '!text-white' : '!text-dark'
+      }`,
+      popup: '!rounded-lg',
+    },
+  })
+  return result.isConfirmed
 }
 
 function LeadCardBody({
@@ -151,18 +215,26 @@ function LeadCardBody({
           </DropdownMenuTrigger>
           <DropdownMenuContent align='end' className='w-40'>
             <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                // Edit currently navigates to detail (same target as card click)
-                window.location.href = `/pacientes/${lead.id}`
+              onSelect={(e) => {
+                e.preventDefault()
+                // Lead detail / edit page is not built yet (Etapa 1 scope).
+                // Defer so Radix dropdown closes first; otherwise its focus
+                // scope swallows the first click on the swal button.
+                setTimeout(() => {
+                  showUnderDevelopmentAlert(t('kanban.menu.edit'), t)
+                }, 0)
               }}>
               <Icon icon='solar:pen-line-duotone' height={16} width={16} className='mr-2' />
               {t('kanban.menu.edit')}
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                onDelete?.(lead.id)
+              onSelect={(e) => {
+                e.preventDefault()
+                // Defer + confirm before destroying.
+                setTimeout(async () => {
+                  const ok = await confirmDeleteLead(lead.patientName, t)
+                  if (ok) onDelete?.(lead.id)
+                }, 0)
               }}
               className='text-error focus:text-error focus:bg-error/10'>
               <Icon icon='solar:trash-bin-trash-line-duotone' height={16} width={16} className='mr-2' />
