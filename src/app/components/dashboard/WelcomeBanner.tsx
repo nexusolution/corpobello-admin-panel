@@ -54,14 +54,9 @@ export function WelcomeBanner() {
           <div className='flex items-stretch h-full'>
             {/* Left content */}
             <div className='flex-1 min-w-0 p-6 z-10 relative flex flex-col justify-center'>
-              <div className='flex items-center gap-3 mb-5'>
-                <div className='h-10 w-10 rounded-full bg-white dark:bg-dark ring-1 ring-border dark:ring-darkborder flex items-center justify-center text-primary font-semibold text-sm shrink-0'>
-                  A
-                </div>
-                <p className='text-sm sm:text-base font-medium text-dark dark:text-white'>
-                  {t('welcome.greeting', { name: 'Andrés' })}
-                </p>
-              </div>
+              <h2 className='text-lg sm:text-xl font-semibold text-dark dark:text-white mb-5'>
+                {t('welcome.title')}
+              </h2>
 
               <div className='grid grid-cols-2 gap-x-6 gap-y-4'>
                 <div>
