@@ -124,6 +124,38 @@ main {
   .left-part {
     @apply p-6 border-e border-defaultBorder;
   }
+
+  /* Auto-hiding scrollbar: track stays invisible, thumb fades in on hover/focus.
+     Used inside modal bodies that need to scroll without showing a permanent
+     scrollbar gutter. */
+  .scrollbar-hover {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 0.2s ease;
+  }
+  .scrollbar-hover:hover,
+  .scrollbar-hover:focus-within {
+    scrollbar-color: rgba(122, 138, 165, 0.4) transparent;
+  }
+  .scrollbar-hover::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-hover::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-hover::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 4px;
+    transition: background 0.2s ease;
+  }
+  .scrollbar-hover:hover::-webkit-scrollbar-thumb,
+  .scrollbar-hover:focus-within::-webkit-scrollbar-thumb {
+    background: rgba(122, 138, 165, 0.4);
+  }
+  .scrollbar-hover::-webkit-scrollbar-thumb:hover {
+    background: rgba(122, 138, 165, 0.6);
+  }
 }
 
 @layer components {

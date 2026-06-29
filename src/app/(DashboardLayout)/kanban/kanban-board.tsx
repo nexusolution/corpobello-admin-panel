@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
 import { Icon } from '@iconify/react'
 import Swal from 'sweetalert2'
 import {
@@ -30,6 +29,7 @@ import {
   type LeadStatus,
   type Sucursal,
 } from './mock-data'
+import { LeadDetailDialog } from './lead-detail-dialog'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 import {
@@ -258,10 +258,12 @@ function SortableLeadCard({
   lead,
   t,
   onDelete,
+  onOpenDetail,
 }: {
   lead: Lead
   t: TFn
   onDelete: (id: string) => void
+  onOpenDetail: (lead: Lead) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: lead.id })
@@ -277,12 +279,11 @@ function SortableLeadCard({
       {...attributes}
       {...listeners}
       className='rounded-md border border-border dark:border-darkborder bg-card p-3 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow'>
-      <Link
-        href={`/pacientes/${lead.id}`}
-        onClick={(e) => e.stopPropagation()}
+      <div
+        onClick={() => onOpenDetail(lead)}
         className='block'>
         <LeadCardBody lead={lead} t={t} onDelete={onDelete} />
-      </Link>
+      </div>
     </div>
   )
 }
@@ -333,6 +334,7 @@ function KanbanColumn({
   onClearColumn,
   onDeleteLead,
   onChangeColor,
+  onOpenDetail,
 }: {
   columnId: LeadStatus
   name: string
@@ -344,6 +346,7 @@ function KanbanColumn({
   onClearColumn: (columnId: LeadStatus) => void
   onDeleteLead: (id: string) => void
   onChangeColor: (columnId: LeadStatus, color: string) => void
+  onOpenDetail: (lead: Lead) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: columnId })
 
@@ -443,7 +446,13 @@ function KanbanColumn({
         strategy={verticalListSortingStrategy}>
         <div className='flex flex-col gap-2 min-h-[20px]'>
           {leads.map((lead) => (
-            <SortableLeadCard key={lead.id} lead={lead} t={t} onDelete={onDeleteLead} />
+            <SortableLeadCard
+              key={lead.id}
+              lead={lead}
+              t={t}
+              onDelete={onDeleteLead}
+              onOpenDetail={onOpenDetail}
+            />
           ))}
           {leads.length === 0 && (
             <p className='text-xs text-link dark:text-darklink text-center py-6 italic'>
@@ -600,9 +609,48 @@ export function KanbanBoard() {
   const [columnColors, setColumnColors] = useState<
     Partial<Record<LeadStatus, string>>
   >({})
+  // Selected lead for the detail modal. Open when non-null.
+  const [detailLeadId, setDetailLeadId] = useState<string | null>(null)
+  const detailLead = useMemo(
+    () => leads.find((l) => l.id === detailLeadId) ?? null,
+    [leads, detailLeadId]
+  )
 
   function handleChangeColor(columnId: LeadStatus, color: string) {
     setColumnColors((prev) => ({ ...prev, [columnId]: color }))
+  }
+  function handleOpenDetail(lead: Lead) {
+    setDetailLeadId(lead.id)
+  }
+  function handleCloseDetail(next: boolean) {
+    if (!next) setDetailLeadId(null)
+  }
+  function handleChangeLeadStatus(id: string, status: LeadStatus) {
+    setLeads((prev) =>
+      prev.map((l) => (l.id === id ? { ...l, status } : l))
+    )
+  }
+  function handleArchiveLead(id: string) {
+    setLeads((prev) =>
+      prev.map((l) => (l.id === id ? { ...l, status: 'archivado' as LeadStatus } : l))
+    )
+    setDetailLeadId(null)
+  }
+  function handleAddNote(id: string, text: string) {
+    setLeads((prev) =>
+      prev.map((l) =>
+        l.id === id
+          ? {
+              ...l,
+              internalNotes: [
+                ...(l.internalNotes ?? []),
+                { text, author: 'Andrés', createdAtHoursAgo: 0 },
+              ],
+              notesCount: (l.notesCount ?? 0) + 1,
+            }
+          : l
+      )
+    )
   }
 
   const sensors = useSensors(
@@ -775,6 +823,7 @@ export function KanbanBoard() {
               onClearColumn={handleClearColumn}
               onDeleteLead={handleDeleteLead}
               onChangeColor={handleChangeColor}
+              onOpenDetail={handleOpenDetail}
             />
           ))}
         </div>
@@ -786,6 +835,16 @@ export function KanbanBoard() {
           )}
         </DragOverlay>
       </DndContext>
+
+      {/* Lead detail modal — opens on card click */}
+      <LeadDetailDialog
+        lead={detailLead}
+        open={detailLeadId !== null}
+        onOpenChange={handleCloseDetail}
+        onChangeStatus={handleChangeLeadStatus}
+        onArchive={handleArchiveLead}
+        onAddNote={handleAddNote}
+      />
     </div>
   )
 }
