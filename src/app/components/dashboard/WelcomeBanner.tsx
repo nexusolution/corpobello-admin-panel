@@ -1,11 +1,16 @@
 'use client'
 
-import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import { Icon } from '@iconify/react'
 
 import { Card } from '@/components/ui/card'
 import { useTranslation } from '@/lib/i18n/context'
+
+// Lottie player — touches DOM APIs, must be client-only
+const DotLottieReact = dynamic(
+  () => import('@lottiefiles/dotlottie-react').then((m) => m.DotLottieReact),
+  { ssr: false }
+)
 
 // ApexCharts uses window — must be client-only
 const Chart = dynamic(() => import('react-apexcharts'), { ssr: false })
@@ -94,15 +99,12 @@ export function WelcomeBanner() {
               </div>
             </div>
 
-            {/* Right illustration — hidden on small screens */}
-            <div className='hidden sm:block relative w-[260px] shrink-0'>
-              <Image
-                src='/images/dashboard/Digital doctor.gif'
-                alt=''
-                fill
-                unoptimized
-                className='object-contain object-right p-2'
-                sizes='260px'
+            {/* Right illustration — Lottie animation, hidden on small screens */}
+            <div className='hidden sm:block relative w-[260px] shrink-0 p-2'>
+              <DotLottieReact
+                src='https://lottie.host/31c92a4c-ac39-4320-8646-3348fa21cffe/JnGZyldzlm.lottie'
+                loop
+                autoplay
               />
             </div>
           </div>
