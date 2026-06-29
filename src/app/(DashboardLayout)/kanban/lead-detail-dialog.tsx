@@ -25,6 +25,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 
@@ -72,9 +77,16 @@ const COMPROBANTE_BADGE: Record<ComprobanteStatus, { className: string; key: Tra
   verified: { className: 'bg-lightsuccess text-success', key: 'kanban.detail.comprobanteStatus.verified' },
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function SectionTitle({
+  icon,
+  children,
+}: {
+  icon: string
+  children: React.ReactNode
+}) {
   return (
-    <h3 className='text-sm font-semibold text-dark dark:text-white uppercase tracking-wide mb-3'>
+    <h3 className='flex items-center gap-2 text-sm font-semibold text-dark dark:text-white uppercase tracking-wide mb-3'>
+      <Icon icon={icon} height={16} width={16} className='text-primary' />
       {children}
     </h3>
   )
@@ -135,9 +147,22 @@ export function LeadDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='max-w-2xl max-h-[90vh] p-0 overflow-hidden flex flex-col'>
-        <DialogHeader className='border-b border-border dark:border-darkborder px-6 py-4 shrink-0'>
-          <DialogTitle className='text-base text-dark dark:text-white'>
+      <DialogContent
+        className='
+          !max-w-[100vw] sm:!max-w-2xl
+          !w-screen sm:!w-auto
+          !h-[100dvh] sm:!h-auto
+          !max-h-[100dvh] sm:!max-h-[90vh]
+          !rounded-none sm:!rounded-lg
+          !left-0 sm:!left-1/2
+          !top-0 sm:!top-1/2
+          !translate-x-0 sm:!-translate-x-1/2
+          !translate-y-0 sm:!-translate-y-1/2
+          p-0 overflow-hidden flex flex-col
+        '>
+        <DialogHeader className='border-b border-border dark:border-darkborder px-6 py-5 shrink-0'>
+          <DialogTitle className='text-base text-dark dark:text-white inline-flex items-center gap-2'>
+            <Icon icon='solar:user-id-line-duotone' height={20} width={20} className='text-primary' />
             {t('kanban.detail.title')}
           </DialogTitle>
         </DialogHeader>
@@ -204,7 +229,7 @@ export function LeadDetailDialog({
 
           {/* ---------- 2. Treatment + Quote ---------- */}
           <section>
-            <SectionTitle>{t('kanban.detail.section.treatment')}</SectionTitle>
+            <SectionTitle icon='solar:bill-list-line-duotone'>{t('kanban.detail.section.treatment')}</SectionTitle>
             <div className='rounded-md border border-border dark:border-darkborder p-4'>
               <div className='text-sm font-semibold text-dark dark:text-white'>
                 {lead.treatmentLabel}
@@ -245,7 +270,7 @@ export function LeadDetailDialog({
 
           {/* ---------- 3. Photos ---------- */}
           <section>
-            <SectionTitle>{t('kanban.detail.section.photos')}</SectionTitle>
+            <SectionTitle icon='solar:gallery-line-duotone'>{t('kanban.detail.section.photos')}</SectionTitle>
             {lead.photos && lead.photos.length > 0 ? (
               <div className='grid grid-cols-3 gap-2'>
                 {lead.photos.map((photo, idx) => (
@@ -278,7 +303,7 @@ export function LeadDetailDialog({
 
           {/* ---------- 4. Conversation summary ---------- */}
           <section>
-            <SectionTitle>{t('kanban.detail.section.conversation')}</SectionTitle>
+            <SectionTitle icon='solar:chat-round-line-duotone'>{t('kanban.detail.section.conversation')}</SectionTitle>
             {lead.conversation ? (
               <div className='rounded-md border border-border dark:border-darkborder p-4 space-y-2 text-sm'>
                 <div>
@@ -330,7 +355,7 @@ export function LeadDetailDialog({
             lead.status === 'comprobante' ||
             lead.status === 'confirmado') && (
             <section>
-              <SectionTitle>{t('kanban.detail.section.reservation')}</SectionTitle>
+              <SectionTitle icon='solar:calendar-mark-line-duotone'>{t('kanban.detail.section.reservation')}</SectionTitle>
               {lead.reservation ? (
                 <div className='rounded-md border border-border dark:border-darkborder p-4 space-y-3 text-sm'>
                   <div className='flex justify-between'>
@@ -388,7 +413,7 @@ export function LeadDetailDialog({
 
           {/* ---------- 6. Internal notes ---------- */}
           <section>
-            <SectionTitle>{t('kanban.detail.section.notes')}</SectionTitle>
+            <SectionTitle icon='solar:notes-line-duotone'>{t('kanban.detail.section.notes')}</SectionTitle>
             <div className='space-y-2 mb-3'>
               {lead.internalNotes && lead.internalNotes.length > 0 ? (
                 lead.internalNotes.map((note, idx) => (
@@ -434,29 +459,64 @@ export function LeadDetailDialog({
         </div>
 
         {/* ---------- 7. Footer actions ---------- */}
-        <div className='border-t border-border dark:border-darkborder px-6 py-3 flex items-center justify-end gap-2 shrink-0'>
-          <button
-            type='button'
-            onClick={() => onOpenChange(false)}
-            className='px-3 py-2 rounded-md text-sm font-medium text-dark dark:text-white border border-border dark:border-darkborder hover:bg-muted/40 transition-colors'>
-            {t('kanban.detail.actions.close')}
-          </button>
-          <button
-            type='button'
-            onClick={() => onArchive(lead.id)}
-            className='px-3 py-2 rounded-md text-sm font-medium text-link dark:text-darklink border border-border dark:border-darkborder hover:text-primary hover:border-primary transition-colors inline-flex items-center gap-1.5'>
-            <Icon icon='solar:archive-line-duotone' height={16} width={16} />
-            {t('kanban.detail.actions.archive')}
-          </button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+        {/* Mobile: secondary actions collapse to icon-only with tooltips,
+            WhatsApp keeps its label as the primary CTA. */}
+        <div className='border-t border-border dark:border-darkborder px-4 sm:px-6 py-4 flex items-center justify-end gap-2 shrink-0'>
+          <Tooltip>
+            <TooltipTrigger asChild>
               <button
                 type='button'
-                className='px-3 py-2 rounded-md text-sm font-medium text-link dark:text-darklink border border-border dark:border-darkborder hover:text-primary hover:border-primary transition-colors inline-flex items-center gap-1.5'>
-                <Icon icon='solar:list-arrow-down-line-duotone' height={16} width={16} />
-                {t('kanban.detail.actions.changeStatus')}
+                onClick={() => onOpenChange(false)}
+                aria-label={t('kanban.detail.actions.close')}
+                className='inline-flex items-center justify-center gap-1.5 h-10 w-10 sm:w-auto sm:px-3 rounded-md text-sm font-medium text-dark dark:text-white border border-border dark:border-darkborder hover:bg-muted/40 transition-colors'>
+                <Icon icon='solar:close-circle-line-duotone' height={18} width={18} />
+                <span className='hidden sm:inline'>
+                  {t('kanban.detail.actions.close')}
+                </span>
               </button>
-            </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent className='sm:hidden'>
+              {t('kanban.detail.actions.close')}
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type='button'
+                onClick={() => onArchive(lead.id)}
+                aria-label={t('kanban.detail.actions.archive')}
+                className='inline-flex items-center justify-center gap-1.5 h-10 w-10 sm:w-auto sm:px-3 rounded-md text-sm font-medium text-link dark:text-darklink border border-border dark:border-darkborder hover:text-primary hover:border-primary transition-colors'>
+                <Icon icon='solar:archive-line-duotone' height={18} width={18} />
+                <span className='hidden sm:inline'>
+                  {t('kanban.detail.actions.archive')}
+                </span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className='sm:hidden'>
+              {t('kanban.detail.actions.archive')}
+            </TooltipContent>
+          </Tooltip>
+
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type='button'
+                    aria-label={t('kanban.detail.actions.changeStatus')}
+                    className='inline-flex items-center justify-center gap-1.5 h-10 w-10 sm:w-auto sm:px-3 rounded-md text-sm font-medium text-link dark:text-darklink border border-border dark:border-darkborder hover:text-primary hover:border-primary transition-colors'>
+                    <Icon icon='solar:refresh-line-duotone' height={18} width={18} />
+                    <span className='hidden sm:inline'>
+                      {t('kanban.detail.actions.changeStatus')}
+                    </span>
+                  </button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent className='sm:hidden'>
+                {t('kanban.detail.actions.changeStatus')}
+              </TooltipContent>
+            </Tooltip>
             <DropdownMenuContent align='end' className='w-44'>
               {COLUMNS.map((col) => {
                 const isCurrent = col.id === lead.status
@@ -472,12 +532,13 @@ export function LeadDetailDialog({
               })}
             </DropdownMenuContent>
           </DropdownMenu>
+
           <a
             href={whatsappHref()}
             target='_blank'
             rel='noopener noreferrer'
-            className='px-3 py-2 rounded-md text-sm font-medium bg-success text-white hover:bg-success/90 transition-colors inline-flex items-center gap-1.5'>
-            <Icon icon='ic:baseline-whatsapp' height={16} width={16} />
+            className='inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-md text-sm font-medium bg-success text-white hover:bg-success/90 transition-colors'>
+            <Icon icon='ic:baseline-whatsapp' height={18} width={18} />
             {t('kanban.detail.actions.whatsapp')}
           </a>
         </div>
