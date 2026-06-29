@@ -213,10 +213,19 @@ function LeadCardBody({
               <Icon icon='tabler:dots' height={18} width={18} />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align='end' className='w-40'>
+          <DropdownMenuContent
+            align='end'
+            className='w-40'
+            // React event bubbling follows the React tree, NOT the DOM tree —
+            // so even though Radix portals this content out, clicks bubble up
+            // through the parent <Link>. Stop them here.
+            onClick={(e) => e.stopPropagation()}>
             <DropdownMenuItem
-              onSelect={(e) => {
+              onClick={(e) => {
                 e.preventDefault()
+                e.stopPropagation()
+              }}
+              onSelect={() => {
                 // Lead detail / edit page is not built yet (Etapa 1 scope).
                 // Defer so Radix dropdown closes first; otherwise its focus
                 // scope swallows the first click on the swal button.
@@ -228,9 +237,11 @@ function LeadCardBody({
               {t('kanban.menu.edit')}
             </DropdownMenuItem>
             <DropdownMenuItem
-              onSelect={(e) => {
+              onClick={(e) => {
                 e.preventDefault()
-                // Defer + confirm before destroying.
+                e.stopPropagation()
+              }}
+              onSelect={() => {
                 setTimeout(async () => {
                   const ok = await confirmDeleteLead(lead.patientName, t)
                   if (ok) onDelete?.(lead.id)
