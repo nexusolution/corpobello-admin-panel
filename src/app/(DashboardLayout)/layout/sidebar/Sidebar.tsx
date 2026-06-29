@@ -178,7 +178,7 @@ const SidebarLayout = ({
       isCollapse={isCollapse}
       showTrigger={false}
       mode={sidebarMode}
-      className='fixed left-0 top-0 border-r border-border dark:border-darkborder bg-black dark:bg-black z-10 h-screen'>
+      className='dark fixed left-0 top-0 border-r border-border dark:border-darkborder bg-[#212a3a] dark:bg-[#212a3a] z-10 h-screen'>
       {/* Logo */}
       <div
         className={`flex items-center brand-logo overflow-hidden bg-primaryemphasis !m-0 !w-full !border-0 ${
@@ -229,7 +229,7 @@ const SidebarLayout = ({
 
       {/* Fixed Profile Card */}
       <div
-        className={`absolute bottom-0 left-0 w-full pt-2 pb-4 bg-black dark:bg-black ${
+        className={`absolute bottom-0 left-0 w-full pt-2 pb-4 bg-[#212a3a] dark:bg-[#212a3a] ${
           isCollapse ? 'px-2' : 'px-6'
         }`}>
         {isCollapse ? (
