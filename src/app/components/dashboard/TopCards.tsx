@@ -106,7 +106,7 @@ const TopCards = () => {
               <SwiperSlide key={item.key}>
                 <Link href={item.url}>
                   <Card
-                    className={`!rounded-md shadow-none ${item.bgcolor} border-0 w-full`}>
+                    className={`!rounded-md !p-3 !gap-2 shadow-none ${item.bgcolor} border-0 w-full`}>
                     <div className='text-center'>
                       <div className='flex justify-center'>
                         <Image
