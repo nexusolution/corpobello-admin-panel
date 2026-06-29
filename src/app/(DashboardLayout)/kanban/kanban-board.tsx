@@ -221,10 +221,9 @@ function LeadCardBody({
             // through the parent <Link>. Stop them here.
             onClick={(e) => e.stopPropagation()}>
             <DropdownMenuItem
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-              }}
+              // stopPropagation only — do NOT preventDefault, or Radix's own
+              // click handler won't run and onSelect never fires.
+              onClick={(e) => e.stopPropagation()}
               onSelect={() => {
                 // Lead detail / edit page is not built yet (Etapa 1 scope).
                 // Defer so Radix dropdown closes first; otherwise its focus
@@ -237,10 +236,7 @@ function LeadCardBody({
               {t('kanban.menu.edit')}
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-              }}
+              onClick={(e) => e.stopPropagation()}
               onSelect={() => {
                 setTimeout(async () => {
                   const ok = await confirmDeleteLead(lead.patientName, t)
