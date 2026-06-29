@@ -50,63 +50,61 @@ export function WelcomeBanner() {
     <div className='grid grid-cols-12 gap-6'>
       {/* ---------- Welcome card ---------- */}
       <div className='col-span-12 lg:col-span-8'>
-        <Card className='!rounded-md !p-0 bg-lightprimary dark:bg-lightprimary border-0 relative overflow-hidden h-full'>
-          <div className='flex items-stretch'>
-            {/* Left content */}
-            <div className='flex-1 p-6 z-10 relative'>
-              <div className='flex items-center gap-3 mb-5'>
-                <div className='h-10 w-10 rounded-full bg-white dark:bg-dark ring-1 ring-border dark:ring-darkborder flex items-center justify-center text-primary font-semibold text-sm shrink-0'>
-                  A
-                </div>
-                <p className='text-sm sm:text-base font-medium text-dark dark:text-white'>
-                  {t('welcome.greeting', { name: 'Andrés' })}
-                </p>
+        <Card className='!rounded-md !p-0 bg-lightprimary dark:bg-lightprimary border-0 relative overflow-hidden h-full flex flex-col'>
+          {/* Top: identity + KPIs */}
+          <div className='p-6 z-10 relative'>
+            <div className='flex items-center gap-3 mb-5'>
+              <div className='h-10 w-10 rounded-full bg-white dark:bg-dark ring-1 ring-border dark:ring-darkborder flex items-center justify-center text-primary font-semibold text-sm shrink-0'>
+                A
               </div>
+              <p className='text-sm sm:text-base font-medium text-dark dark:text-white'>
+                {t('welcome.greeting', { name: 'Andrés' })}
+              </p>
+            </div>
 
-              <div className='flex gap-6 sm:gap-10'>
-                <div>
-                  <div className='flex items-center gap-1.5'>
-                    <span className='text-2xl sm:text-3xl font-bold text-dark dark:text-white'>
-                      $2,340
-                    </span>
-                    <Icon
-                      icon='tabler:arrow-up-right'
-                      height={18}
-                      width={18}
-                      className='text-success'
-                    />
-                  </div>
-                  <div className='text-xs sm:text-sm text-link dark:text-darklink mt-1'>
-                    {t('welcome.todaysSales')}
-                  </div>
+            <div className='flex gap-6 sm:gap-10'>
+              <div>
+                <div className='flex items-center gap-1.5'>
+                  <span className='text-2xl sm:text-3xl font-bold text-dark dark:text-white'>
+                    $2,340
+                  </span>
+                  <Icon
+                    icon='tabler:arrow-up-right'
+                    height={18}
+                    width={18}
+                    className='text-success'
+                  />
                 </div>
-                <div>
-                  <div className='flex items-center gap-1.5'>
-                    <span className='text-2xl sm:text-3xl font-bold text-dark dark:text-white'>
-                      35%
-                    </span>
-                    <Icon
-                      icon='tabler:arrow-up-right'
-                      height={18}
-                      width={18}
-                      className='text-success'
-                    />
-                  </div>
-                  <div className='text-xs sm:text-sm text-link dark:text-darklink mt-1'>
-                    {t('welcome.overallPerformance')}
-                  </div>
+                <div className='text-xs sm:text-sm text-link dark:text-darklink mt-1'>
+                  {t('welcome.todaysSales')}
+                </div>
+              </div>
+              <div>
+                <div className='flex items-center gap-1.5'>
+                  <span className='text-2xl sm:text-3xl font-bold text-dark dark:text-white'>
+                    35%
+                  </span>
+                  <Icon
+                    icon='tabler:arrow-up-right'
+                    height={18}
+                    width={18}
+                    className='text-success'
+                  />
+                </div>
+                <div className='text-xs sm:text-sm text-link dark:text-darklink mt-1'>
+                  {t('welcome.overallPerformance')}
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Right illustration — Lottie animation, hidden on small screens */}
-            <div className='hidden sm:block relative w-[260px] shrink-0 p-2'>
-              <DotLottieReact
-                src='https://lottie.host/31c92a4c-ac39-4320-8646-3348fa21cffe/JnGZyldzlm.lottie'
-                loop
-                autoplay
-              />
-            </div>
+          {/* Bottom: full-width Lottie illustration */}
+          <div className='mt-auto h-56 w-full hidden sm:block'>
+            <DotLottieReact
+              src='https://lottie.host/31c92a4c-ac39-4320-8646-3348fa21cffe/JnGZyldzlm.lottie'
+              loop
+              autoplay
+            />
           </div>
         </Card>
       </div>
