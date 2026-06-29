@@ -251,7 +251,7 @@ export const Login = () => {
           <img
             src='/images/logos/auth-logo.webp'
             alt='Corpo Bello'
-            className='h-28 lg:h-60 w-auto drop-shadow-lg'
+            className='h-40 lg:h-80 w-auto drop-shadow-lg'
           />
         </div>
 
