@@ -180,7 +180,7 @@ const SidebarLayout = ({
       isCollapse={isCollapse}
       showTrigger={false}
       mode={sidebarMode}
-      className='fixed left-0 top-0 border border-border dark:border-darkborder bg-white dark:bg-dark z-10 h-screen'>
+      className='fixed left-0 top-0 border-r border-border dark:border-darkborder bg-white dark:bg-dark z-10 h-screen'>
       {/* Logo */}
       <div
         className={`flex items-center brand-logo overflow-hidden bg-primaryemphasis !m-0 !border-0 ${
