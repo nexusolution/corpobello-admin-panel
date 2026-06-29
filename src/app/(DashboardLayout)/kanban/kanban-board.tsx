@@ -225,6 +225,24 @@ const COLUMN_COLOR_OPTIONS: readonly string[] = [
   'bg-gray-400',
 ] as const
 
+// Each dot color maps to a tinted background for the whole column. Theme tokens
+// use their predefined light variants (12% opacity via color-mix). Generic
+// Tailwind hues fall back to /15 opacity so they read on both light and dark.
+const COLOR_TO_BG_TINT: Record<string, string> = {
+  'bg-info': 'bg-lightinfo',
+  'bg-warning': 'bg-lightwarning',
+  'bg-secondary': 'bg-lightsecondary',
+  'bg-primary': 'bg-lightprimary',
+  'bg-success': 'bg-lightsuccess',
+  'bg-error': 'bg-lighterror',
+  'bg-purple-500': 'bg-purple-500/15',
+  'bg-pink-500': 'bg-pink-500/15',
+  'bg-orange-500': 'bg-orange-500/15',
+  'bg-teal-500': 'bg-teal-500/15',
+  'bg-indigo-500': 'bg-indigo-500/15',
+  'bg-gray-400': 'bg-gray-400/15',
+}
+
 function KanbanColumn({
   columnId,
   name,
@@ -250,10 +268,13 @@ function KanbanColumn({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: columnId })
 
+  const bgTint =
+    COLOR_TO_BG_TINT[dotColor] ?? 'bg-muted/40 dark:bg-darkmuted/40'
+
   return (
     <div
       ref={setNodeRef}
-      className={`min-w-0 flex flex-col rounded-lg bg-muted/40 dark:bg-darkmuted/40 p-3 transition-colors ${
+      className={`min-w-0 flex flex-col rounded-lg ${bgTint} p-3 transition-colors ${
         isOver ? 'ring-2 ring-primary/40' : ''
       }`}>
       <div className='flex items-center justify-between mb-3'>
