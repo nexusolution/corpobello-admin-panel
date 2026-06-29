@@ -181,16 +181,16 @@ const SidebarLayout = ({
       className='dark fixed left-0 top-0 border-r border-border dark:border-darkborder bg-[#212a3a] dark:bg-[#212a3a] z-10 h-screen'>
       {/* Logo */}
       <div
-        className={`flex items-center brand-logo overflow-hidden !m-0 !w-full !border-0 ${
-          isCollapse ? 'px-2 justify-center py-2' : 'px-6 py-2'
+        className={`flex items-center brand-logo overflow-hidden !m-0 !w-full !h-12 !border-0 ${
+          isCollapse ? 'px-2 justify-center' : 'px-6'
         }`}>
         {isCollapse ? (
           <Link href='/' className='flex items-center justify-center w-full'>
             <Image
               src='/images/logos/logo-icon.webp'
               alt='Corpo Bello'
-              width={56}
-              height={56}
+              width={42}
+              height={42}
             />
           </Link>
         ) : (
