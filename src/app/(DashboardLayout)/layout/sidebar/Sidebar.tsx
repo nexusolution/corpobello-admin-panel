@@ -183,7 +183,7 @@ const SidebarLayout = ({
       className='fixed left-0 top-0 border border-border dark:border-darkborder bg-white dark:bg-dark z-10 h-screen'>
       {/* Logo */}
       <div
-        className={`flex items-center brand-logo overflow-hidden ${
+        className={`flex items-center brand-logo overflow-hidden bg-primary ${
           isCollapse ? 'px-2 justify-center' : 'px-6'
         }`}>
         {isCollapse ? (
