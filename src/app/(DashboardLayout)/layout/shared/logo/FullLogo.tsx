@@ -5,7 +5,7 @@ const FullLogo = () => {
     <img
       src="/images/logos/logo.webp"
       alt="Corpo Bello"
-      className="h-10 w-auto"
+      className="h-14 w-auto"
     />
   );
 };
