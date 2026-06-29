@@ -183,8 +183,8 @@ const SidebarLayout = ({
       className='fixed left-0 top-0 border-r border-border dark:border-darkborder bg-white dark:bg-dark z-10 h-screen'>
       {/* Logo */}
       <div
-        className={`flex items-center brand-logo overflow-hidden bg-primaryemphasis !m-0 !border-0 ${
-          isCollapse ? 'px-2 justify-center py-3' : 'px-6 py-3'
+        className={`flex items-center brand-logo overflow-hidden bg-primaryemphasis !m-0 !w-full !border-0 ${
+          isCollapse ? 'px-2 justify-center py-2' : 'px-6 py-2'
         }`}>
         {isCollapse ? (
           <Link href='/' className='flex items-center justify-center w-full'>
