@@ -63,37 +63,45 @@ export function WelcomeBanner() {
                 </p>
               </div>
 
-              <div className='flex gap-6 sm:gap-10'>
+              <div className='grid grid-cols-2 gap-x-6 gap-y-4'>
                 <div>
-                  <div className='flex items-center gap-1.5'>
-                    <span className='text-2xl sm:text-3xl font-bold text-dark dark:text-white'>
-                      $2,340
-                    </span>
-                    <Icon
-                      icon='tabler:arrow-up-right'
-                      height={18}
-                      width={18}
-                      className='text-success'
-                    />
+                  <div className='text-xl sm:text-2xl font-bold text-dark dark:text-white'>
+                    2
                   </div>
-                  <div className='text-xs sm:text-sm text-link dark:text-darklink mt-1'>
-                    {t('welcome.todaysSales')}
+                  <div className='text-xs text-link dark:text-darklink mt-0.5'>
+                    {t('welcome.patientsAttended')}
+                  </div>
+                </div>
+                <div>
+                  <div className='text-xl sm:text-2xl font-bold text-dark dark:text-white'>
+                    1
+                  </div>
+                  <div className='text-xs text-link dark:text-darklink mt-0.5'>
+                    {t('welcome.cancellations')}
                   </div>
                 </div>
                 <div>
                   <div className='flex items-center gap-1.5'>
-                    <span className='text-2xl sm:text-3xl font-bold text-dark dark:text-white'>
-                      35%
+                    <span className='text-xl sm:text-2xl font-bold text-success'>
+                      $84.500
                     </span>
                     <Icon
                       icon='tabler:arrow-up-right'
-                      height={18}
-                      width={18}
+                      height={16}
+                      width={16}
                       className='text-success'
                     />
                   </div>
-                  <div className='text-xs sm:text-sm text-link dark:text-darklink mt-1'>
-                    {t('welcome.overallPerformance')}
+                  <div className='text-xs text-link dark:text-darklink mt-0.5'>
+                    {t('welcome.dailyIncome')}
+                  </div>
+                </div>
+                <div>
+                  <div className='text-xl sm:text-2xl font-bold text-warning'>
+                    $31.000
+                  </div>
+                  <div className='text-xs text-link dark:text-darklink mt-0.5'>
+                    {t('welcome.pendingCharges')}
                   </div>
                 </div>
               </div>
