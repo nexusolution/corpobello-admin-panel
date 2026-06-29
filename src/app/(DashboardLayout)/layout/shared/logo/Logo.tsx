@@ -1,12 +1,11 @@
 'use client'
 
-import Image from "next/image";
 import Link from 'next/link';
 
 const Logo = () => {
   return (
     <Link href={'/'}>
-      <Image src={"/images/logos/logo-icon.svg"} alt="logo" />
+      <img src='/images/logos/logo-icon.webp' alt='Corpo Bello' className='size-10' />
     </Link>
   )
 }

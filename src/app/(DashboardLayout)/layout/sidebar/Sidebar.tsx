@@ -189,8 +189,8 @@ const SidebarLayout = ({
         {isCollapse ? (
           <Link href='/' className='flex items-center justify-center w-full py-2'>
             <Image
-              src='/images/logos/logo-icon.svg'
-              alt='logo'
+              src='/images/logos/logo-icon.webp'
+              alt='Corpo Bello'
               width={48}
               height={48}
             />
