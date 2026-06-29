@@ -89,7 +89,7 @@
 
   /* shadCN Compnent */
 
-  --radius: 10px;
+  --radius: 6px;
   --background: #ffff;
   --foreground: var(--color-link);
   --card: var(--color-white);
