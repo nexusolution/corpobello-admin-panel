@@ -1,6 +1,6 @@
 
 import React from "react";
-import SalesOverview from "../components/dashboard/SalesOverview";
+import TasksAttention from "../components/dashboard/TasksAttention";
 import { YearlyBreakup } from "../components/dashboard/YearlyBreakup";
 import { MonthlyEarning } from "../components/dashboard/MonthlyEarning";
 import { RecentTransaction } from "../components/dashboard/RecentTransaction";
@@ -21,7 +21,7 @@ const page = () => {
           <WelcomeBanner />
         </div>
         <div className="lg:col-span-8 col-span-12">
-          <SalesOverview />
+          <TasksAttention />
         </div>
         <div className="lg:col-span-4 col-span-12">
           <div className="grid grid-cols-12 gap-6">
