@@ -185,12 +185,12 @@ export function LeadDetailDialog({
                   </span>
                 </div>
 
-                <div className='flex items-center gap-3 mt-1 text-sm text-link dark:text-darklink'>
+                <div className='flex flex-col sm:flex-row sm:items-center sm:gap-3 gap-1 mt-1 text-sm text-link dark:text-darklink'>
                   <button
                     type='button'
                     onClick={copyPhone}
                     aria-label={t('kanban.detail.contactCopy')}
-                    className='inline-flex items-center gap-1.5 hover:text-primary transition-colors'>
+                    className='inline-flex items-center gap-1.5 hover:text-primary transition-colors self-start whitespace-nowrap'>
                     <Icon icon='solar:phone-line-duotone' height={14} width={14} />
                     <span>{lead.phoneFull}</span>
                     <Icon
@@ -200,7 +200,7 @@ export function LeadDetailDialog({
                       className={copied ? 'text-success' : 'opacity-60'}
                     />
                   </button>
-                  <span className='text-link/40'>·</span>
+                  <span className='hidden sm:inline text-link/40'>·</span>
                   <span className='inline-flex items-center gap-1'>
                     <Icon icon='solar:map-point-line-duotone' height={14} width={14} />
                     {SUCURSAL_LABELS[lead.sucursal]}
@@ -468,7 +468,7 @@ export function LeadDetailDialog({
                 type='button'
                 onClick={() => onOpenChange(false)}
                 aria-label={t('kanban.detail.actions.close')}
-                className='inline-flex items-center justify-center gap-1.5 h-10 w-10 sm:w-auto sm:px-3 rounded-md text-sm font-medium text-dark dark:text-white border border-border dark:border-darkborder hover:bg-muted/40 transition-colors'>
+                className='inline-flex items-center justify-center gap-1.5 h-10 w-10 sm:w-auto sm:px-3 rounded-md text-sm font-medium text-dark dark:text-white hover:bg-muted/40 dark:hover:bg-darkmuted/40 transition-colors'>
                 <Icon icon='solar:close-circle-line-duotone' height={18} width={18} />
                 <span className='hidden sm:inline'>
                   {t('kanban.detail.actions.close')}
@@ -486,7 +486,7 @@ export function LeadDetailDialog({
                 type='button'
                 onClick={() => onArchive(lead.id)}
                 aria-label={t('kanban.detail.actions.archive')}
-                className='inline-flex items-center justify-center gap-1.5 h-10 w-10 sm:w-auto sm:px-3 rounded-md text-sm font-medium text-link dark:text-darklink border border-border dark:border-darkborder hover:text-primary hover:border-primary transition-colors'>
+                className='inline-flex items-center justify-center gap-1.5 h-10 w-10 sm:w-auto sm:px-3 rounded-md text-sm font-medium text-link dark:text-darklink hover:text-primary hover:bg-muted/40 dark:hover:bg-darkmuted/40 transition-colors'>
                 <Icon icon='solar:archive-line-duotone' height={18} width={18} />
                 <span className='hidden sm:inline'>
                   {t('kanban.detail.actions.archive')}
@@ -505,7 +505,7 @@ export function LeadDetailDialog({
                   <button
                     type='button'
                     aria-label={t('kanban.detail.actions.changeStatus')}
-                    className='inline-flex items-center justify-center gap-1.5 h-10 w-10 sm:w-auto sm:px-3 rounded-md text-sm font-medium text-link dark:text-darklink border border-border dark:border-darkborder hover:text-primary hover:border-primary transition-colors'>
+                    className='inline-flex items-center justify-center gap-1.5 h-10 w-10 sm:w-auto sm:px-3 rounded-md text-sm font-medium text-link dark:text-darklink hover:text-primary hover:bg-muted/40 dark:hover:bg-darkmuted/40 transition-colors'>
                     <Icon icon='solar:refresh-line-duotone' height={18} width={18} />
                     <span className='hidden sm:inline'>
                       {t('kanban.detail.actions.changeStatus')}
