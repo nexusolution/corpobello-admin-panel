@@ -90,8 +90,8 @@ export function WelcomeBanner() {
           </div>
         </div>
 
-        {/* Right half — Today's workload (treatment chip row) */}
-        <div className='flex-1 min-w-0 p-6 flex flex-col justify-center'>
+        {/* Right half — Today's workload (treatment chip row), anchored to top */}
+        <div className='flex-1 min-w-0 p-6 flex flex-col justify-start'>
           <h2 className='text-lg sm:text-xl font-semibold text-dark dark:text-white mb-5'>
             {t('treatments.summary.title')}
           </h2>
@@ -125,8 +125,8 @@ export function WelcomeBanner() {
           )}
         </div>
 
-        {/* Right illustration — Lottie animation, hidden on small screens */}
-        <div className='hidden lg:flex items-center justify-center shrink-0 w-[280px] xl:w-[340px] p-2'>
+        {/* Right illustration — Lottie animation, hidden on small screens, anchored to the bottom of the column */}
+        <div className='hidden lg:flex items-end justify-center shrink-0 w-[280px] xl:w-[340px] p-2'>
           <DotLottieReact
             src='https://lottie.host/31c92a4c-ac39-4320-8646-3348fa21cffe/JnGZyldzlm.lottie'
             loop
