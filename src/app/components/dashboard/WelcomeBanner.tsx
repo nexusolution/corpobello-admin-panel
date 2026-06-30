@@ -103,7 +103,7 @@ export function WelcomeBanner() {
             </div>
 
             {/* Right illustration — Lottie animation, sized to match the sample card */}
-            <div className='hidden sm:flex items-center justify-end shrink-0 w-[360px] lg:w-[420px] pr-2'>
+            <div className='hidden sm:flex items-center justify-end shrink-0 w-[420px] lg:w-[520px] pr-2'>
               <DotLottieReact
                 src='https://lottie.host/31c92a4c-ac39-4320-8646-3348fa21cffe/JnGZyldzlm.lottie'
                 loop

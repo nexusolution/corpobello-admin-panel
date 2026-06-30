@@ -20,10 +20,10 @@ const page = () => {
       <div className="col-span-12">
         <TreatmentSummary />
       </div>
-      <div className="col-span-12">
+      <div className="col-span-12 lg:col-span-6">
         <AgendaDay />
       </div>
-      <div className="col-span-12">
+      <div className="col-span-12 lg:col-span-6">
         <TasksAttention />
       </div>
     </div>
