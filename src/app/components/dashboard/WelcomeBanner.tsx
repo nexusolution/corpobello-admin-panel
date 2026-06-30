@@ -125,13 +125,18 @@ export function WelcomeBanner() {
           )}
         </div>
 
-        {/* Right illustration — Lottie animation, hidden on small screens, anchored to the bottom of the column */}
-        <div className='hidden lg:flex items-end justify-center shrink-0 w-[280px] xl:w-[340px] p-2'>
-          <DotLottieReact
-            src='https://lottie.host/31c92a4c-ac39-4320-8646-3348fa21cffe/JnGZyldzlm.lottie'
-            loop
-            autoplay
-          />
+        {/* Right illustration — Lottie animation, hidden on small screens.
+            items-end on the wrapper + explicit Lottie height = bottom anchor.
+            (Without the fixed inner height, the Lottie would fill the column
+            and items-end would have nothing to push.) */}
+        <div className='hidden lg:flex items-end justify-center shrink-0 w-[280px] xl:w-[340px]'>
+          <div className='w-full h-[200px] xl:h-[240px]'>
+            <DotLottieReact
+              src='https://lottie.host/31c92a4c-ac39-4320-8646-3348fa21cffe/JnGZyldzlm.lottie'
+              loop
+              autoplay
+            />
+          </div>
         </div>
       </div>
     </Card>
