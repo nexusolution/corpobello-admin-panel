@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { Icon } from '@iconify/react'
 import * as profileData from './Data'
 import SimpleBar from 'simplebar-react'
@@ -15,6 +16,15 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 const Profile = () => {
+  const router = useRouter()
+
+  function handleLogout() {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('panel-auth')
+    }
+    router.push('/auth/login')
+  }
+
   return (
     <div className='relative group/menu ps-15 shrink-0'>
       <DropdownMenu>
@@ -56,8 +66,11 @@ const Profile = () => {
           <DropdownMenuSeparator className='my-2' />
 
           <div className='px-4'>
-            <Button variant='outline' asChild className='w-full rounded-md'>
-              <Link href='/auth/login'>Logout</Link>
+            <Button
+              variant='outline'
+              className='w-full rounded-md'
+              onClick={handleLogout}>
+              Logout
             </Button>
           </div>
         </DropdownMenuContent>

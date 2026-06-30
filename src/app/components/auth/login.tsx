@@ -70,7 +70,11 @@ export const Login = () => {
       showValidationAlert()
       return
     }
-    // Visual-only flow: navigate to dashboard. Real Supabase signIn comes later.
+    // Visual-only flow: set mock auth flag + navigate to dashboard. Real
+    // Supabase signIn comes later.
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('panel-auth', 'true')
+    }
     router.push('/')
   }
 
