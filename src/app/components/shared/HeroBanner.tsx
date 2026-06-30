@@ -34,7 +34,12 @@ export function HeroBanner({
         <h1 className='text-2xl font-semibold text-dark dark:text-white'>
           {t(titleKey)}
         </h1>
-        <div className='flex items-center gap-1.5 text-sm text-link dark:text-darklink mt-1'>
+        {subtitleKey && (
+          <p className='text-sm text-link dark:text-darklink mt-1'>
+            {t(subtitleKey)}
+          </p>
+        )}
+        <div className='flex items-center gap-1.5 text-sm text-link dark:text-darklink mt-2'>
           <Link href='/' className='hover:text-primary transition-colors'>
             {t('common.breadcrumb.home')}
           </Link>
@@ -43,11 +48,6 @@ export function HeroBanner({
             {t(currentKey)}
           </span>
         </div>
-        {subtitleKey && (
-          <p className='text-sm text-link dark:text-darklink mt-2'>
-            {t(subtitleKey)}
-          </p>
-        )}
       </div>
 
       {/* Decorative illustration — hidden on small screens */}
