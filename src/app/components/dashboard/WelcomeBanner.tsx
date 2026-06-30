@@ -16,8 +16,8 @@ export function WelcomeBanner() {
   const { t } = useTranslation()
 
   return (
-    <Card className='!rounded-md !p-0 bg-lightprimary dark:bg-lightprimary border-0 relative overflow-hidden'>
-      <div className='flex items-stretch'>
+    <Card className='!rounded-md !p-0 bg-lightprimary dark:bg-lightprimary border-0 relative overflow-hidden h-full'>
+      <div className='flex items-stretch h-full'>
         {/* Left content */}
         <div className='flex-1 min-w-0 p-6 z-10 relative flex flex-col justify-center'>
           <h2 className='text-lg sm:text-xl font-semibold text-dark dark:text-white mb-5'>
@@ -69,7 +69,7 @@ export function WelcomeBanner() {
         </div>
 
         {/* Right illustration — Lottie animation */}
-        <div className='hidden sm:flex items-center justify-end shrink-0 w-[420px] lg:w-[520px] pr-2'>
+        <div className='hidden sm:flex items-center justify-end shrink-0 w-[280px] lg:w-[340px] pr-2'>
           <DotLottieReact
             src='https://lottie.host/31c92a4c-ac39-4320-8646-3348fa21cffe/JnGZyldzlm.lottie'
             loop

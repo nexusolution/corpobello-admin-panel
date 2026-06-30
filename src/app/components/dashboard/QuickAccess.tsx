@@ -118,18 +118,24 @@ const QuickAccess = () => {
     <CardBox className='h-full w-full'>
       <h5 className='card-title mb-4'>{t('quickAccess.title')}</h5>
 
-      <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3'>
+      <div className='flex flex-col gap-2'>
         {TILES.map((tile) => {
           const label = t(tile.labelKey)
           const inner = (
-            <div className='flex flex-col items-center justify-center text-center gap-2 py-4 px-2 rounded-md border border-border dark:border-darkborder hover:border-primary hover:bg-lightprimary/40 dark:hover:bg-lightprimary/20 transition-colors h-full cursor-pointer'>
+            <div className='flex items-center gap-3 px-3 py-2.5 rounded-md border border-border dark:border-darkborder hover:border-primary hover:bg-lightprimary/40 dark:hover:bg-lightprimary/20 transition-colors cursor-pointer'>
               <div
-                className={`h-10 w-10 rounded-full flex items-center justify-center ${tile.iconBg} ${tile.iconColor}`}>
-                <Icon icon={tile.icon} height={20} width={20} />
+                className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${tile.iconBg} ${tile.iconColor}`}>
+                <Icon icon={tile.icon} height={18} width={18} />
               </div>
-              <span className='text-xs sm:text-sm font-medium text-dark dark:text-white'>
+              <span className='text-sm font-medium text-dark dark:text-white flex-1 truncate'>
                 {label}
               </span>
+              <Icon
+                icon='tabler:chevron-right'
+                height={16}
+                width={16}
+                className='text-link dark:text-darklink opacity-60 shrink-0'
+              />
             </div>
           )
 
