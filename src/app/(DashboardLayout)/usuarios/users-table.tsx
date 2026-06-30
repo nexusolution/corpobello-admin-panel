@@ -880,24 +880,11 @@ export function UsersTable() {
   ]
 
   return (
-    <div className='space-y-6'>
-      {/* Page header */}
-      <div>
-        <h1 className='text-2xl font-semibold text-dark dark:text-white'>
-          {t('users.pageTitle')}
-        </h1>
-        <p className='text-sm text-link dark:text-darklink mt-1'>
-          {t('users.pageSubtitle')}
-        </p>
-      </div>
-
+    <div>
       {/* Card container */}
       <div className='rounded-lg border border-border dark:border-darkborder bg-card p-4 sm:p-6'>
-        {/* Top row: title + icon actions — stacks on mobile */}
-        <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6'>
-          <h2 className='text-lg font-semibold text-dark dark:text-white'>
-            {t('users.pageTitle')}
-          </h2>
+        {/* Top row: icon actions — stacks on mobile */}
+        <div className='flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 mb-6'>
           <div className='flex items-center gap-2 w-full sm:w-auto justify-end'>
             <SearchBox
               value={search}
