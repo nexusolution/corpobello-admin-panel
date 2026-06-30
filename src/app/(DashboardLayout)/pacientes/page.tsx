@@ -1,48 +1,13 @@
 'use client'
 
 import { Icon } from '@iconify/react'
-import Link from 'next/link'
 
 import { PatientsTable } from './patients-table'
+import { HeroBanner } from '@/app/components/shared/HeroBanner'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
-
-// ---------- Hero banner ----------
-
-function HeroBanner({ t }: { t: TFn }) {
-  return (
-    <div className='relative overflow-hidden rounded-lg bg-lightprimary dark:bg-lightprimary p-6 sm:p-8'>
-      <div className='relative z-10 max-w-[60%]'>
-        <h1 className='text-2xl font-semibold text-dark dark:text-white'>
-          {t('pacientes.title')}
-        </h1>
-        <div className='flex items-center gap-1.5 text-sm text-link dark:text-darklink mt-1'>
-          <Link href='/' className='hover:text-primary transition-colors'>
-            {t('pacientes.breadcrumb.home')}
-          </Link>
-          <Icon icon='tabler:chevron-right' height={14} width={14} />
-          <span className='text-dark dark:text-white font-medium'>
-            {t('pacientes.breadcrumb.current')}
-          </span>
-        </div>
-      </div>
-
-      {/* Decorative illustration — hidden on small screens */}
-      <div className='hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 items-center justify-center'>
-        <div className='size-28 lg:size-32 rounded-full bg-white/40 dark:bg-white/10 flex items-center justify-center'>
-          <Icon
-            icon='solar:users-group-rounded-line-duotone'
-            height={64}
-            width={64}
-            className='text-primary'
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ---------- KPI cards ----------
 
@@ -147,7 +112,11 @@ export default function PacientesPage() {
 
   return (
     <div className='space-y-6'>
-      <HeroBanner t={t} />
+      <HeroBanner
+        titleKey='pacientes.title'
+        currentKey='pacientes.breadcrumb.current'
+        icon='solar:users-group-rounded-line-duotone'
+      />
       <KpiRow t={t} />
       <PatientsTable />
     </div>
