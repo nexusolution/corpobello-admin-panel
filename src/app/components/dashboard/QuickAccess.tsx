@@ -72,6 +72,17 @@ const TILES: Tile[] = [
     iconColor: 'text-info',
     url: '/configuracion',
   },
+  {
+    // Stats is a separate module concept (not just a route), so we mark it
+    // visually with a filled primary icon instead of the muted tints used by
+    // the navigation tiles.
+    key: 'stats',
+    labelKey: 'quickAccess.stats',
+    icon: 'solar:chart-square-line-duotone',
+    iconBg: 'bg-primary',
+    iconColor: 'text-white',
+    url: '/estadisticas',
+  },
 ]
 
 function showUnderDevelopmentAlert(itemName: string, t: TFn) {
@@ -107,7 +118,7 @@ const QuickAccess = () => {
     <CardBox className='h-full w-full'>
       <h5 className='card-title mb-4'>{t('quickAccess.title')}</h5>
 
-      <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3'>
+      <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3'>
         {TILES.map((tile) => {
           const label = t(tile.labelKey)
           const inner = (
