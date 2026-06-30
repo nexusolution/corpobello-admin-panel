@@ -11,8 +11,9 @@ export default function KanbanPage() {
   return (
     <div className='space-y-6'>
       <HeroBanner
-        titleKey='sidebar.kanban'
+        titleKey='kanban.pageTitle'
         currentKey='sidebar.kanban'
+        subtitleKey='kanban.pageSubtitle'
         icon='solar:layers-minimalistic-line-duotone'
       />
       <KanbanBoard />

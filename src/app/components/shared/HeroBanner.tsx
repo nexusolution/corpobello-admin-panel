@@ -14,12 +14,15 @@ import type { TranslationKey } from '@/lib/i18n/dictionaries'
 export function HeroBanner({
   titleKey,
   currentKey,
+  subtitleKey,
   icon,
 }: {
   /** i18n key for the H1 title */
   titleKey: TranslationKey
   /** i18n key for the current page label in the breadcrumb (usually same as title) */
   currentKey: TranslationKey
+  /** Optional i18n key for a subtitle/description line below the breadcrumb */
+  subtitleKey?: TranslationKey
   /** Iconify icon name shown inside the decorative circle */
   icon: string
 }) {
@@ -27,7 +30,7 @@ export function HeroBanner({
 
   return (
     <div className='relative overflow-hidden rounded-lg bg-lightprimary dark:bg-lightprimary p-6 sm:p-8'>
-      <div className='relative z-10 max-w-[60%]'>
+      <div className='relative z-10 max-w-[70%]'>
         <h1 className='text-2xl font-semibold text-dark dark:text-white'>
           {t(titleKey)}
         </h1>
@@ -40,6 +43,11 @@ export function HeroBanner({
             {t(currentKey)}
           </span>
         </div>
+        {subtitleKey && (
+          <p className='text-sm text-link dark:text-darklink mt-2'>
+            {t(subtitleKey)}
+          </p>
+        )}
       </div>
 
       {/* Decorative illustration — hidden on small screens */}

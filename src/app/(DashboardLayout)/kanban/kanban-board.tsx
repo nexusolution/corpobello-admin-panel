@@ -746,16 +746,6 @@ export function KanbanBoard() {
 
   return (
     <div className='space-y-6'>
-      {/* Page header */}
-      <div>
-        <h1 className='text-2xl font-semibold text-dark dark:text-white'>
-          {t('kanban.pageTitle')}
-        </h1>
-        <p className='text-sm text-link dark:text-darklink mt-1'>
-          {t('kanban.pageSubtitle')}
-        </p>
-      </div>
-
       {/* Filters bar */}
       <div className='flex items-center gap-3 flex-wrap'>
         <SearchBox
