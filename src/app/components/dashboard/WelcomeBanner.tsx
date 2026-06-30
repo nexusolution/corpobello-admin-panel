@@ -101,17 +101,18 @@ export function WelcomeBanner() {
               {t('treatments.summary.empty')}
             </p>
           ) : (
-            <div className='flex flex-wrap gap-2'>
+            <div className='flex flex-col gap-3'>
               {treatmentChips.map((slug) => {
                 const color = getTreatmentColorBySlug(slug)
                 return (
-                  <div
-                    key={slug}
-                    className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white/60 dark:bg-white/10'>
-                    <span aria-hidden='true' className='text-base leading-none'>
-                      {color.emoji}
-                    </span>
-                    <span className={`text-sm font-semibold ${color.textClass}`}>
+                  <div key={slug} className='flex items-center gap-3'>
+                    <Icon
+                      icon={color.icon}
+                      height={28}
+                      width={28}
+                      className={`shrink-0 ${color.textClass}`}
+                    />
+                    <span className={`text-base font-bold ${color.textClass}`}>
                       {TODAYS_LOAD[slug]}
                     </span>
                     <span className='text-sm text-dark dark:text-white'>
