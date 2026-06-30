@@ -10,6 +10,7 @@ import { BestSeller } from "../components/dashboard/BestSeller";
 import TopCards from "../components/dashboard/TopCards";
 import { WelcomeBanner } from "../components/dashboard/WelcomeBanner";
 import QuickAccess from "../components/dashboard/QuickAccess";
+import TreatmentSummary from "../components/dashboard/TreatmentSummary";
 
 const page = () => {
   return (
@@ -23,6 +24,9 @@ const page = () => {
         </div>
         <div className="col-span-12">
           <QuickAccess />
+        </div>
+        <div className="col-span-12">
+          <TreatmentSummary />
         </div>
         <div className="lg:col-span-8 col-span-12">
           <TasksAttention />

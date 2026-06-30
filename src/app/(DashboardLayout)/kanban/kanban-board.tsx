@@ -30,6 +30,7 @@ import {
   type Sucursal,
 } from './mock-data'
 import { LeadDetailDialog } from './lead-detail-dialog'
+import { getTreatmentColor } from '@/lib/treatment-colors'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 import {
@@ -152,8 +153,14 @@ function LeadCardBody({
         </div>
       </div>
 
-      <p className='text-xs text-link dark:text-darklink mb-2 truncate'>
-        {lead.treatmentLabel}
+      <p className='text-xs text-link dark:text-darklink mb-2 truncate flex items-center gap-1.5'>
+        <span
+          className={`inline-block h-2 w-2 rounded-full shrink-0 ${
+            getTreatmentColor(lead.treatmentLabel).dotClass
+          }`}
+          aria-hidden='true'
+        />
+        <span className='truncate'>{lead.treatmentLabel}</span>
       </p>
 
       {lead.tags.length > 0 && (
