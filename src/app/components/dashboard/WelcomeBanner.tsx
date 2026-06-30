@@ -126,7 +126,7 @@ export function WelcomeBanner() {
         </div>
 
         {/* Right illustration — Lottie animation, hidden on small screens */}
-        <div className='hidden lg:flex items-center justify-center shrink-0 w-[400px] xl:w-[480px] p-2'>
+        <div className='hidden lg:flex items-center justify-center shrink-0 w-[280px] xl:w-[340px] p-2'>
           <DotLottieReact
             src='https://lottie.host/31c92a4c-ac39-4320-8646-3348fa21cffe/JnGZyldzlm.lottie'
             loop
