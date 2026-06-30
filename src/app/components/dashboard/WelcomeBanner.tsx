@@ -5,6 +5,11 @@ import { Icon } from '@iconify/react'
 
 import { Card } from '@/components/ui/card'
 import { useTranslation } from '@/lib/i18n/context'
+import type { TranslationKey } from '@/lib/i18n/dictionaries'
+import {
+  TREATMENT_SLUGS_ORDERED,
+  getTreatmentColorBySlug,
+} from '@/lib/treatment-colors'
 
 // Lottie player — touches DOM APIs, must be client-only
 const DotLottieReact = dynamic(
@@ -12,8 +17,25 @@ const DotLottieReact = dynamic(
   { ssr: false }
 )
 
+// MOCK STATE: today's count per treatment category. When agenda + Supabase
+// land, derive from today's confirmed/pending turnos grouped by treatment_id.
+const TODAYS_LOAD: Record<string, number> = {
+  tatuaje: 4,
+  depilacion: 8,
+  melasma: 2,
+  endolift: 1,
+  acne: 0,
+  microblading: 0,
+  facial: 0,
+}
+
 export function WelcomeBanner() {
   const { t } = useTranslation()
+
+  // Only render chips for categories with at least 1 scheduled today.
+  const treatmentChips = TREATMENT_SLUGS_ORDERED.filter(
+    (slug) => (TODAYS_LOAD[slug] ?? 0) > 0
+  )
 
   return (
     <Card className='!rounded-md !p-0 bg-lightprimary dark:bg-lightprimary border-0 relative overflow-hidden h-full'>
@@ -66,6 +88,35 @@ export function WelcomeBanner() {
               </div>
             </div>
           </div>
+
+          {/* Today's workload — treatment color chip row */}
+          {treatmentChips.length > 0 && (
+            <div className='mt-5 pt-4 border-t border-white/40 dark:border-white/10'>
+              <div className='text-xs font-semibold uppercase tracking-wide text-link dark:text-darklink mb-2'>
+                {t('treatments.summary.title')}
+              </div>
+              <div className='flex flex-wrap gap-2'>
+                {treatmentChips.map((slug) => {
+                  const color = getTreatmentColorBySlug(slug)
+                  return (
+                    <div
+                      key={slug}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/60 dark:bg-white/10`}>
+                      <span aria-hidden='true' className='text-sm leading-none'>
+                        {color.emoji}
+                      </span>
+                      <span className={`text-xs font-semibold ${color.textClass}`}>
+                        {TODAYS_LOAD[slug]}
+                      </span>
+                      <span className='text-xs text-dark dark:text-white'>
+                        {t(color.labelKey as TranslationKey)}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right illustration — Lottie animation */}
