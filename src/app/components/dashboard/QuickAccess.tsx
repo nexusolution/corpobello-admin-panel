@@ -116,8 +116,6 @@ const QuickAccess = () => {
 
   return (
     <CardBox className='h-full w-full'>
-      <h5 className='card-title mb-2'>{t('quickAccess.title')}</h5>
-
       <div className='grid grid-cols-2 gap-2'>
         {TILES.map((tile) => {
           const label = t(tile.labelKey)
