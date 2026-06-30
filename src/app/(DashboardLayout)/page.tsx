@@ -11,6 +11,7 @@ import TopCards from "../components/dashboard/TopCards";
 import { WelcomeBanner } from "../components/dashboard/WelcomeBanner";
 import QuickAccess from "../components/dashboard/QuickAccess";
 import TreatmentSummary from "../components/dashboard/TreatmentSummary";
+import AgendaDay from "../components/dashboard/AgendaDay";
 
 const page = () => {
   return (
@@ -27,6 +28,9 @@ const page = () => {
         </div>
         <div className="col-span-12">
           <TreatmentSummary />
+        </div>
+        <div className="col-span-12">
+          <AgendaDay />
         </div>
         <div className="lg:col-span-8 col-span-12">
           <TasksAttention />
