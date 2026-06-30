@@ -44,8 +44,8 @@ export function HeroBanner({
 
       {/* Decorative illustration — hidden on small screens */}
       <div className='hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 items-center justify-center'>
-        <div className='size-28 lg:size-32 rounded-full bg-white/40 dark:bg-white/10 flex items-center justify-center'>
-          <Icon icon={icon} height={64} width={64} className='text-primary' />
+        <div className='size-16 lg:size-20 rounded-full bg-white/40 dark:bg-white/10 flex items-center justify-center'>
+          <Icon icon={icon} height={36} width={36} className='text-primary' />
         </div>
       </div>
     </div>
