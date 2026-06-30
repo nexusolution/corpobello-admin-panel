@@ -10,6 +10,8 @@ import {
   CURRENCY_OPTIONS,
   type ClinicSettings,
 } from './mock-data'
+import { ServicesTab } from './services-tab'
+import { BotWhatsappTab } from './bot-whatsapp-tab'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 import { Label } from '@/components/ui/label'
@@ -442,6 +444,10 @@ export function ConfigurationContent() {
       <div className='p-5 sm:p-6'>
         {activeTab === 'clinic' ? (
           <ClinicTab draft={draft} setDraft={setDraft} t={t} />
+        ) : activeTab === 'services' ? (
+          <ServicesTab />
+        ) : activeTab === 'bot' ? (
+          <BotWhatsappTab />
         ) : (
           <ComingSoonTab t={t} />
         )}
