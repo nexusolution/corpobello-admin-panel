@@ -1,5 +1,6 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { Icon } from '@iconify/react'
 
 import { Card } from '@/components/ui/card'
@@ -9,6 +10,12 @@ import {
   TREATMENT_SLUGS_ORDERED,
   getTreatmentColorBySlug,
 } from '@/lib/treatment-colors'
+
+// Lottie player — touches DOM APIs, must be client-only
+const DotLottieReact = dynamic(
+  () => import('@lottiefiles/dotlottie-react').then((m) => m.DotLottieReact),
+  { ssr: false }
+)
 
 // MOCK STATE: today's count per treatment category. When agenda + Supabase
 // land, derive from today's confirmed/pending turnos grouped by treatment_id.
@@ -32,9 +39,9 @@ export function WelcomeBanner() {
 
   return (
     <Card className='!rounded-md !p-0 bg-lightprimary dark:bg-lightprimary border-0 relative overflow-hidden h-full'>
-      <div className='flex flex-col md:flex-row items-stretch h-full divide-y md:divide-y-0 md:divide-x divide-white/40 dark:divide-white/10'>
+      <div className='flex flex-col md:flex-row items-stretch h-full'>
         {/* Left half — Today at a glance (KPIs) */}
-        <div className='flex-1 min-w-0 p-6 flex flex-col justify-center'>
+        <div className='flex-1 min-w-0 p-6 flex flex-col justify-center border-b md:border-b-0 md:border-r border-white/40 dark:border-white/10'>
           <h2 className='text-lg sm:text-xl font-semibold text-dark dark:text-white mb-5'>
             {t('welcome.title')}
           </h2>
@@ -115,6 +122,15 @@ export function WelcomeBanner() {
               })}
             </div>
           )}
+        </div>
+
+        {/* Right illustration — Lottie animation, hidden on small screens */}
+        <div className='hidden lg:flex items-center justify-center shrink-0 w-[220px] xl:w-[260px] p-3'>
+          <DotLottieReact
+            src='https://lottie.host/31c92a4c-ac39-4320-8646-3348fa21cffe/JnGZyldzlm.lottie'
+            loop
+            autoplay
+          />
         </div>
       </div>
     </Card>
