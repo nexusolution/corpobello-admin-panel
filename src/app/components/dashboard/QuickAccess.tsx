@@ -118,9 +118,13 @@ const QuickAccess = () => {
     <CardBox className='h-full w-full'>
       <h5 className='card-title mb-4'>{t('quickAccess.title')}</h5>
 
-      <div className='flex flex-col gap-2'>
+      <div className='grid grid-cols-2 gap-2'>
         {TILES.map((tile) => {
           const label = t(tile.labelKey)
+          // Statistics is the highlighted CTA — span both columns so it stays
+          // visually distinct AND fills the otherwise-orphan last row (7 tiles
+          // in a 2-col grid would leave it alone otherwise).
+          const colSpan = tile.key === 'stats' ? 'col-span-2' : ''
           const inner = (
             <div className='flex items-center gap-3 px-3 py-2.5 rounded-md border border-border dark:border-darkborder hover:border-primary hover:bg-lightprimary/40 dark:hover:bg-lightprimary/20 transition-colors cursor-pointer'>
               <div
@@ -145,14 +149,14 @@ const QuickAccess = () => {
                 type='button'
                 key={tile.key}
                 onClick={() => showUnderDevelopmentAlert(label, t)}
-                className='text-left'>
+                className={`text-left ${colSpan}`}>
                 {inner}
               </button>
             )
           }
 
           return (
-            <Link key={tile.key} href={tile.url} className='block'>
+            <Link key={tile.key} href={tile.url} className={`block ${colSpan}`}>
               {inner}
             </Link>
           )
