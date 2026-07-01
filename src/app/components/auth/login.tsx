@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useTranslation } from '@/lib/i18n/context'
-import type { Locale } from '@/lib/i18n/dictionaries'
+import type { Locale, TranslationKey } from '@/lib/i18n/dictionaries'
 
 type LanguageOption = {
   code: Locale
@@ -30,23 +30,25 @@ const LOGIN_LANGUAGES: LanguageOption[] = [
 ]
 
 type FieldErrors = {
-  email?: string
-  password?: string
+  email?: TranslationKey
+  password?: TranslationKey
 }
 
-const showValidationAlert = () => {
+const showValidationAlert = (
+  t: (key: TranslationKey) => string
+) => {
   const isDark =
     typeof document !== 'undefined' &&
     document.documentElement.classList.contains('dark')
 
   Swal.fire({
-    title: 'Ups, hay errores',
-    text: 'Revisá los campos marcados y volvé a intentarlo.',
+    title: t('auth.login.errorTitle'),
+    text: t('auth.login.errorBody'),
     // Custom red X — swal2's built-in error icon clips when shrunk
     // (its X strokes use fixed-offset positioning), so render our own.
     iconHtml:
       '<span style="font-size:26px;line-height:1;color:#ef4444;font-weight:700;">&times;</span>',
-    confirmButtonText: 'Entendido',
+    confirmButtonText: t('auth.login.errorConfirm'),
     confirmButtonColor: '#5d87ff',
     background: isDark ? '#2a3547' : '#ffffff',
     color: isDark ? '#ffffff' : '#2a3547',
@@ -64,7 +66,7 @@ const showValidationAlert = () => {
 
 export const Login = () => {
   const router = useRouter()
-  const { locale, setLocale } = useTranslation()
+  const { locale, setLocale, t } = useTranslation()
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -75,12 +77,12 @@ export const Login = () => {
   const validate = (): FieldErrors => {
     const next: FieldErrors = {}
     if (!email.trim()) {
-      next.email = 'El email es requerido'
+      next.email = 'auth.login.errorEmailRequired'
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      next.email = 'Ingresá un email válido'
+      next.email = 'auth.login.errorEmailInvalid'
     }
     if (!password) {
-      next.password = 'La contraseña es requerida'
+      next.password = 'auth.login.errorPasswordRequired'
     }
     return next
   }
@@ -90,7 +92,7 @@ export const Login = () => {
     const next = validate()
     setErrors(next)
     if (Object.keys(next).length > 0) {
-      showValidationAlert()
+      showValidationAlert(t)
       return
     }
     // Visual-only flow: set mock auth flag + navigate to dashboard. Real
@@ -115,10 +117,10 @@ export const Login = () => {
         <div className='w-full max-w-md mx-auto'>
           <div className='text-center mb-12'>
             <h1 className='text-2xl font-semibold text-dark dark:text-white mb-2'>
-              Iniciar sesión
+              {t('auth.login.title')}
             </h1>
             <p className='text-sm text-link dark:text-darklink'>
-              Panel de gestión Corpo Bello
+              {t('auth.login.subtitle')}
             </p>
           </div>
 
@@ -142,7 +144,7 @@ export const Login = () => {
           <div className='flex items-center gap-3 mb-10'>
             <div className='flex-1 h-px bg-border dark:bg-darkborder' />
             <span className='text-xs text-link dark:text-darklink whitespace-nowrap'>
-              o con email
+              {t('auth.login.emailDivider')}
             </span>
             <div className='flex-1 h-px bg-border dark:bg-darkborder' />
           </div>
@@ -150,12 +152,12 @@ export const Login = () => {
           <form className='space-y-7' onSubmit={handleSubmit} noValidate>
             <div>
               <Label htmlFor='email' className='font-medium mb-2 block'>
-                Email
+                {t('auth.login.emailLabel')}
               </Label>
               <Input
                 id='email'
                 type='email'
-                placeholder='tuemail@ejemplo.com'
+                placeholder={t('auth.login.emailPlaceholder')}
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value)
@@ -170,7 +172,7 @@ export const Login = () => {
               />
               {errors.email && (
                 <p className='text-xs text-error font-medium mt-1.5'>
-                  {errors.email}
+                  {t(errors.email)}
                 </p>
               )}
             </div>
@@ -178,12 +180,12 @@ export const Login = () => {
             <div>
               <div className='flex items-center justify-between mb-2'>
                 <Label htmlFor='password' className='font-medium'>
-                  Contraseña
+                  {t('auth.login.passwordLabel')}
                 </Label>
                 <Link
                   href='#'
                   className='text-xs font-medium text-primary hover:text-primaryemphasis'>
-                  ¿Olvidaste tu contraseña?
+                  {t('auth.login.forgotPassword')}
                 </Link>
               </div>
               <div className='relative'>
@@ -205,7 +207,11 @@ export const Login = () => {
                 />
                 <button
                   type='button'
-                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  aria-label={
+                    showPassword
+                      ? t('auth.login.hidePassword')
+                      : t('auth.login.showPassword')
+                  }
                   onClick={() => setShowPassword((s) => !s)}
                   className='absolute right-3 top-1/2 -translate-y-1/2 text-link dark:text-darklink hover:text-primary'>
                   <Icon
@@ -217,22 +223,22 @@ export const Login = () => {
               </div>
               {errors.password && (
                 <p className='text-xs text-error font-medium mt-1.5'>
-                  {errors.password}
+                  {t(errors.password)}
                 </p>
               )}
             </div>
 
             <Button type='submit' className='w-full mt-6'>
-              Iniciar sesión
+              {t('auth.login.submit')}
             </Button>
           </form>
 
           <p className='text-center text-sm text-link dark:text-darklink mt-12'>
-            ¿No tenés cuenta?{' '}
+            {t('auth.login.noAccount')}{' '}
             <Link
               href='#'
               className='font-medium text-primary hover:text-primaryemphasis'>
-              Contactá al administrador
+              {t('auth.login.contactAdmin')}
             </Link>
           </p>
         </div>
@@ -273,17 +279,17 @@ export const Login = () => {
             <Link
               href='#'
               className='text-primary hover:text-primaryemphasis font-medium'>
-              Términos
+              {t('auth.login.footerTerms')}
             </Link>
             <Link
               href='#'
               className='text-primary hover:text-primaryemphasis font-medium'>
-              Privacidad
+              {t('auth.login.footerPrivacy')}
             </Link>
             <Link
               href='#'
               className='text-primary hover:text-primaryemphasis font-medium'>
-              Soporte
+              {t('auth.login.footerSupport')}
             </Link>
           </div>
         </div>
@@ -308,11 +314,10 @@ export const Login = () => {
         {/* Tagline — hidden on mobile/tablet, shown on desktop */}
         <div className='hidden lg:block text-center max-w-md z-10'>
           <h3 className='text-2xl font-bold text-white mb-3 drop-shadow-md'>
-            Gestión clínica simple y eficaz
+            {t('auth.login.brandTagline')}
           </h3>
           <p className='text-white/90 text-sm leading-relaxed drop-shadow'>
-            Todas las herramientas que necesitás para operar el consultorio en
-            un solo panel: pacientes, agenda, fichas y configuración del bot.
+            {t('auth.login.brandCopy')}
           </p>
         </div>
       </div>
