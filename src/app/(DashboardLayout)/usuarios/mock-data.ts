@@ -31,7 +31,7 @@ export const MOCK_USERS: AppUser[] = [
     sucursal: null,
     status: 'active',
     createdAt: '2026-04-15T10:00:00Z',
-    avatarUrl: '/images/profile/user-1.jpg',
+    avatarUrl: '/images/profile/doctor-02.webp',
   },
   {
     id: '2',
@@ -41,7 +41,7 @@ export const MOCK_USERS: AppUser[] = [
     sucursal: 'caballito',
     status: 'active',
     createdAt: '2026-04-20T09:00:00Z',
-    avatarUrl: '/images/profile/user-2.jpg',
+    avatarUrl: '/images/profile/user1.png',
   },
   {
     id: '3',
@@ -61,7 +61,7 @@ export const MOCK_USERS: AppUser[] = [
     sucursal: 'caballito',
     status: 'active',
     createdAt: '2026-05-02T14:00:00Z',
-    avatarUrl: '/images/profile/user-3.jpg',
+    avatarUrl: '/images/profile/user3.png',
   },
   {
     id: '5',
@@ -81,7 +81,7 @@ export const MOCK_USERS: AppUser[] = [
     sucursal: 'merlo',
     status: 'inactive',
     createdAt: '2026-03-12T08:00:00Z',
-    avatarUrl: '/images/profile/user-4.jpg',
+    avatarUrl: '/images/profile/user4.png',
   },
   {
     id: '7',
@@ -101,6 +101,6 @@ export const MOCK_USERS: AppUser[] = [
     sucursal: 'caballito',
     status: 'active',
     createdAt: '2026-05-20T10:00:00Z',
-    avatarUrl: '/images/profile/user-5.jpg',
+    avatarUrl: '/images/profile/user5.png',
   },
 ]

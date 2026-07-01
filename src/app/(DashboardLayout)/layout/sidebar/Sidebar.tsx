@@ -238,7 +238,7 @@ const SidebarLayout = ({
                 aria-label='Logout'
                 className='flex justify-center bg-lightprimary rounded-lg p-2'>
                 <Image
-                  src='/images/profile/user-1.jpg'
+                  src='/images/profile/doctor-02.webp'
                   alt='Mathew'
                   width={36}
                   height={36}
@@ -252,7 +252,7 @@ const SidebarLayout = ({
           <div className='flex items-center justify-between gap-2 bg-lightprimary rounded-lg p-4'>
             <div className='flex items-center gap-3 overflow-hidden'>
               <Image
-                src='/images/profile/user-1.jpg'
+                src='/images/profile/doctor-02.webp'
                 alt='Mathew'
                 width={40}
                 height={40}
