@@ -108,8 +108,8 @@ const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
     <>
       <header
         ref={actionsRef}
-        className={`sticky top-0 z-2 ${
-          isSticky ? 'bg-background shadow-md fixed w-full' : 'bg-transparent'
+        className={`sticky top-0 z-40 bg-background ${
+          isSticky ? 'shadow-md' : ''
         }`}>
         <nav
           className={`rounded-none  py-4 sm:ps-6 max-w-full! sm:pe-10 dark:bg-dark flex justify-between items-center px-6`}>
