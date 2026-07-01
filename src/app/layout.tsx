@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { Plus_Jakarta_Sans } from 'next/font/google'
 import './css/globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
+import { LanguageProvider } from '@/lib/i18n/context'
 
 const plus_jakarta_sans = Plus_Jakarta_Sans({
   subsets: ['latin']
@@ -29,7 +30,7 @@ export default function RootLayout({
           defaultTheme='system'
           enableSystem
           disableTransitionOnChange>
-          {children}
+          <LanguageProvider>{children}</LanguageProvider>
         </ThemeProvider>
       </body>
     </html>

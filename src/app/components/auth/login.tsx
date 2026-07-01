@@ -8,6 +8,26 @@ import { Icon } from '@iconify/react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { useTranslation } from '@/lib/i18n/context'
+import type { Locale } from '@/lib/i18n/dictionaries'
+
+type LanguageOption = {
+  code: Locale
+  flag: string
+  label: string
+  region: string
+}
+
+const LOGIN_LANGUAGES: LanguageOption[] = [
+  { code: 'es', flag: 'circle-flags:ar', label: 'Español', region: 'AR' },
+  { code: 'en', flag: 'circle-flags:gb', label: 'English', region: 'UK' },
+]
 
 type FieldErrors = {
   email?: string
@@ -44,10 +64,13 @@ const showValidationAlert = () => {
 
 export const Login = () => {
   const router = useRouter()
+  const { locale, setLocale } = useTranslation()
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<FieldErrors>({})
+  const currentLanguage =
+    LOGIN_LANGUAGES.find((l) => l.code === locale) ?? LOGIN_LANGUAGES[0]
 
   const validate = (): FieldErrors => {
     const next: FieldErrors = {}
@@ -216,13 +239,36 @@ export const Login = () => {
 
         {/* Footer — pushed lower so it sits closer to the column bottom */}
         <div className='w-full max-w-md mx-auto mt-16 lg:mt-32 px-4 flex items-center justify-between text-sm'>
-          <button
-            type='button'
-            className='flex items-center gap-2 text-link dark:text-darklink hover:text-primary transition-colors'>
-            <Icon icon='circle-flags:ar' height={20} width={20} />
-            <span className='font-medium'>Español</span>
-            <Icon icon='tabler:chevron-down' height={14} width={14} />
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type='button'
+                className='flex items-center gap-2 text-link dark:text-darklink hover:text-primary transition-colors'>
+                <Icon icon={currentLanguage.flag} height={20} width={20} />
+                <span className='font-medium'>{currentLanguage.label}</span>
+                <Icon icon='tabler:chevron-down' height={14} width={14} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align='start' className='w-[180px] py-2 rounded-sm'>
+              {LOGIN_LANGUAGES.map((lang) => {
+                const isSelected = lang.code === locale
+                return (
+                  <DropdownMenuItem
+                    key={lang.code}
+                    onClick={() => setLocale(lang.code)}
+                    className={`px-4 py-2 flex items-center gap-3 cursor-pointer hover:bg-lightprimary hover:text-primary ${
+                      isSelected ? 'bg-lightprimary text-primary' : ''
+                    }`}>
+                    <Icon icon={lang.flag} height={20} width={20} />
+                    <span className='text-sm'>
+                      {lang.label}{' '}
+                      <span className='text-xs text-darklink'>({lang.region})</span>
+                    </span>
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <div className='flex items-center gap-5'>
             <Link
               href='#'

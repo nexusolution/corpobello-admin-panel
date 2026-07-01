@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from './layout/header/Header'
 import Sidebar from './layout/sidebar/Sidebar'
-import { LanguageProvider } from '@/lib/i18n/context'
 
 export default function Layout({
   children,
@@ -32,27 +31,25 @@ export default function Layout({
   if (!authChecked) return null
 
   return (
-    <LanguageProvider>
-      <div className='flex w-full min-h-screen'>
+    <div className='flex w-full min-h-screen'>
+      <div
+        className={`page-wrapper flex w-full ${
+          collapsed ? 'sidebar-collapsed' : ''
+        }`}>
+        {/* Header/sidebar */}
         <div
-          className={`page-wrapper flex w-full ${
-            collapsed ? 'sidebar-collapsed' : ''
-          }`}>
-          {/* Header/sidebar */}
-          <div
-            className='xl:block hidden'
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}>
-            <Sidebar isCollapse={collapsed && !hovered} />
-          </div>
-          <div className='body-wrapper w-full bg-background'>
-            {/* Top Header  */}
-            <Header onToggleSidebar={() => setCollapsed((c) => !c)} />
-            {/* Body Content  */}
-            <div className='w-full px-6 py-30'>{children}</div>
-          </div>
+          className='xl:block hidden'
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}>
+          <Sidebar isCollapse={collapsed && !hovered} />
+        </div>
+        <div className='body-wrapper w-full bg-background'>
+          {/* Top Header  */}
+          <Header onToggleSidebar={() => setCollapsed((c) => !c)} />
+          {/* Body Content  */}
+          <div className='w-full px-6 py-30'>{children}</div>
         </div>
       </div>
-    </LanguageProvider>
+    </div>
   )
 }
