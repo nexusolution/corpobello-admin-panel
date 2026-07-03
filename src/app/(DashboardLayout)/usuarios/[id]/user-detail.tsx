@@ -266,10 +266,10 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
 
   return (
     <div className='rounded-lg border border-border dark:border-darkborder bg-card overflow-hidden'>
-      {/* Gradient hero */}
-      <div className='relative h-32 bg-gradient-to-r from-lightprimary via-lightsuccess/60 to-lightprimary'>
-        <div className='absolute -bottom-14 left-6'>
-          <div className='relative'>
+      {/* Hero with avatar (left) + identity block (right, inside banner) */}
+      <div className='relative bg-gradient-to-r from-lightprimary via-lightsuccess/60 to-lightprimary p-6'>
+        <div className='flex items-center gap-5 flex-wrap'>
+          <div className='relative shrink-0'>
             <Avatar className='size-28 !rounded-xl ring-4 ring-card shadow-md'>
               {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.fullName} className='object-cover' />}
               <AvatarFallback className='!rounded-xl bg-lightprimary text-primary'>
@@ -280,47 +280,64 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
               <span className='absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full bg-success ring-2 ring-card' />
             )}
           </div>
+
+          <div className='flex-1 min-w-[220px]'>
+            <div className='flex items-center gap-2 flex-wrap mb-2'>
+              <span className='inline-flex items-center gap-1.5 text-xs font-medium text-success'>
+                <span className='h-2 w-2 rounded-full bg-success' />
+                {user.status === 'active'
+                  ? t('userDetail.identity.active')
+                  : t('userDetail.identity.inactive')}
+              </span>
+              <span className='inline-flex items-center gap-1 text-xs font-medium text-dark dark:text-white bg-card/70 border border-border dark:border-darkborder rounded-md px-2 py-0.5'>
+                {roleLabel}
+              </span>
+            </div>
+
+            <div className='flex items-start justify-between gap-4 flex-wrap'>
+              <div className='min-w-0'>
+                <h2 className='text-xl font-bold text-dark dark:text-white'>{user.fullName}</h2>
+                <p className='text-sm text-link dark:text-darklink mt-0.5'>
+                  {user.bio ?? roleLabel}
+                </p>
+              </div>
+              {rating !== undefined && (
+                <div className='flex items-center gap-2'>
+                  <StarRating rating={rating} />
+                  <span className='text-sm font-semibold text-dark dark:text-white'>{rating.toFixed(1)}</span>
+                  <span className='text-xs text-link dark:text-darklink'>/5.0</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className='pt-16 px-6 pb-6'>
-        <div className='flex items-center gap-2 flex-wrap mb-2'>
-          <span className='inline-flex items-center gap-1.5 text-xs font-medium text-success'>
-            <span className='h-2 w-2 rounded-full bg-success' />
-            {user.status === 'active'
-              ? t('userDetail.identity.active')
-              : t('userDetail.identity.inactive')}
-          </span>
-          <span className='inline-flex items-center gap-1 text-xs font-medium text-link dark:text-darklink border border-border dark:border-darkborder rounded-md px-2 py-0.5'>
-            {roleLabel}
-          </span>
-        </div>
-
-        <div className='flex items-start justify-between gap-4 flex-wrap'>
-          <div>
-            <h2 className='text-xl font-bold text-dark dark:text-white'>{user.fullName}</h2>
-            <p className='text-sm text-link dark:text-darklink mt-0.5'>
-              {user.bio ?? roleLabel}
-            </p>
-          </div>
-          {rating !== undefined && (
-            <div className='flex items-center gap-2'>
-              <StarRating rating={rating} />
-              <span className='text-sm font-semibold text-dark dark:text-white'>{rating.toFixed(1)}</span>
-              <span className='text-xs text-link dark:text-darklink'>/5.0</span>
-            </div>
-          )}
-        </div>
-
+      <div className='px-6 pt-5 pb-6'>
         {/* Contact block */}
-        <div className='grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 border-t border-border dark:border-darkborder pt-5'>
-          <ContactCell icon='solar:phone-linear' label={t('userDetail.identity.contactPhone')} value={user.phone ?? '—'} />
-          <ContactCell icon='solar:letter-linear' label={t('userDetail.identity.contactEmail')} value={user.email} />
-          <ContactCell icon='solar:map-point-linear' label={t('userDetail.identity.contactLocation')} value={user.location ?? '—'} />
+        <div className='grid grid-cols-1 sm:grid-cols-3 gap-4'>
+          <ContactCell
+            icon='solar:phone-bold-duotone'
+            tint='success'
+            label={t('userDetail.identity.contactPhone')}
+            value={user.phone ?? '—'}
+          />
+          <ContactCell
+            icon='solar:letter-bold-duotone'
+            tint='primary'
+            label={t('userDetail.identity.contactEmail')}
+            value={user.email}
+          />
+          <ContactCell
+            icon='solar:map-point-bold-duotone'
+            tint='warning'
+            label={t('userDetail.identity.contactLocation')}
+            value={user.location ?? '—'}
+          />
         </div>
 
         {/* Action buttons */}
-        <div className='grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 mt-5'>
+        <div className='grid grid-cols-1 sm:grid-cols-2 gap-2 mt-5'>
           <button
             type='button'
             className='inline-flex items-center justify-center gap-2 py-2.5 rounded-md bg-success text-white text-sm font-medium hover:bg-success/90 transition-colors'>
@@ -333,23 +350,35 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
             <Icon icon='solar:chat-round-line-linear' height={16} width={16} />
             {t('userDetail.identity.chat')}
           </button>
-          <button
-            type='button'
-            aria-label='More'
-            className='h-10 w-10 inline-flex items-center justify-center rounded-md border border-border dark:border-darkborder text-link dark:text-darklink hover:text-primary hover:border-primary transition-colors'>
-            <Icon icon='tabler:dots-vertical' height={18} width={18} />
-          </button>
         </div>
       </div>
     </div>
   )
 }
 
-function ContactCell({ icon, label, value }: { icon: string; label: string; value: string }) {
+type ContactTint = 'success' | 'primary' | 'warning'
+const CONTACT_TINT: Record<ContactTint, { bg: string; text: string }> = {
+  success: { bg: 'bg-lightsuccess', text: 'text-success' },
+  primary: { bg: 'bg-lightprimary', text: 'text-primary' },
+  warning: { bg: 'bg-lightwarning', text: 'text-warning' },
+}
+
+function ContactCell({
+  icon,
+  tint,
+  label,
+  value,
+}: {
+  icon: string
+  tint: ContactTint
+  label: string
+  value: string
+}) {
+  const style = CONTACT_TINT[tint]
   return (
     <div className='flex items-start gap-2'>
-      <span className='h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-md bg-lightprimary text-primary'>
-        <Icon icon={icon} height={16} width={16} />
+      <span className={`h-9 w-9 shrink-0 inline-flex items-center justify-center rounded-md ${style.bg} ${style.text}`}>
+        <Icon icon={icon} height={18} width={18} />
       </span>
       <div className='min-w-0'>
         <p className='text-[11px] font-medium tracking-wide uppercase text-link dark:text-darklink'>{label}</p>
