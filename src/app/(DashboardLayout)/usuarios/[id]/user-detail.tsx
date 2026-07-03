@@ -14,6 +14,12 @@ import {
   type UserRole,
 } from '../mock-data'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
@@ -83,6 +89,20 @@ function formatDateTime(iso: string, locale: string): { date: string; time: stri
 
 // ---------- Left rail: recently viewed users ----------
 
+type RecentRange = 'today' | 'week' | 'all'
+
+const RANGE_OPTIONS: ReadonlyArray<{ value: RecentRange; labelKey: TranslationKey }> = [
+  { value: 'today', labelKey: 'userDetail.recent.rangeToday' },
+  { value: 'week', labelKey: 'userDetail.recent.rangeWeek' },
+  { value: 'all', labelKey: 'userDetail.recent.rangeAll' },
+]
+
+function phoneToWa(phone: string): string {
+  // Strip everything that isn't a digit — WhatsApp wa.me expects a plain
+  // international number without symbols or spaces.
+  return phone.replace(/\D+/g, '')
+}
+
 function RecentUsersRail({
   currentId,
   users,
@@ -92,6 +112,10 @@ function RecentUsersRail({
   users: AppUser[]
   t: TFn
 }) {
+  const [range, setRange] = useState<RecentRange>('today')
+  const currentRangeLabel =
+    RANGE_OPTIONS.find((r) => r.value === range) ?? RANGE_OPTIONS[0]
+
   return (
     <aside className='rounded-lg border border-border dark:border-darkborder bg-card p-4 flex flex-col gap-3'>
       <div className='flex items-start justify-between'>
@@ -108,10 +132,39 @@ function RecentUsersRail({
             </p>
           </div>
         </div>
-        <span className='inline-flex items-center gap-1 text-xs text-link dark:text-darklink border border-border dark:border-darkborder rounded-md px-2 py-1'>
-          {t('userDetail.recent.today')}
-          <Icon icon='tabler:chevron-down' height={12} width={12} />
-        </span>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type='button'
+              className='inline-flex items-center gap-1 text-xs text-link dark:text-darklink border border-border dark:border-darkborder rounded-md px-2 py-1 hover:border-primary hover:text-primary transition-colors'>
+              {t(currentRangeLabel.labelKey)}
+              <Icon icon='tabler:chevron-down' height={12} width={12} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align='end' className='min-w-[140px]'>
+            {RANGE_OPTIONS.map((opt) => {
+              const isSelected = opt.value === range
+              return (
+                <DropdownMenuItem
+                  key={opt.value}
+                  onClick={() => setRange(opt.value)}
+                  className={
+                    isSelected
+                      ? 'bg-lightprimary text-primary focus:bg-lightprimary focus:text-primary'
+                      : ''
+                  }>
+                  <Icon
+                    icon='tabler:check'
+                    height={14}
+                    width={14}
+                    className={`mr-2 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
+                  />
+                  {t(opt.labelKey)}
+                </DropdownMenuItem>
+              )
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className='flex flex-col gap-2 mt-1'>
@@ -122,6 +175,7 @@ function RecentUsersRail({
         ) : (
           users.map((u) => {
             const isCurrent = u.id === currentId
+            const wa = u.phone ? phoneToWa(u.phone) : null
             return (
               <Link
                 key={u.id}
@@ -151,12 +205,32 @@ function RecentUsersRail({
                   </p>
                 </div>
                 <div className='flex items-center gap-1 shrink-0'>
-                  <span className='h-7 w-7 inline-flex items-center justify-center rounded-md text-link dark:text-darklink group-hover:text-primary'>
+                  <a
+                    href={u.phone ? `tel:${u.phone}` : undefined}
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={t('userDetail.recent.callAria', { name: u.fullName })}
+                    aria-disabled={!u.phone}
+                    className={`h-7 w-7 inline-flex items-center justify-center rounded-md transition-colors ${
+                      u.phone
+                        ? 'text-link dark:text-darklink hover:text-success hover:bg-lightsuccess'
+                        : 'text-link/40 dark:text-darklink/40 cursor-not-allowed pointer-events-none'
+                    }`}>
                     <Icon icon='solar:phone-linear' height={14} width={14} />
-                  </span>
-                  <span className='h-7 w-7 inline-flex items-center justify-center rounded-md text-link dark:text-darklink group-hover:text-primary'>
+                  </a>
+                  <a
+                    href={wa ? `https://wa.me/${wa}` : undefined}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={t('userDetail.recent.chatAria', { name: u.fullName })}
+                    aria-disabled={!wa}
+                    className={`h-7 w-7 inline-flex items-center justify-center rounded-md transition-colors ${
+                      wa
+                        ? 'text-link dark:text-darklink hover:text-success hover:bg-lightsuccess'
+                        : 'text-link/40 dark:text-darklink/40 cursor-not-allowed pointer-events-none'
+                    }`}>
                     <Icon icon='solar:chat-round-line-linear' height={14} width={14} />
-                  </span>
+                  </a>
                 </div>
               </Link>
             )
