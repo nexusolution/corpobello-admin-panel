@@ -267,7 +267,7 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
   return (
     <div className='rounded-lg border border-border dark:border-darkborder bg-card overflow-hidden'>
       {/* Hero with avatar (left) + identity block (right, inside banner) */}
-      <div className='relative bg-gradient-to-r from-lightprimary via-lightsuccess/60 to-lightprimary p-6'>
+      <div className='relative bg-gradient-to-r from-lightprimary via-lightsuccess/60 to-lightprimary py-3 px-6'>
         <div className='flex items-center gap-5 flex-wrap'>
           <div className='relative shrink-0'>
             <Avatar className='size-28 !rounded-xl ring-4 ring-card shadow-md'>
