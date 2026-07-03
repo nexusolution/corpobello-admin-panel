@@ -272,14 +272,14 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
       {/* Avatar — absolute, straddles the hero/content boundary */}
       <div className='absolute left-6 top-20'>
         <div className='relative'>
-          <Avatar className='size-36 !rounded-xl ring-4 ring-card shadow-md'>
+          <Avatar className='size-36 !rounded-full ring-4 ring-card shadow-md'>
             {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.fullName} className='object-cover' />}
-            <AvatarFallback className='!rounded-xl bg-lightprimary text-primary'>
+            <AvatarFallback className='!rounded-full bg-lightprimary text-primary'>
               <Icon icon='solar:user-bold-duotone' height={56} width={56} />
             </AvatarFallback>
           </Avatar>
           {user.status === 'active' && (
-            <span className='absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full bg-success ring-2 ring-card' />
+            <span className='absolute bottom-2 right-2 h-3.5 w-3.5 rounded-full bg-success ring-2 ring-card' />
           )}
         </div>
       </div>
