@@ -896,6 +896,87 @@ function AddUserDialog({
   )
 }
 
+// ---------- Pagination ----------
+
+const PAGE_SIZE = 15 // 5 cards wide × 3 rows
+
+function Pagination({
+  currentPage,
+  totalPages,
+  onChange,
+}: {
+  currentPage: number
+  totalPages: number
+  onChange: (page: number) => void
+}) {
+  // Choose which page numbers to render. For up to 7 pages, show all; for
+  // more, always show first/last with ellipses around the current window.
+  const pageNumbers = useMemo(() => {
+    const pages: Array<number | 'ellipsis-left' | 'ellipsis-right'> = []
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i)
+      return pages
+    }
+    pages.push(1)
+    if (currentPage > 3) pages.push('ellipsis-left')
+    const start = Math.max(2, currentPage - 1)
+    const end = Math.min(totalPages - 1, currentPage + 1)
+    for (let i = start; i <= end; i++) pages.push(i)
+    if (currentPage < totalPages - 2) pages.push('ellipsis-right')
+    pages.push(totalPages)
+    return pages
+  }, [currentPage, totalPages])
+
+  if (totalPages <= 1) return null
+
+  return (
+    <nav className='flex items-center gap-1' aria-label='Pagination'>
+      <button
+        type='button'
+        onClick={() => onChange(currentPage - 1)}
+        disabled={currentPage <= 1}
+        aria-label='Previous'
+        className='h-9 w-9 inline-flex items-center justify-center rounded-md border border-border dark:border-darkborder text-link dark:text-darklink hover:text-primary hover:border-primary disabled:opacity-40 disabled:hover:text-link disabled:hover:border-border transition-colors'>
+        <Icon icon='tabler:chevron-left' height={16} width={16} />
+      </button>
+      {pageNumbers.map((p, i) => {
+        if (p === 'ellipsis-left' || p === 'ellipsis-right') {
+          return (
+            <span
+              key={`${p}-${i}`}
+              className='h-9 w-9 inline-flex items-center justify-center text-link dark:text-darklink'>
+              …
+            </span>
+          )
+        }
+        const isCurrent = p === currentPage
+        return (
+          <button
+            key={p}
+            type='button'
+            onClick={() => onChange(p)}
+            aria-current={isCurrent ? 'page' : undefined}
+            className={`h-9 min-w-9 px-3 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors ${
+              isCurrent
+                ? 'bg-primary text-white'
+                : 'border border-border dark:border-darkborder text-dark dark:text-white hover:text-primary hover:border-primary'
+            }`}>
+            {p}
+          </button>
+        )
+      })}
+      <button
+        type='button'
+        onClick={() => onChange(currentPage + 1)}
+        disabled={currentPage >= totalPages}
+        aria-label='Next'
+        className='h-9 w-9 inline-flex items-center justify-center rounded-md border border-border dark:border-darkborder text-link dark:text-darklink hover:text-primary hover:border-primary disabled:opacity-40 disabled:hover:text-link disabled:hover:border-border transition-colors'>
+        <Icon icon='tabler:chevron-right' height={16} width={16} />
+      </button>
+    </nav>
+  )
+}
+
 // ---------- Main users grid ----------
 
 type RoleFilter = 'all' | UserRole
@@ -906,6 +987,7 @@ export function UsersTable() {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<SortKey>('name-asc')
+  const [currentPage, setCurrentPage] = useState(1)
   const [createOpen, setCreateOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<AppUser | null>(null)
 
@@ -936,6 +1018,18 @@ export function UsersTable() {
     })
     return list
   }, [users, roleFilter, search, sort])
+
+  // Reset to page 1 whenever filters/search/sort change so the visible slice
+  // stays in sync with what the user just picked.
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [roleFilter, search, sort])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(currentPage, totalPages)
+  const startIdx = (safePage - 1) * PAGE_SIZE
+  const endIdx = Math.min(startIdx + PAGE_SIZE, filtered.length)
+  const paged = filtered.slice(startIdx, endIdx)
 
   function openCreate() {
     setEditingUser(null)
@@ -1118,19 +1212,35 @@ export function UsersTable() {
           )}
         </div>
       ) : (
-        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
-          {filtered.map((user) => (
-            <UserCard
-              key={user.id}
-              user={user}
-              t={t}
-              onEdit={openEdit}
-              onDelete={handleDelete}
-              onToggleActive={toggleActive}
-              onChangeRole={changeRole}
+        <>
+          <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4'>
+            {paged.map((user) => (
+              <UserCard
+                key={user.id}
+                user={user}
+                t={t}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+                onToggleActive={toggleActive}
+                onChangeRole={changeRole}
+              />
+            ))}
+          </div>
+          <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
+            <p className='text-sm text-link dark:text-darklink'>
+              {t('users.pagination.range', {
+                start: String(filtered.length === 0 ? 0 : startIdx + 1),
+                end: String(endIdx),
+                total: String(filtered.length),
+              })}
+            </p>
+            <Pagination
+              currentPage={safePage}
+              totalPages={totalPages}
+              onChange={setCurrentPage}
             />
-          ))}
-        </div>
+          </div>
+        </>
       )}
 
       <AddUserDialog
