@@ -15,14 +15,10 @@ import {
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -41,78 +37,7 @@ import { Label } from '@/components/ui/label'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 
-// ---------- Search box (icon-button that expands) ----------
-
-function SearchBox({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: string
-  onChange: (v: string) => void
-  placeholder: string
-}) {
-  const [expanded, setExpanded] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (expanded) inputRef.current?.focus()
-  }, [expanded])
-
-  function handleBlur() {
-    if (!value) setExpanded(false)
-  }
-  function handleClear() {
-    onChange('')
-    setExpanded(false)
-  }
-
-  if (!expanded) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type='button'
-            aria-label={placeholder}
-            onClick={() => setExpanded(true)}
-            className='h-9 w-9 flex items-center justify-center rounded-md text-link dark:text-darklink hover:text-primary transition-colors'>
-            <Icon icon='solar:magnifer-linear' height={20} width={20} />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>{placeholder}</TooltipContent>
-      </Tooltip>
-    )
-  }
-
-  return (
-    <div className='relative flex-1 sm:flex-none sm:w-[280px]'>
-      <Icon
-        icon='solar:magnifer-linear'
-        height={16}
-        width={16}
-        className='absolute left-3 top-1/2 -translate-y-1/2 text-link dark:text-darklink pointer-events-none'
-      />
-      <input
-        ref={inputRef}
-        type='text'
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={handleBlur}
-        placeholder={placeholder}
-        className='w-full min-w-0 pl-9 pr-9 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
-      />
-      <button
-        type='button'
-        aria-label='Cerrar'
-        onClick={handleClear}
-        className='absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-link dark:text-darklink hover:text-primary'>
-        <Icon icon='solar:close-circle-line-duotone' height={16} width={16} />
-      </button>
-    </div>
-  )
-}
-
-// ---------- Role pill ----------
+// ---------- Role + status badges ----------
 
 function RoleBadge({ role, t }: { role: UserRole; t: TFn }) {
   const styles =
@@ -134,8 +59,6 @@ function RoleBadge({ role, t }: { role: UserRole; t: TFn }) {
     </span>
   )
 }
-
-// ---------- Status pill ----------
 
 function StatusBadge({
   status,
@@ -160,51 +83,468 @@ function StatusBadge({
   )
 }
 
-// ---------- Page-size select (Show [10 ▾]) ----------
+// ---------- KPI cards + mini bar chart ----------
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50] as const
+const BAR_HEIGHTS_A = [30, 45, 40, 55, 50, 65, 60, 75, 70, 90, 85, 95, 80, 100]
+const BAR_HEIGHTS_B = [70, 50, 65, 55, 80, 60, 90, 70, 85, 75, 100, 80, 90, 65]
+const BAR_HEIGHTS_C = [60, 75, 55, 80, 45, 90, 65, 100, 60, 85, 70, 95, 75, 60]
+const BAR_HEIGHTS_D = [40, 60, 50, 70, 55, 80, 70, 90, 60, 100, 75, 85, 65, 55]
 
-function PageSizeSelect({
-  value,
-  onChange,
-}: {
-  value: number
-  onChange: (v: number) => void
-}) {
+type KpiTint = 'success' | 'primary' | 'warning' | 'error'
+const KPI_STYLES: Record<KpiTint, { bar: string; barHighlight: string; iconBg: string; iconText: string }> = {
+  success: {
+    bar: 'bg-lightsuccess',
+    barHighlight: 'bg-success',
+    iconBg: 'bg-lightsuccess',
+    iconText: 'text-success',
+  },
+  primary: {
+    bar: 'bg-lightprimary',
+    barHighlight: 'bg-primary',
+    iconBg: 'bg-lightprimary',
+    iconText: 'text-primary',
+  },
+  warning: {
+    bar: 'bg-lightwarning',
+    barHighlight: 'bg-warning',
+    iconBg: 'bg-lightwarning',
+    iconText: 'text-warning',
+  },
+  error: {
+    bar: 'bg-lighterror',
+    barHighlight: 'bg-error',
+    iconBg: 'bg-lighterror',
+    iconText: 'text-error',
+  },
+}
+
+function MiniBarChart({ heights, tint }: { heights: number[]; tint: KpiTint }) {
+  const style = KPI_STYLES[tint]
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type='button'
-          className='inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border dark:border-darkborder text-sm text-dark dark:text-white hover:border-primary focus:outline-none focus:border-primary transition-colors'>
-          <span>{value}</span>
-          <Icon
-            icon='tabler:chevron-down'
-            height={14}
-            width={14}
-            className='text-link dark:text-darklink'
-          />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align='start' className='min-w-[80px]'>
-        {PAGE_SIZE_OPTIONS.map((opt) => (
-          <DropdownMenuItem
-            key={opt}
-            onClick={() => onChange(opt)}
-            className={
-              opt === value
-                ? 'bg-lightprimary text-primary focus:bg-lightprimary focus:text-primary'
-                : ''
-            }>
-            {opt}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className='flex items-end gap-1 h-10 mt-3'>
+      {heights.map((h, i) => (
+        <div
+          key={i}
+          className={`flex-1 rounded-sm ${i >= heights.length - 4 ? style.barHighlight : style.bar}`}
+          style={{ height: `${h}%` }}
+        />
+      ))}
+    </div>
   )
 }
 
-// ---------- Add User dialog ----------
+function KpiCard({
+  label,
+  value,
+  trend,
+  trendUp,
+  tint,
+  heights,
+}: {
+  label: string
+  value: string
+  trend: string
+  trendUp: boolean
+  tint: KpiTint
+  heights: number[]
+}) {
+  const trendColor = trendUp ? 'text-success bg-lightsuccess' : 'text-error bg-lighterror'
+  const trendIcon = trendUp ? 'tabler:trending-up' : 'tabler:trending-down'
+  const { t } = useTranslation()
+
+  return (
+    <div className='rounded-lg border border-border dark:border-darkborder bg-card p-5'>
+      <div className='flex items-start justify-between gap-2'>
+        <p className='text-sm text-link dark:text-darklink'>{label}</p>
+        <button
+          type='button'
+          aria-label='More'
+          className='text-link dark:text-darklink hover:text-primary transition-colors'>
+          <Icon icon='tabler:dots' height={16} width={16} />
+        </button>
+      </div>
+      <div className='flex items-center gap-2 mt-2'>
+        <p className='text-3xl font-bold text-dark dark:text-white'>{value}</p>
+        <span
+          className={`inline-flex items-center gap-0.5 text-[11px] font-semibold rounded-full px-2 py-0.5 ${trendColor}`}>
+          <Icon icon={trendIcon} height={11} width={11} />
+          {trend}
+        </span>
+      </div>
+      <MiniBarChart heights={heights} tint={tint} />
+      <p className='text-[11px] text-link dark:text-darklink mt-2'>
+        {t('users.stats.trend')}
+      </p>
+    </div>
+  )
+}
+
+function KpiRow({ users, t }: { users: AppUser[]; t: TFn }) {
+  const total = users.length
+  const active = users.filter((u) => u.status === 'active').length
+  const inactive = total - active
+  const roles = new Set(users.map((u) => u.role)).size
+
+  return (
+    <div className='grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4'>
+      <KpiCard
+        label={t('users.stats.total')}
+        value={String(total)}
+        trend='4%'
+        trendUp
+        tint='success'
+        heights={BAR_HEIGHTS_A}
+      />
+      <KpiCard
+        label={t('users.stats.active')}
+        value={String(active)}
+        trend='2%'
+        trendUp
+        tint='primary'
+        heights={BAR_HEIGHTS_B}
+      />
+      <KpiCard
+        label={t('users.stats.inactive')}
+        value={String(inactive)}
+        trend='8%'
+        trendUp={false}
+        tint='warning'
+        heights={BAR_HEIGHTS_C}
+      />
+      <KpiCard
+        label={t('users.stats.roles')}
+        value={String(roles)}
+        trend='9%'
+        trendUp
+        tint='error'
+        heights={BAR_HEIGHTS_D}
+      />
+    </div>
+  )
+}
+
+// ---------- User card (grid item) ----------
+
+function InfoChip({ value, label }: { value: string; label: string }) {
+  return (
+    <div className='rounded-md bg-muted/50 dark:bg-darkmuted/40 py-2 px-3 text-center'>
+      <p className='text-sm font-bold text-dark dark:text-white leading-tight'>{value}</p>
+      <p className='text-[10px] text-link dark:text-darklink mt-0.5 uppercase tracking-wide'>{label}</p>
+    </div>
+  )
+}
+
+function phoneToWa(phone: string): string {
+  return phone.replace(/\D+/g, '')
+}
+
+function UserCardActionButton({
+  href,
+  target,
+  ariaLabel,
+  disabled,
+  tint,
+  icon,
+}: {
+  href?: string
+  target?: string
+  ariaLabel: string
+  disabled: boolean
+  tint: KpiTint
+  icon: string
+}) {
+  const style = KPI_STYLES[tint]
+  const className = `h-8 w-8 inline-flex items-center justify-center rounded-full transition-colors ${
+    disabled
+      ? 'bg-muted/40 text-link/40 dark:text-darklink/40 cursor-not-allowed pointer-events-none'
+      : `${style.iconBg} ${style.iconText} hover:brightness-90`
+  }`
+  return (
+    <a
+      href={disabled ? undefined : href}
+      target={target}
+      rel={target === '_blank' ? 'noopener noreferrer' : undefined}
+      aria-label={ariaLabel}
+      aria-disabled={disabled}
+      onClick={(e) => e.stopPropagation()}
+      className={className}>
+      <Icon icon={icon} height={14} width={14} />
+    </a>
+  )
+}
+
+function UserCard({
+  user,
+  t,
+  onEdit,
+  onDelete,
+  onToggleActive,
+  onChangeRole,
+}: {
+  user: AppUser
+  t: TFn
+  onEdit: (u: AppUser) => void
+  onDelete: (u: AppUser) => void
+  onToggleActive: (u: AppUser) => void
+  onChangeRole: (u: AppUser, r: UserRole) => void
+}) {
+  const rating = user.professionalDetails?.rating
+  const roleLabel = t(
+    user.role === 'admin'
+      ? 'users.role.admin'
+      : user.role === 'operador'
+      ? 'users.role.operador'
+      : 'users.role.profesional'
+  )
+
+  // Two stats per card, keyed to the user's role
+  const stats: Array<{ value: string; label: string }> = (() => {
+    if (user.role === 'profesional' && user.professionalDetails) {
+      return [
+        {
+          value: String(user.professionalDetails.patientsAttended),
+          label: t('users.card.patients'),
+        },
+        {
+          value: t('users.card.experienceValue', {
+            years: String(user.professionalDetails.yearsExperience),
+          }),
+          label: t('users.card.experience'),
+        },
+      ]
+    }
+    if (user.role === 'operador' && user.operatorDetails) {
+      return [
+        {
+          value: String(user.operatorDetails.bookingsThisMonth),
+          label: t('users.card.bookings'),
+        },
+        {
+          value: user.operatorDetails.shiftsSlot.split(' ')[0],
+          label: t('users.card.shift'),
+        },
+      ]
+    }
+    if (user.role === 'admin' && user.adminDetails) {
+      return [
+        {
+          value: String(user.adminDetails.createdUsers),
+          label: t('users.card.usersCreated'),
+        },
+        {
+          value: String(user.adminDetails.configChanges),
+          label: t('users.card.configChanges'),
+        },
+      ]
+    }
+    return []
+  })()
+
+  const wa = user.phone ? phoneToWa(user.phone) : null
+
+  return (
+    <div className='group relative rounded-lg border border-border dark:border-darkborder bg-card p-5 hover:border-primary/60 transition-colors'>
+      {/* Top row: status + role pills */}
+      <div className='flex items-start justify-between mb-4'>
+        <StatusBadge status={user.status} t={t} />
+        <div className='flex items-center gap-1'>
+          <RoleBadge role={user.role} t={t} />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type='button'
+                aria-label={t('users.col.actions')}
+                onClick={(e) => e.stopPropagation()}
+                className='h-6 w-6 inline-flex items-center justify-center rounded text-link dark:text-darklink hover:text-primary'>
+                <Icon icon='tabler:dots' height={16} width={16} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align='end' className='w-44'>
+              <DropdownMenuItem asChild>
+                <Link href={`/usuarios/${user.id}`} className='w-full'>
+                  <Icon icon='solar:eye-line-duotone' height={16} width={16} className='mr-2' />
+                  {t('users.action.viewDetail')}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onEdit(user)}>
+                <Icon icon='solar:pen-line-duotone' height={16} width={16} className='mr-2' />
+                {t('users.action.edit')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onToggleActive(user)}>
+                <Icon
+                  icon={user.status === 'active' ? 'solar:pause-line-duotone' : 'solar:play-line-duotone'}
+                  height={16}
+                  width={16}
+                  className='mr-2'
+                />
+                {user.status === 'active' ? t('users.action.deactivate') : t('users.action.activate')}
+              </DropdownMenuItem>
+              {(['admin', 'operador', 'profesional'] as const)
+                .filter((r) => r !== user.role)
+                .map((r) => (
+                  <DropdownMenuItem key={r} onClick={() => onChangeRole(user, r)}>
+                    <Icon icon='solar:shield-user-line-duotone' height={16} width={16} className='mr-2' />
+                    →{' '}
+                    {t(
+                      r === 'admin'
+                        ? 'users.role.admin'
+                        : r === 'operador'
+                        ? 'users.role.operador'
+                        : 'users.role.profesional'
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              <DropdownMenuItem
+                onClick={() => onDelete(user)}
+                className='text-error focus:text-error focus:bg-error/10'>
+                <Icon icon='solar:trash-bin-trash-line-duotone' height={16} width={16} className='mr-2' />
+                {t('users.action.delete')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {/* Centered avatar with role dot */}
+      <Link href={`/usuarios/${user.id}`} className='block'>
+        <div className='flex justify-center mb-3'>
+          <div className='relative'>
+            <Avatar className='size-24 ring-4 ring-lightprimary/40'>
+              {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.fullName} className='object-cover' />}
+              <AvatarFallback className='bg-lightprimary text-primary'>
+                <Icon icon='solar:user-bold-duotone' height={44} width={44} />
+              </AvatarFallback>
+            </Avatar>
+            <span className='absolute bottom-1 right-1 h-6 w-6 rounded-full bg-lightsuccess flex items-center justify-center border-2 border-card'>
+              <Icon icon='solar:stethoscope-line-duotone' height={12} width={12} className='text-success' />
+            </span>
+          </div>
+        </div>
+
+        <div className='text-center'>
+          <h3 className='text-base font-bold text-dark dark:text-white group-hover:text-primary transition-colors'>
+            {user.fullName}
+          </h3>
+          <p className='text-xs text-link dark:text-darklink mt-0.5 truncate'>
+            {user.bio ?? roleLabel}
+          </p>
+        </div>
+      </Link>
+
+      {/* Info chips (2) */}
+      {stats.length === 2 && (
+        <div className='grid grid-cols-2 gap-2 mt-4'>
+          <InfoChip value={stats[0].value} label={stats[0].label} />
+          <InfoChip value={stats[1].value} label={stats[1].label} />
+        </div>
+      )}
+
+      {/* Footer: rating (or spacer) + action buttons */}
+      <div className='flex items-center justify-between mt-4'>
+        <div className='flex items-center gap-1 min-w-0'>
+          {rating !== undefined ? (
+            <>
+              <Icon icon='tabler:star-filled' height={14} width={14} className='text-warning' />
+              <span className='text-sm font-semibold text-dark dark:text-white'>{rating.toFixed(1)}</span>
+              <span className='text-xs text-link dark:text-darklink'>/5.0</span>
+            </>
+          ) : (
+            <span className='text-xs text-link dark:text-darklink truncate'>
+              {user.location ?? user.email}
+            </span>
+          )}
+        </div>
+        <div className='flex items-center gap-1.5'>
+          <UserCardActionButton
+            href={user.phone ? `tel:${user.phone}` : undefined}
+            ariaLabel={t('users.card.actionCall')}
+            disabled={!user.phone}
+            tint='primary'
+            icon='solar:phone-linear'
+          />
+          <UserCardActionButton
+            href={user.email ? `mailto:${user.email}` : undefined}
+            ariaLabel={t('users.card.actionEmail')}
+            disabled={!user.email}
+            tint='warning'
+            icon='solar:letter-linear'
+          />
+          <UserCardActionButton
+            href={wa ? `https://wa.me/${wa}` : undefined}
+            target='_blank'
+            ariaLabel={t('users.card.actionChat')}
+            disabled={!wa}
+            tint='error'
+            icon='solar:chat-round-line-linear'
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------- Sort dropdown ----------
+
+type SortKey = 'name-asc' | 'name-desc' | 'role' | 'status' | 'recent'
+const SORT_OPTIONS: ReadonlyArray<{ value: SortKey; labelKey: TranslationKey }> = [
+  { value: 'name-asc', labelKey: 'users.sort.nameAsc' },
+  { value: 'name-desc', labelKey: 'users.sort.nameDesc' },
+  { value: 'role', labelKey: 'users.sort.role' },
+  { value: 'status', labelKey: 'users.sort.status' },
+  { value: 'recent', labelKey: 'users.sort.recent' },
+]
+
+function SortSelect({
+  value,
+  onChange,
+  t,
+}: {
+  value: SortKey
+  onChange: (next: SortKey) => void
+  t: TFn
+}) {
+  const current = SORT_OPTIONS.find((o) => o.value === value) ?? SORT_OPTIONS[0]
+  return (
+    <div className='flex items-center gap-2'>
+      <span className='text-xs text-link dark:text-darklink'>{t('users.sort.label')}</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type='button'
+            className='inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-border dark:border-darkborder text-sm text-dark dark:text-white hover:border-primary transition-colors'>
+            <span>{t(current.labelKey)}</span>
+            <Icon icon='tabler:chevron-down' height={14} width={14} className='text-link dark:text-darklink' />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align='end' className='min-w-[160px]'>
+          {SORT_OPTIONS.map((opt) => {
+            const isSelected = opt.value === value
+            return (
+              <DropdownMenuItem
+                key={opt.value}
+                onClick={() => onChange(opt.value)}
+                className={
+                  isSelected
+                    ? 'bg-lightprimary text-primary focus:bg-lightprimary focus:text-primary'
+                    : ''
+                }>
+                <Icon
+                  icon='tabler:check'
+                  height={14}
+                  width={14}
+                  className={`mr-2 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
+                />
+                {t(opt.labelKey)}
+              </DropdownMenuItem>
+            )
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  )
+}
+
+// ---------- Add / edit user dialog (unchanged from previous version) ----------
 
 type DraftUser = {
   fullName: string
@@ -226,21 +566,9 @@ const ROLE_OPTIONS: ReadonlyArray<{
   labelKey: TranslationKey
   descriptionKey: TranslationKey
 }> = [
-  {
-    value: 'admin',
-    labelKey: 'users.role.admin',
-    descriptionKey: 'users.role.adminDescription',
-  },
-  {
-    value: 'operador',
-    labelKey: 'users.role.operador',
-    descriptionKey: 'users.role.operadorDescription',
-  },
-  {
-    value: 'profesional',
-    labelKey: 'users.role.profesional',
-    descriptionKey: 'users.role.profesionalDescription',
-  },
+  { value: 'admin', labelKey: 'users.role.admin', descriptionKey: 'users.role.adminDescription' },
+  { value: 'operador', labelKey: 'users.role.operador', descriptionKey: 'users.role.operadorDescription' },
+  { value: 'profesional', labelKey: 'users.role.profesional', descriptionKey: 'users.role.profesionalDescription' },
 ]
 
 function DialogSucursalSelect({
@@ -267,17 +595,10 @@ function DialogSucursalSelect({
           type='button'
           className='w-full inline-flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm font-medium text-dark dark:text-white hover:border-primary focus:outline-none focus:border-primary transition-colors'>
           <span>{current.label}</span>
-          <Icon
-            icon='tabler:chevron-down'
-            height={14}
-            width={14}
-            className='text-link dark:text-darklink'
-          />
+          <Icon icon='tabler:chevron-down' height={14} width={14} className='text-link dark:text-darklink' />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align='start'
-        className='w-[var(--radix-dropdown-menu-trigger-width)]'>
+      <DropdownMenuContent align='start' className='w-[var(--radix-dropdown-menu-trigger-width)]'>
         {options.map((opt) => {
           const isSelected = opt.value === value
           const key = opt.value ?? '__none__'
@@ -333,14 +654,8 @@ function AddUserDialog({
   const baseline = editingUser ? userToDraft(editingUser) : EMPTY_DRAFT
   const [draft, setDraft] = useState<DraftUser>(baseline)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  // When the user picks "No, volver" in the cancel-confirm, we reopen the
-  // dialog with the draft still in place. The reset effect below would wipe
-  // it, so skip the reset for that one reopen.
   const skipNextResetRef = useRef(false)
 
-  // Reset draft state every time the dialog opens (except after a reopen).
-  // In edit mode, "reset" means re-seed from editingUser; in create mode it
-  // means clear to EMPTY_DRAFT.
   useEffect(() => {
     if (!open) return
     if (skipNextResetRef.current) {
@@ -370,24 +685,16 @@ function AddUserDialog({
       onOpenChange(false)
       return
     }
-    // Close the Radix dialog BEFORE opening SweetAlert. Otherwise Radix's
-    // modal focus scope blocks pointer events on the swal buttons. If the
-    // user picks "No, volver" we reopen and the skipNextResetRef preserves
-    // the draft.
     onOpenChange(false)
     const isDark =
       typeof document !== 'undefined' &&
       document.documentElement.classList.contains('dark')
     Swal.fire({
       title: t(
-        editingUser
-          ? 'users.dialog.cancelEditConfirmTitle'
-          : 'users.dialog.cancelConfirmTitle'
+        editingUser ? 'users.dialog.cancelEditConfirmTitle' : 'users.dialog.cancelConfirmTitle'
       ),
       icon: 'warning',
       iconColor: '#ffae1f',
-      // swal2's built-in warning glyph uses fixed-offset positioning that
-      // clips outside the circle when the icon is shrunk. Render our own.
       iconHtml:
         '<span style="font-size:30px;line-height:1;color:#ffae1f;font-weight:700;">!</span>',
       showCancelButton: true,
@@ -411,8 +718,7 @@ function AddUserDialog({
         popup: '!rounded-lg',
       },
     }).then((res) => {
-      if (res.isConfirmed) return // discard — stay closed
-      // User chose "No, volver" or dismissed the popup → reopen with draft.
+      if (res.isConfirmed) return
       skipNextResetRef.current = true
       onOpenChange(true)
     })
@@ -457,7 +763,6 @@ function AddUserDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className='space-y-5 mt-2'>
-          {/* Avatar */}
           <div>
             <Label className='font-medium'>{t('users.dialog.avatarLabel')}</Label>
             <div className='flex items-start gap-4 mt-2'>
@@ -466,18 +771,10 @@ function AddUserDialog({
                   key={draft.avatarUrl ?? 'empty'}
                   className='size-28 !rounded-xl ring-1 ring-border dark:ring-darkborder'>
                   {draft.avatarUrl && (
-                    <AvatarImage
-                      src={draft.avatarUrl}
-                      alt='Avatar'
-                      className='object-cover'
-                    />
+                    <AvatarImage src={draft.avatarUrl} alt='Avatar' className='object-cover' />
                   )}
                   <AvatarFallback className='!rounded-xl bg-lightprimary text-primary'>
-                    <Icon
-                      icon='solar:user-bold-duotone'
-                      height={56}
-                      width={56}
-                    />
+                    <Icon icon='solar:user-bold-duotone' height={56} width={56} />
                   </AvatarFallback>
                 </Avatar>
                 <button
@@ -491,9 +788,7 @@ function AddUserDialog({
                   <button
                     type='button'
                     aria-label={t('users.dialog.avatarRemove')}
-                    onClick={() =>
-                      setDraft((d) => ({ ...d, avatarUrl: undefined }))
-                    }
+                    onClick={() => setDraft((d) => ({ ...d, avatarUrl: undefined }))}
                     className='absolute -bottom-1 -right-1 h-7 w-7 inline-flex items-center justify-center rounded-full bg-background border border-border dark:border-darkborder shadow-sm text-link dark:text-darklink hover:text-error hover:border-error transition-colors'>
                     <Icon icon='tabler:x' height={14} width={14} />
                   </button>
@@ -512,29 +807,23 @@ function AddUserDialog({
             </p>
           </div>
 
-          {/* Full name */}
           <div>
             <Label htmlFor='draft-name' className='font-medium mb-1.5 block'>
-              {t('users.dialog.nameLabel')}{' '}
-              <span className='text-error'>*</span>
+              {t('users.dialog.nameLabel')} <span className='text-error'>*</span>
             </Label>
             <input
               id='draft-name'
               type='text'
               value={draft.fullName}
-              onChange={(e) =>
-                setDraft({ ...draft, fullName: e.target.value })
-              }
+              onChange={(e) => setDraft({ ...draft, fullName: e.target.value })}
               placeholder={t('users.dialog.namePlaceholder')}
               className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
             />
           </div>
 
-          {/* Email */}
           <div>
             <Label htmlFor='draft-email' className='font-medium mb-1.5 block'>
-              {t('users.dialog.emailLabel')}{' '}
-              <span className='text-error'>*</span>
+              {t('users.dialog.emailLabel')} <span className='text-error'>*</span>
             </Label>
             <input
               id='draft-email'
@@ -546,11 +835,9 @@ function AddUserDialog({
             />
           </div>
 
-          {/* Role */}
           <div>
             <Label className='font-medium mb-2 block'>
-              {t('users.dialog.roleLabel')}{' '}
-              <span className='text-error'>*</span>
+              {t('users.dialog.roleLabel')} <span className='text-error'>*</span>
             </Label>
             <RadioGroup
               value={draft.role}
@@ -564,14 +851,10 @@ function AddUserDialog({
                       ? 'border-b border-border dark:border-darkborder'
                       : ''
                   } ${
-                    draft.role === opt.value
-                      ? 'bg-lightprimary/30'
-                      : 'hover:bg-muted/40'
+                    draft.role === opt.value ? 'bg-lightprimary/30' : 'hover:bg-muted/40'
                   } transition-colors`}>
                   <RadioGroupItem value={opt.value} id={`role-${opt.value}`} className='mt-0.5' />
-                  <Label
-                    htmlFor={`role-${opt.value}`}
-                    className='flex-1 cursor-pointer'>
+                  <Label htmlFor={`role-${opt.value}`} className='flex-1 cursor-pointer'>
                     <div className='text-sm font-semibold text-dark dark:text-white'>
                       {t(opt.labelKey)}
                     </div>
@@ -584,11 +867,8 @@ function AddUserDialog({
             </RadioGroup>
           </div>
 
-          {/* Sucursal */}
           <div>
-            <Label className='font-medium mb-1.5 block'>
-              {t('users.dialog.sucursalLabel')}
-            </Label>
+            <Label className='font-medium mb-1.5 block'>{t('users.dialog.sucursalLabel')}</Label>
             <DialogSucursalSelect
               value={draft.sucursal}
               onChange={(next) => setDraft({ ...draft, sucursal: next })}
@@ -596,7 +876,6 @@ function AddUserDialog({
             />
           </div>
 
-          {/* Footer buttons */}
           <div className='flex items-center justify-end gap-3 pt-2'>
             <button
               type='button'
@@ -608,11 +887,7 @@ function AddUserDialog({
               type='submit'
               disabled={!isValid || (editingUser !== null && !isDirty)}
               className='px-4 py-2 rounded-md text-sm font-medium bg-primary text-white hover:bg-primaryemphasis disabled:opacity-50 disabled:cursor-not-allowed transition-colors'>
-              {t(
-                editingUser
-                  ? 'users.dialog.saveChanges'
-                  : 'users.dialog.submit'
-              )}
+              {t(editingUser ? 'users.dialog.saveChanges' : 'users.dialog.submit')}
             </button>
           </div>
         </form>
@@ -621,64 +896,19 @@ function AddUserDialog({
   )
 }
 
-// ---------- Main table ----------
+// ---------- Main users grid ----------
 
 type RoleFilter = 'all' | UserRole
-type SortDir = 'asc' | 'desc'
-type SortableColumn = 'name' | 'role' | 'email' | 'sucursal' | 'status'
-type ToggleableColumn = SortableColumn
-
-const SORTABLE_COLUMNS: readonly SortableColumn[] = [
-  'name',
-  'role',
-  'email',
-  'sucursal',
-  'status',
-] as const
-
-const COLUMN_LABEL_KEY: Record<SortableColumn, TranslationKey> = {
-  name: 'users.col.name',
-  role: 'users.col.role',
-  email: 'users.col.email',
-  sucursal: 'users.col.sucursal',
-  status: 'users.col.status',
-}
 
 export function UsersTable() {
   const { t } = useTranslation()
   const [users, setUsers] = useState<AppUser[]>(MOCK_USERS)
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
   const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [sortColumn, setSortColumn] = useState<SortableColumn>('name')
-  const [sortDir, setSortDir] = useState<SortDir>('asc')
-  const [visibleColumns, setVisibleColumns] = useState<Set<ToggleableColumn>>(
-    () => new Set(SORTABLE_COLUMNS)
-  )
-  const [pageSize, setPageSize] = useState(10)
-  const [currentPage, setCurrentPage] = useState(1)
+  const [sort, setSort] = useState<SortKey>('name-asc')
   const [createOpen, setCreateOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<AppUser | null>(null)
 
-  function toggleSort(col: SortableColumn) {
-    if (sortColumn === col) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortColumn(col)
-      setSortDir('asc')
-    }
-  }
-
-  function toggleColumn(col: ToggleableColumn) {
-    setVisibleColumns((prev) => {
-      const next = new Set(prev)
-      if (next.has(col)) next.delete(col)
-      else next.add(col)
-      return next
-    })
-  }
-
-  // Filter + sort
   const filtered = useMemo(() => {
     let list = users
     if (roleFilter !== 'all') list = list.filter((u) => u.role === roleFilter)
@@ -691,98 +921,50 @@ export function UsersTable() {
       )
     }
     list = [...list].sort((a, b) => {
-      let cmp = 0
-      switch (sortColumn) {
-        case 'name':
-          cmp = a.fullName.localeCompare(b.fullName, 'es')
-          break
+      switch (sort) {
+        case 'name-asc':
+          return a.fullName.localeCompare(b.fullName, 'es')
+        case 'name-desc':
+          return b.fullName.localeCompare(a.fullName, 'es')
         case 'role':
-          cmp = a.role.localeCompare(b.role, 'es')
-          break
-        case 'email':
-          cmp = a.email.localeCompare(b.email, 'es')
-          break
-        case 'sucursal': {
-          const al = a.sucursal ? SUCURSAL_LABELS[a.sucursal] : ''
-          const bl = b.sucursal ? SUCURSAL_LABELS[b.sucursal] : ''
-          cmp = al.localeCompare(bl, 'es')
-          break
-        }
+          return a.role.localeCompare(b.role, 'es')
         case 'status':
-          // active < inactive when ascending
-          cmp = a.status.localeCompare(b.status, 'es')
-          break
+          return a.status.localeCompare(b.status, 'es')
+        case 'recent':
+          return b.createdAt.localeCompare(a.createdAt)
       }
-      return sortDir === 'asc' ? cmp : -cmp
     })
     return list
-  }, [users, roleFilter, search, sortColumn, sortDir])
+  }, [users, roleFilter, search, sort])
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
-  const safePage = Math.min(currentPage, totalPages)
-  const start = (safePage - 1) * pageSize
-  const end = Math.min(start + pageSize, filtered.length)
-  const paged = filtered.slice(start, end)
-
-  // Selection helpers
-  const allOnPageSelected =
-    paged.length > 0 && paged.every((u) => selected.has(u.id))
-
-  function togglePageSelection() {
-    const next = new Set(selected)
-    if (allOnPageSelected) {
-      paged.forEach((u) => next.delete(u.id))
-    } else {
-      paged.forEach((u) => next.add(u.id))
-    }
-    setSelected(next)
+  function openCreate() {
+    setEditingUser(null)
+    setCreateOpen(true)
   }
-  function toggleRow(id: string) {
-    const next = new Set(selected)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
-    setSelected(next)
+  function openEdit(user: AppUser) {
+    setEditingUser(user)
+    setCreateOpen(true)
   }
-
-  // Row actions
-  function toggleActive(id: string) {
+  function toggleActive(user: AppUser) {
     setUsers((prev) =>
       prev.map((u) =>
-        u.id === id
-          ? { ...u, status: u.status === 'active' ? 'inactive' : 'active' }
-          : u
+        u.id === user.id ? { ...u, status: u.status === 'active' ? 'inactive' : 'active' } : u
       )
     )
   }
-  function deleteUser(id: string) {
-    setUsers((prev) => prev.filter((u) => u.id !== id))
-    setSelected((prev) => {
-      const next = new Set(prev)
-      next.delete(id)
-      return next
-    })
-  }
-  function deleteSelected() {
-    setUsers((prev) => prev.filter((u) => !selected.has(u.id)))
-    setSelected(new Set())
+  function changeRole(user: AppUser, role: UserRole) {
+    setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, role } : u)))
   }
 
-  // Destructive-action confirm. No Radix Dialog is open at this layer, so we
-  // can call Swal.fire directly without the close-then-show dance used in
-  // AddUserDialog's cancel-confirm.
-  async function confirmDelete(
-    titleKey: TranslationKey,
-    body: string
-  ): Promise<boolean> {
+  async function handleDelete(user: AppUser) {
     const isDark =
       typeof document !== 'undefined' &&
       document.documentElement.classList.contains('dark')
     const result = await Swal.fire({
-      title: t(titleKey),
-      text: body,
+      title: t('users.delete.confirmTitle'),
+      text: t('users.delete.confirmBody', { name: user.fullName }),
       icon: 'warning',
       iconColor: '#ef4444',
-      // swal2's built-in warning glyph clips outside the circle when shrunk.
       iconHtml:
         '<span style="font-size:30px;line-height:1;color:#ef4444;font-weight:700;">!</span>',
       showCancelButton: true,
@@ -794,7 +976,6 @@ export function UsersTable() {
       color: isDark ? '#ffffff' : '#2a3547',
       width: '360px',
       padding: '1.5rem 1rem',
-      reverseButtons: false,
       customClass: {
         title: '!text-base !font-semibold !pb-0 !mt-3',
         htmlContainer: '!text-sm !mt-2',
@@ -807,26 +988,11 @@ export function UsersTable() {
         popup: '!rounded-lg',
       },
     })
-    return result.isConfirmed
+    if (result.isConfirmed) {
+      setUsers((prev) => prev.filter((u) => u.id !== user.id))
+    }
   }
 
-  async function handleDeleteUser(user: AppUser) {
-    const ok = await confirmDelete(
-      'users.delete.confirmTitle',
-      t('users.delete.confirmBody', { name: user.fullName })
-    )
-    if (ok) deleteUser(user.id)
-  }
-
-  async function handleDeleteSelected() {
-    const count = selected.size
-    if (count === 0) return
-    const ok = await confirmDelete(
-      'users.delete.confirmTitleBulk',
-      t('users.delete.confirmBodyBulk', { count: String(count) })
-    )
-    if (ok) deleteSelected()
-  }
   function createUser(draft: DraftUser) {
     const newUser: AppUser = {
       id: `new-${Date.now()}`,
@@ -839,7 +1005,6 @@ export function UsersTable() {
       createdAt: new Date().toISOString(),
     }
     setUsers((prev) => [newUser, ...prev])
-    setCurrentPage(1)
   }
   function updateUser(id: string, draft: DraftUser) {
     setUsers((prev) =>
@@ -858,21 +1023,7 @@ export function UsersTable() {
     )
     setEditingUser(null)
   }
-  function changeRole(id: string, role: UserRole) {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, role } : u))
-    )
-  }
-  function openCreate() {
-    setEditingUser(null)
-    setCreateOpen(true)
-  }
-  function openEdit(user: AppUser) {
-    setEditingUser(user)
-    setCreateOpen(true)
-  }
 
-  // Filter pills config
   const filterPills: { value: RoleFilter; labelKey: TranslationKey }[] = [
     { value: 'all', labelKey: 'users.filter.all' },
     { value: 'admin', labelKey: 'users.filter.admin' },
@@ -881,112 +1032,22 @@ export function UsersTable() {
   ]
 
   return (
-    <div>
-      {/* Card container */}
-      <div className='rounded-lg border border-border dark:border-darkborder bg-card p-4 sm:p-6'>
-        {/* Top row: icon actions — stacks on mobile */}
-        <div className='flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 mb-6'>
-          <div className='flex items-center gap-2 w-full sm:w-auto justify-end'>
-            <SearchBox
-              value={search}
-              onChange={setSearch}
-              placeholder={t('users.search.placeholder')}
-            />
-            <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type='button'
-                      aria-label={t('users.col.toggleColumns')}
-                      className='h-9 w-9 flex items-center justify-center rounded-md text-link dark:text-darklink hover:text-primary transition-colors'>
-                      <Icon icon='solar:settings-line-duotone' height={20} width={20} />
-                    </button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent>{t('users.col.toggleColumns')}</TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align='end' className='w-48'>
-                {SORTABLE_COLUMNS.map((col) => {
-                  const isVisible = visibleColumns.has(col)
-                  return (
-                    <DropdownMenuItem
-                      key={col}
-                      onSelect={(e) => {
-                        e.preventDefault()
-                        toggleColumn(col)
-                      }}>
-                      <Icon
-                        icon='tabler:check'
-                        height={16}
-                        width={16}
-                        className={`mr-2 ${
-                          isVisible ? 'opacity-100' : 'opacity-0'
-                        }`}
-                      />
-                      {t(COLUMN_LABEL_KEY[col])}
-                    </DropdownMenuItem>
-                  )
-                })}
-                <div className='h-px bg-border dark:bg-darkborder my-1' />
-                <DropdownMenuItem
-                  disabled
-                  onSelect={(e) => e.preventDefault()}
-                  className='opacity-50 cursor-not-allowed'>
-                  <Icon
-                    icon='tabler:check'
-                    height={16}
-                    width={16}
-                    className='mr-2'
-                  />
-                  {t('users.col.actions')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type='button'
-                  aria-label={t('users.download')}
-                  className='h-9 w-9 flex items-center justify-center rounded-md text-link dark:text-darklink hover:text-primary transition-colors'>
-                  <Icon icon='solar:download-minimalistic-line-duotone' height={20} width={20} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>{t('users.action.exportCsv')}</TooltipContent>
-            </Tooltip>
-            {selected.size > 0 && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type='button'
-                    aria-label={t('users.action.deleteSelected')}
-                    onClick={handleDeleteSelected}
-                    className='h-9 w-9 flex items-center justify-center rounded-md bg-error text-white hover:bg-error/90 transition-colors'>
-                    <Icon icon='solar:trash-bin-trash-line-duotone' height={20} width={20} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {t('users.action.deleteSelected')} ({selected.size})
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-        </div>
+    <div className='space-y-6'>
+      {/* KPI row */}
+      <KpiRow users={users} t={t} />
 
-        {/* Filter pills + Create user button — stack on mobile */}
-        <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3'>
-          <div className='-mx-1 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
-            <div className='inline-flex p-1 mx-1 rounded-md bg-muted/50 dark:bg-darkmuted/40'>
+      {/* Filter pills + search + sort + create */}
+      <div className='rounded-lg border border-border dark:border-darkborder bg-card p-4'>
+        <div className='flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between'>
+          <div className='overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
+            <div className='inline-flex p-1 rounded-md bg-muted/50 dark:bg-darkmuted/40'>
               {filterPills.map((pill) => {
                 const active = pill.value === roleFilter
                 return (
                   <button
                     key={pill.value}
                     type='button'
-                    onClick={() => {
-                      setRoleFilter(pill.value)
-                      setCurrentPage(1)
-                    }}
+                    onClick={() => setRoleFilter(pill.value)}
                     className={`px-4 py-1.5 rounded text-sm font-medium whitespace-nowrap transition-colors ${
                       active
                         ? 'bg-primary text-white'
@@ -999,315 +1060,79 @@ export function UsersTable() {
             </div>
           </div>
 
-          <button
-            type='button'
-            onClick={openCreate}
-            className='w-full sm:w-auto px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
-            {t('users.create')}
-          </button>
-        </div>
-
-        {/* Table */}
-        <div className='rounded-md border border-border dark:border-darkborder overflow-x-auto'>
-          <table className='w-full text-sm'>
-            <thead>
-              <tr className='border-b border-border dark:border-darkborder text-link dark:text-darklink'>
-                <th className='py-3 px-3 w-10'>
-                  <Checkbox
-                    checked={allOnPageSelected}
-                    onCheckedChange={togglePageSelection}
-                    aria-label='Seleccionar todos en la página'
-                  />
-                </th>
-                {SORTABLE_COLUMNS.map((col) =>
-                  visibleColumns.has(col) ? (
-                    <th
-                      key={col}
-                      className='py-3 px-3 text-left font-medium'>
-                      <button
-                        type='button'
-                        onClick={() => toggleSort(col)}
-                        className='inline-flex items-center gap-1 hover:text-primary'>
-                        {t(COLUMN_LABEL_KEY[col])}
-                        <Icon
-                          icon={
-                            sortColumn !== col
-                              ? 'tabler:arrows-sort'
-                              : sortDir === 'asc'
-                              ? 'tabler:arrow-up'
-                              : 'tabler:arrow-down'
-                          }
-                          height={12}
-                          width={12}
-                        />
-                      </button>
-                    </th>
-                  ) : null
-                )}
-                <th className='py-3 px-3 text-right font-medium w-16'>
-                  {t('users.col.actions')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {paged.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={1 + visibleColumns.size + 1}
-                    className='py-16 px-3'>
-                    {users.length === 0 ? (
-                      <div className='flex flex-col items-center justify-center text-center gap-3'>
-                        <div className='size-16 rounded-full bg-lightprimary/60 flex items-center justify-center'>
-                          <Icon
-                            icon='solar:users-group-rounded-line-duotone'
-                            height={32}
-                            width={32}
-                            className='text-primary'
-                          />
-                        </div>
-                        <div className='space-y-1'>
-                          <p className='text-base font-semibold text-dark dark:text-white'>
-                            {t('users.empty.title')}
-                          </p>
-                          <p className='text-sm text-link dark:text-darklink max-w-[320px]'>
-                            {t('users.empty.body')}
-                          </p>
-                        </div>
-                        <button
-                          type='button'
-                          onClick={openCreate}
-                          className='mt-1 inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
-                          <Icon icon='tabler:plus' height={16} width={16} />
-                          {t('users.create')}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className='flex flex-col items-center justify-center text-center gap-3'>
-                        <div className='size-16 rounded-full bg-muted/60 dark:bg-darkmuted/40 flex items-center justify-center'>
-                          <Icon
-                            icon='solar:magnifer-line-duotone'
-                            height={28}
-                            width={28}
-                            className='text-link dark:text-darklink'
-                          />
-                        </div>
-                        <div className='space-y-1'>
-                          <p className='text-base font-semibold text-dark dark:text-white'>
-                            {t('users.noResults.title')}
-                          </p>
-                          <p className='text-sm text-link dark:text-darklink max-w-[340px]'>
-                            {t('users.noResults.body')}
-                          </p>
-                        </div>
-                        {(search || roleFilter !== 'all') && (
-                          <button
-                            type='button'
-                            onClick={() => {
-                              setSearch('')
-                              setRoleFilter('all')
-                              setCurrentPage(1)
-                            }}
-                            className='mt-1 px-4 py-2 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 dark:hover:bg-darkmuted/40 transition-colors'>
-                            {t('users.noResults.clearFilters')}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ) : (
-                paged.map((user) => (
-                  <tr
-                    key={user.id}
-                    className='border-b border-border dark:border-darkborder hover:bg-muted/30 dark:hover:bg-darkmuted/30 transition-colors'>
-                    <td className='py-3 px-3'>
-                      <Checkbox
-                        checked={selected.has(user.id)}
-                        onCheckedChange={() => toggleRow(user.id)}
-                        aria-label={`Seleccionar ${user.fullName}`}
-                      />
-                    </td>
-                    {visibleColumns.has('name') && (
-                      <td className='py-3 px-3'>
-                        <Link
-                          href={`/usuarios/${user.id}`}
-                          className='flex items-center gap-3 group'>
-                          <Avatar className='size-10 ring-1 ring-border dark:ring-darkborder'>
-                            {user.avatarUrl && (
-                              <AvatarImage
-                                src={user.avatarUrl}
-                                alt={user.fullName}
-                                className='object-cover'
-                              />
-                            )}
-                            <AvatarFallback className='bg-lightprimary text-primary'>
-                              <Icon
-                                icon='solar:user-bold-duotone'
-                                height={22}
-                                width={22}
-                              />
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className='text-dark dark:text-white font-medium group-hover:text-primary transition-colors'>
-                            {user.fullName}
-                          </span>
-                        </Link>
-                      </td>
-                    )}
-                    {visibleColumns.has('role') && (
-                      <td className='py-3 px-3'>
-                        <RoleBadge role={user.role} t={t} />
-                      </td>
-                    )}
-                    {visibleColumns.has('email') && (
-                      <td className='py-3 px-3 text-link dark:text-darklink'>
-                        {user.email}
-                      </td>
-                    )}
-                    {visibleColumns.has('sucursal') && (
-                      <td className='py-3 px-3 text-link dark:text-darklink'>
-                        {user.sucursal
-                          ? SUCURSAL_LABELS[user.sucursal]
-                          : t('users.sucursal.none')}
-                      </td>
-                    )}
-                    {visibleColumns.has('status') && (
-                      <td className='py-3 px-3'>
-                        <StatusBadge status={user.status} t={t} />
-                      </td>
-                    )}
-                    <td className='py-3 px-3 text-right'>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type='button'
-                            aria-label={t('users.col.actions')}
-                            className='h-8 w-8 inline-flex items-center justify-center rounded text-link dark:text-darklink hover:text-primary'>
-                            <Icon icon='tabler:dots' height={18} width={18} />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align='end' className='w-44'>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/usuarios/${user.id}`} className='w-full'>
-                              <Icon icon='solar:eye-line-duotone' height={16} width={16} className='mr-2' />
-                              {t('users.action.viewDetail')}
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openEdit(user)}>
-                            <Icon icon='solar:pen-line-duotone' height={16} width={16} className='mr-2' />
-                            {t('users.action.edit')}
-                          </DropdownMenuItem>
-                          <DropdownMenuSub>
-                            <DropdownMenuSubTrigger>
-                              <Icon icon='solar:shield-user-line-duotone' height={16} width={16} className='mr-2' />
-                              {t('users.action.changeRole')}
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent className='w-44'>
-                              {(['admin', 'operador', 'profesional'] as const).map((r) => {
-                                const isCurrent = user.role === r
-                                const labelKey: TranslationKey =
-                                  r === 'admin'
-                                    ? 'users.role.admin'
-                                    : r === 'operador'
-                                    ? 'users.role.operador'
-                                    : 'users.role.profesional'
-                                return (
-                                  <DropdownMenuItem
-                                    key={r}
-                                    disabled={isCurrent}
-                                    onClick={() => changeRole(user.id, r)}>
-                                    <Icon
-                                      icon='tabler:check'
-                                      height={14}
-                                      width={14}
-                                      className={`mr-2 ${
-                                        isCurrent ? 'opacity-100' : 'opacity-0'
-                                      }`}
-                                    />
-                                    {t(labelKey)}
-                                  </DropdownMenuItem>
-                                )
-                              })}
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
-                          <DropdownMenuItem onClick={() => toggleActive(user.id)}>
-                            <Icon
-                              icon={
-                                user.status === 'active'
-                                  ? 'solar:pause-line-duotone'
-                                  : 'solar:play-line-duotone'
-                              }
-                              height={16}
-                              width={16}
-                              className='mr-2'
-                            />
-                            {user.status === 'active'
-                              ? t('users.action.deactivate')
-                              : t('users.action.activate')}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteUser(user)}
-                            className='text-error focus:text-error focus:bg-error/10'>
-                            <Icon icon='solar:trash-bin-trash-line-duotone' height={16} width={16} className='mr-2' />
-                            {t('users.action.delete')}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Footer: page size + range + pagination */}
-        <div className='flex items-center justify-between mt-4 flex-wrap gap-3 text-sm text-link dark:text-darklink'>
-          <div className='flex items-center gap-2'>
-            <span>{t('users.pagination.show')}</span>
-            <PageSizeSelect
-              value={pageSize}
-              onChange={(v) => {
-                setPageSize(v)
-                setCurrentPage(1)
-              }}
-            />
-            <span>{t('users.pagination.perPage')}</span>
-          </div>
-
-          <div className='flex items-center gap-2'>
-            <span>
-              {t('users.pagination.range', {
-                start: String(filtered.length === 0 ? 0 : start + 1),
-                end: String(end),
-                total: String(filtered.length),
-              })}
-            </span>
-            <button
-              type='button'
-              disabled={safePage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className='h-8 w-8 inline-flex items-center justify-center rounded hover:bg-lightprimary hover:text-primary disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-link transition-colors'>
-              <Icon icon='tabler:chevron-left' height={18} width={18} />
-            </button>
-            <span className='inline-flex items-center justify-center min-w-[2rem] h-8 px-2 rounded bg-lightprimary text-primary text-sm font-medium'>
-              {safePage}
-            </span>
-            <button
-              type='button'
-              disabled={safePage >= totalPages}
-              onClick={() =>
-                setCurrentPage((p) => Math.min(totalPages, p + 1))
-              }
-              className='h-8 w-8 inline-flex items-center justify-center rounded hover:bg-lightprimary hover:text-primary disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-link transition-colors'>
-              <Icon icon='tabler:chevron-right' height={18} width={18} />
-            </button>
+          <div className='flex items-center gap-3 flex-wrap'>
+            <div className='relative flex-1 sm:flex-none sm:w-[240px]'>
+              <Icon
+                icon='solar:magnifer-linear'
+                height={16}
+                width={16}
+                className='absolute left-3 top-1/2 -translate-y-1/2 text-link dark:text-darklink pointer-events-none'
+              />
+              <input
+                type='text'
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t('users.search.placeholder')}
+                className='w-full pl-9 pr-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+              />
+            </div>
+            <SortSelect value={sort} onChange={setSort} t={t} />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type='button'
+                  onClick={openCreate}
+                  className='inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
+                  <Icon icon='tabler:plus' height={16} width={16} />
+                  {t('users.create')}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{t('users.create')}</TooltipContent>
+            </Tooltip>
           </div>
         </div>
-
       </div>
 
-      {/* Create / edit user dialog */}
+      {/* User grid */}
+      {filtered.length === 0 ? (
+        <div className='rounded-lg border border-border dark:border-darkborder bg-card py-16 flex flex-col items-center justify-center text-center gap-3'>
+          <div className='size-16 rounded-full bg-muted/60 dark:bg-darkmuted/40 flex items-center justify-center'>
+            <Icon icon='solar:magnifer-line-duotone' height={28} width={28} className='text-link dark:text-darklink' />
+          </div>
+          <p className='text-base font-semibold text-dark dark:text-white'>
+            {users.length === 0 ? t('users.empty.title') : t('users.noResults.title')}
+          </p>
+          <p className='text-sm text-link dark:text-darklink max-w-[340px]'>
+            {users.length === 0 ? t('users.empty.body') : t('users.noResults.body')}
+          </p>
+          {(search || roleFilter !== 'all') && users.length > 0 && (
+            <button
+              type='button'
+              onClick={() => {
+                setSearch('')
+                setRoleFilter('all')
+              }}
+              className='mt-1 px-4 py-2 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 dark:hover:bg-darkmuted/40 transition-colors'>
+              {t('users.noResults.clearFilters')}
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
+          {filtered.map((user) => (
+            <UserCard
+              key={user.id}
+              user={user}
+              t={t}
+              onEdit={openEdit}
+              onDelete={handleDelete}
+              onToggleActive={toggleActive}
+              onChangeRole={changeRole}
+            />
+          ))}
+        </div>
+      )}
+
       <AddUserDialog
         open={createOpen}
         onOpenChange={setCreateOpen}

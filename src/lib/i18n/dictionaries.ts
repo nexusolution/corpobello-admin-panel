@@ -502,6 +502,30 @@ export const dictionaries = {
     'userDetail.activity.status.ongoing': 'En curso',
     'userDetail.activity.status.cancelled': 'Cancelado',
     'users.action.viewDetail': 'Ver detalle',
+    // Users list — KPI cards
+    'users.stats.total': 'Total de usuarios',
+    'users.stats.active': 'Usuarios activos',
+    'users.stats.inactive': 'Inactivos',
+    'users.stats.roles': 'Roles',
+    'users.stats.trend': 'vs semana pasada',
+    // Users list — sort
+    'users.sort.label': 'Ordenar:',
+    'users.sort.nameAsc': 'Nombre A–Z',
+    'users.sort.nameDesc': 'Nombre Z–A',
+    'users.sort.role': 'Rol',
+    'users.sort.status': 'Estado',
+    'users.sort.recent': 'Más recientes',
+    // Users list — user card
+    'users.card.patients': 'Pacientes',
+    'users.card.experience': 'Experiencia',
+    'users.card.experienceValue': '{years} años',
+    'users.card.bookings': 'Reservas',
+    'users.card.shift': 'Turno',
+    'users.card.usersCreated': 'Usuarios',
+    'users.card.configChanges': 'Cambios',
+    'users.card.actionCall': 'Llamar',
+    'users.card.actionEmail': 'Enviar email',
+    'users.card.actionChat': 'Chat',
   },
   en: {
     // Sidebar — section headings
@@ -1002,6 +1026,30 @@ export const dictionaries = {
     'userDetail.activity.status.ongoing': 'Ongoing',
     'userDetail.activity.status.cancelled': 'Cancelled',
     'users.action.viewDetail': 'View detail',
+    // Users list — KPI cards
+    'users.stats.total': 'Total users',
+    'users.stats.active': 'Active users',
+    'users.stats.inactive': 'Inactive',
+    'users.stats.roles': 'Roles',
+    'users.stats.trend': 'vs last week',
+    // Users list — sort
+    'users.sort.label': 'Sort:',
+    'users.sort.nameAsc': 'Name A–Z',
+    'users.sort.nameDesc': 'Name Z–A',
+    'users.sort.role': 'Role',
+    'users.sort.status': 'Status',
+    'users.sort.recent': 'Most recent',
+    // Users list — user card
+    'users.card.patients': 'Patients',
+    'users.card.experience': 'Experience',
+    'users.card.experienceValue': '{years} years',
+    'users.card.bookings': 'Bookings',
+    'users.card.shift': 'Shift',
+    'users.card.usersCreated': 'Users',
+    'users.card.configChanges': 'Changes',
+    'users.card.actionCall': 'Call',
+    'users.card.actionEmail': 'Send email',
+    'users.card.actionChat': 'Chat',
   },
 } as const
 
