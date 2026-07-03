@@ -265,53 +265,54 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
   const rating = user.professionalDetails?.rating
 
   return (
-    <div className='rounded-lg border border-border dark:border-darkborder bg-card overflow-hidden'>
+    <div className='relative rounded-lg border border-border dark:border-darkborder bg-card overflow-hidden'>
       {/* Hero — decorative colored strip only */}
       <div className='h-16 bg-gradient-to-r from-lightprimary via-lightsuccess/60 to-lightprimary' />
 
+      {/* Avatar — absolute, straddles the hero/content boundary */}
+      <div className='absolute left-6 top-2'>
+        <div className='relative'>
+          <Avatar className='size-28 !rounded-xl ring-4 ring-card shadow-md'>
+            {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.fullName} className='object-cover' />}
+            <AvatarFallback className='!rounded-xl bg-lightprimary text-primary'>
+              <Icon icon='solar:user-bold-duotone' height={56} width={56} />
+            </AvatarFallback>
+          </Avatar>
+          {user.status === 'active' && (
+            <span className='absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full bg-success ring-2 ring-card' />
+          )}
+        </div>
+      </div>
+
       <div className='px-6 pt-6 pb-6'>
-        {/* Avatar + identity block — below the hero, above the contact block */}
-        <div className='flex items-center gap-5 flex-wrap mb-6'>
-          <div className='relative shrink-0'>
-            <Avatar className='size-28 !rounded-xl ring-4 ring-card shadow-md'>
-              {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.fullName} className='object-cover' />}
-              <AvatarFallback className='!rounded-xl bg-lightprimary text-primary'>
-                <Icon icon='solar:user-bold-duotone' height={56} width={56} />
-              </AvatarFallback>
-            </Avatar>
-            {user.status === 'active' && (
-              <span className='absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full bg-success ring-2 ring-card' />
-            )}
+        {/* Identity block — mobile: pushes below avatar with top padding; desktop: sits to the right */}
+        <div className='mb-6 pt-16 sm:pt-0 sm:pl-32 sm:min-h-[64px] sm:flex sm:flex-col sm:justify-center'>
+          <div className='flex items-center gap-2 flex-wrap mb-2'>
+            <span className='inline-flex items-center gap-1.5 text-xs font-medium text-success'>
+              <span className='h-2 w-2 rounded-full bg-success' />
+              {user.status === 'active'
+                ? t('userDetail.identity.active')
+                : t('userDetail.identity.inactive')}
+            </span>
+            <span className='inline-flex items-center gap-1 text-xs font-medium text-dark dark:text-white bg-card/70 border border-border dark:border-darkborder rounded-md px-2 py-0.5'>
+              {roleLabel}
+            </span>
           </div>
 
-          <div className='flex-1 min-w-[220px]'>
-            <div className='flex items-center gap-2 flex-wrap mb-2'>
-              <span className='inline-flex items-center gap-1.5 text-xs font-medium text-success'>
-                <span className='h-2 w-2 rounded-full bg-success' />
-                {user.status === 'active'
-                  ? t('userDetail.identity.active')
-                  : t('userDetail.identity.inactive')}
-              </span>
-              <span className='inline-flex items-center gap-1 text-xs font-medium text-dark dark:text-white bg-card/70 border border-border dark:border-darkborder rounded-md px-2 py-0.5'>
-                {roleLabel}
-              </span>
+          <div className='flex items-start justify-between gap-4 flex-wrap'>
+            <div className='min-w-0'>
+              <h2 className='text-xl font-bold text-dark dark:text-white'>{user.fullName}</h2>
+              <p className='text-sm text-link dark:text-darklink mt-0.5'>
+                {user.bio ?? roleLabel}
+              </p>
             </div>
-
-            <div className='flex items-start justify-between gap-4 flex-wrap'>
-              <div className='min-w-0'>
-                <h2 className='text-xl font-bold text-dark dark:text-white'>{user.fullName}</h2>
-                <p className='text-sm text-link dark:text-darklink mt-0.5'>
-                  {user.bio ?? roleLabel}
-                </p>
+            {rating !== undefined && (
+              <div className='flex items-center gap-2'>
+                <StarRating rating={rating} />
+                <span className='text-sm font-semibold text-dark dark:text-white'>{rating.toFixed(1)}</span>
+                <span className='text-xs text-link dark:text-darklink'>/5.0</span>
               </div>
-              {rating !== undefined && (
-                <div className='flex items-center gap-2'>
-                  <StarRating rating={rating} />
-                  <span className='text-sm font-semibold text-dark dark:text-white'>{rating.toFixed(1)}</span>
-                  <span className='text-xs text-link dark:text-darklink'>/5.0</span>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
