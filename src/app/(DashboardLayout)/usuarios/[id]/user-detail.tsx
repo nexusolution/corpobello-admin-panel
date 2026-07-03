@@ -897,10 +897,10 @@ export function UserDetail({ id }: { id: string }) {
 
       {/* Top area: rail (left) + identity (center) + summary (right) */}
       <div className='grid grid-cols-1 xl:grid-cols-12 gap-6'>
-        <div className='xl:col-span-3'>
+        <div className='xl:col-span-2'>
           <RecentUsersRail currentId={id} users={recent} t={t} />
         </div>
-        <div className='xl:col-span-5'>
+        <div className='xl:col-span-6'>
           <IdentityCard user={user} t={t} />
         </div>
         <div className='xl:col-span-4'>
