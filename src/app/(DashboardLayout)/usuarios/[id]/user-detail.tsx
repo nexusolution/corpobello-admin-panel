@@ -316,42 +316,43 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
           </div>
         </div>
 
-        {/* Contact block */}
-        <div className='grid grid-cols-1 sm:grid-cols-3 gap-4'>
-          <ContactCell
-            icon='solar:phone-bold-duotone'
-            tint='success'
-            label={t('userDetail.identity.contactPhone')}
-            value={user.phone ?? '—'}
-          />
-          <ContactCell
-            icon='solar:letter-bold-duotone'
-            tint='primary'
-            label={t('userDetail.identity.contactEmail')}
-            value={user.email}
-          />
-          <ContactCell
-            icon='solar:map-point-bold-duotone'
-            tint='warning'
-            label={t('userDetail.identity.contactLocation')}
-            value={user.location ?? '—'}
-          />
-        </div>
+        {/* Divider + bottom section: contact + action buttons */}
+        <div className='border-t border-border dark:border-darkborder pt-8'>
+          <div className='grid grid-cols-1 sm:grid-cols-3 gap-5'>
+            <ContactCell
+              icon='solar:phone-bold-duotone'
+              tint='success'
+              label={t('userDetail.identity.contactPhone')}
+              value={user.phone ?? '—'}
+            />
+            <ContactCell
+              icon='solar:letter-bold-duotone'
+              tint='primary'
+              label={t('userDetail.identity.contactEmail')}
+              value={user.email}
+            />
+            <ContactCell
+              icon='solar:map-point-bold-duotone'
+              tint='warning'
+              label={t('userDetail.identity.contactLocation')}
+              value={user.location ?? '—'}
+            />
+          </div>
 
-        {/* Action buttons */}
-        <div className='grid grid-cols-1 sm:grid-cols-2 gap-2 mt-5'>
-          <button
-            type='button'
-            className='inline-flex items-center justify-center gap-2 py-2.5 rounded-md bg-success text-white text-sm font-medium hover:bg-success/90 transition-colors'>
-            <Icon icon='solar:phone-linear' height={16} width={16} />
-            {t('userDetail.identity.call')}
-          </button>
-          <button
-            type='button'
-            className='inline-flex items-center justify-center gap-2 py-2.5 rounded-md border border-success text-success text-sm font-medium hover:bg-success/10 transition-colors'>
-            <Icon icon='solar:chat-round-line-linear' height={16} width={16} />
-            {t('userDetail.identity.chat')}
-          </button>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 mt-8'>
+            <button
+              type='button'
+              className='inline-flex items-center justify-center gap-2 py-2.5 rounded-md bg-success text-white text-sm font-medium hover:bg-success/90 transition-colors'>
+              <Icon icon='solar:phone-linear' height={16} width={16} />
+              {t('userDetail.identity.call')}
+            </button>
+            <button
+              type='button'
+              className='inline-flex items-center justify-center gap-2 py-2.5 rounded-md border border-success text-success text-sm font-medium hover:bg-success/10 transition-colors'>
+              <Icon icon='solar:chat-round-line-linear' height={16} width={16} />
+              {t('userDetail.identity.chat')}
+            </button>
+          </div>
         </div>
       </div>
     </div>
