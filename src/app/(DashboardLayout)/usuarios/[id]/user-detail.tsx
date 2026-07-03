@@ -182,8 +182,8 @@ function RecentUsersRail({
                 href={`/usuarios/${u.id}`}
                 className={`group relative block p-3 pb-4 rounded-lg border transition-colors ${
                   isCurrent
-                    ? 'border-success bg-lightsuccess/25'
-                    : 'border-border dark:border-darkborder hover:border-success/60 hover:bg-lightsuccess/10'
+                    ? 'border-primary bg-lightprimary/40'
+                    : 'border-border dark:border-darkborder hover:border-primary/60 hover:bg-lightprimary/20'
                 }`}>
                 {/* Top row: avatar (left) + call/chat (right) */}
                 <div className='flex items-start justify-between gap-2 mb-3'>
@@ -206,7 +206,7 @@ function RecentUsersRail({
                       aria-disabled={!u.phone}
                       className={`h-8 w-8 inline-flex items-center justify-center rounded-full transition-colors ${
                         u.phone
-                          ? 'bg-muted/50 dark:bg-darkmuted/40 text-link dark:text-darklink hover:bg-success hover:text-white'
+                          ? 'bg-muted/50 dark:bg-darkmuted/40 text-link dark:text-darklink hover:bg-primary hover:text-white'
                           : 'bg-muted/30 text-link/40 dark:text-darklink/40 cursor-not-allowed pointer-events-none'
                       }`}>
                       <Icon icon='solar:phone-linear' height={14} width={14} />
@@ -220,7 +220,7 @@ function RecentUsersRail({
                       aria-disabled={!wa}
                       className={`h-8 w-8 inline-flex items-center justify-center rounded-full transition-colors ${
                         wa
-                          ? 'bg-muted/50 dark:bg-darkmuted/40 text-link dark:text-darklink hover:bg-success hover:text-white'
+                          ? 'bg-muted/50 dark:bg-darkmuted/40 text-link dark:text-darklink hover:bg-primary hover:text-white'
                           : 'bg-muted/30 text-link/40 dark:text-darklink/40 cursor-not-allowed pointer-events-none'
                       }`}>
                       <Icon icon='solar:chat-round-line-linear' height={14} width={14} />
@@ -230,7 +230,7 @@ function RecentUsersRail({
 
                 {/* Name + role — full-width, below the top row */}
                 <div className='min-w-0 pr-10'>
-                  <p className={`text-sm font-semibold truncate ${isCurrent ? 'text-success' : 'text-dark dark:text-white'}`}>
+                  <p className={`text-sm font-semibold truncate ${isCurrent ? 'text-primary' : 'text-dark dark:text-white'}`}>
                     {u.fullName}
                   </p>
                   <p className='text-xs text-link dark:text-darklink truncate mt-0.5'>
@@ -243,8 +243,8 @@ function RecentUsersRail({
                   aria-hidden='true'
                   className={`absolute bottom-3 right-3 h-7 w-7 inline-flex items-center justify-center rounded-full transition-colors ${
                     isCurrent
-                      ? 'bg-success text-white'
-                      : 'border border-success text-success group-hover:bg-success group-hover:text-white'
+                      ? 'bg-primary text-white'
+                      : 'border border-primary text-primary group-hover:bg-primary group-hover:text-white'
                   }`}>
                   <Icon icon='tabler:arrow-up-right' height={14} width={14} />
                 </span>
@@ -358,13 +358,13 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
           <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 mt-8'>
             <button
               type='button'
-              className='inline-flex items-center justify-center gap-2 py-2.5 rounded-md bg-success text-white text-sm font-medium hover:bg-success/90 transition-colors'>
+              className='inline-flex items-center justify-center gap-2 py-2.5 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
               <Icon icon='solar:phone-linear' height={16} width={16} />
               {t('userDetail.identity.call')}
             </button>
             <button
               type='button'
-              className='inline-flex items-center justify-center gap-2 py-2.5 rounded-md border border-success text-success text-sm font-medium hover:bg-success/10 transition-colors'>
+              className='inline-flex items-center justify-center gap-2 py-2.5 rounded-md border border-primary text-primary text-sm font-medium hover:bg-lightprimary transition-colors'>
               <Icon icon='solar:chat-round-line-linear' height={16} width={16} />
               {t('userDetail.identity.chat')}
             </button>
