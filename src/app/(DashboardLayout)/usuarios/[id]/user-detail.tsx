@@ -287,24 +287,17 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
       <div className='px-6 pt-6 pb-6'>
         {/* Identity block — mobile: pushes below avatar with top padding; desktop: sits to the right */}
         <div className='mb-6 pt-24 sm:pt-0 sm:pl-44 sm:min-h-[80px] sm:flex sm:flex-col sm:justify-center'>
-          <div className='flex items-center gap-2 flex-wrap mb-2'>
-            <span className='inline-flex items-center gap-1.5 text-xs font-medium text-success'>
-              <span className='h-2 w-2 rounded-full bg-success' />
-              {user.status === 'active'
-                ? t('userDetail.identity.active')
-                : t('userDetail.identity.inactive')}
-            </span>
-            <span className='inline-flex items-center gap-1 text-xs font-medium text-dark dark:text-white bg-card/70 border border-border dark:border-darkborder rounded-md px-2 py-0.5'>
-              {roleLabel}
-            </span>
-          </div>
-
-          <div className='flex items-start justify-between gap-4 flex-wrap'>
-            <div className='min-w-0'>
-              <h2 className='text-xl font-bold text-dark dark:text-white'>{user.fullName}</h2>
-              <p className='text-sm text-link dark:text-darklink mt-0.5'>
-                {user.bio ?? roleLabel}
-              </p>
+          <div className='flex items-center justify-between gap-4 flex-wrap mb-2'>
+            <div className='flex items-center gap-2 flex-wrap'>
+              <span className='inline-flex items-center gap-1.5 text-xs font-medium text-success'>
+                <span className='h-2 w-2 rounded-full bg-success' />
+                {user.status === 'active'
+                  ? t('userDetail.identity.active')
+                  : t('userDetail.identity.inactive')}
+              </span>
+              <span className='inline-flex items-center gap-1 text-xs font-medium text-dark dark:text-white bg-card/70 border border-border dark:border-darkborder rounded-md px-2 py-0.5'>
+                {roleLabel}
+              </span>
             </div>
             {rating !== undefined && (
               <div className='flex items-center gap-2'>
@@ -313,6 +306,13 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
                 <span className='text-xs text-link dark:text-darklink'>/5.0</span>
               </div>
             )}
+          </div>
+
+          <div className='min-w-0'>
+            <h2 className='text-xl font-bold text-dark dark:text-white'>{user.fullName}</h2>
+            <p className='text-sm text-link dark:text-darklink mt-0.5'>
+              {user.bio ?? roleLabel}
+            </p>
           </div>
         </div>
 
