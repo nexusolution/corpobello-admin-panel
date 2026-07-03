@@ -267,12 +267,12 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
   return (
     <div className='relative rounded-lg border border-border dark:border-darkborder bg-card overflow-hidden'>
       {/* Hero — decorative colored strip only */}
-      <div className='h-16 bg-gradient-to-r from-lightprimary via-lightsuccess/60 to-lightprimary' />
+      <div className='h-24 bg-gradient-to-r from-lightprimary via-lightsuccess/60 to-lightprimary' />
 
       {/* Avatar — absolute, straddles the hero/content boundary */}
-      <div className='absolute left-6 top-2'>
+      <div className='absolute left-6 top-8'>
         <div className='relative'>
-          <Avatar className='size-28 !rounded-xl ring-4 ring-card shadow-md'>
+          <Avatar className='size-32 !rounded-xl ring-4 ring-card shadow-md'>
             {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.fullName} className='object-cover' />}
             <AvatarFallback className='!rounded-xl bg-lightprimary text-primary'>
               <Icon icon='solar:user-bold-duotone' height={56} width={56} />
@@ -286,7 +286,7 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
 
       <div className='px-6 pt-6 pb-6'>
         {/* Identity block — mobile: pushes below avatar with top padding; desktop: sits to the right */}
-        <div className='mb-6 pt-16 sm:pt-0 sm:pl-32 sm:min-h-[64px] sm:flex sm:flex-col sm:justify-center'>
+        <div className='mb-6 pt-24 sm:pt-0 sm:pl-40 sm:min-h-[80px] sm:flex sm:flex-col sm:justify-center'>
           <div className='flex items-center gap-2 flex-wrap mb-2'>
             <span className='inline-flex items-center gap-1.5 text-xs font-medium text-success'>
               <span className='h-2 w-2 rounded-full bg-success' />
