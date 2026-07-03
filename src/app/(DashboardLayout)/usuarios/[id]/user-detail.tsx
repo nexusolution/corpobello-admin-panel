@@ -167,7 +167,7 @@ function RecentUsersRail({
         </DropdownMenu>
       </div>
 
-      <div className='flex flex-col gap-2 mt-1'>
+      <div className='flex flex-col gap-3 mt-1'>
         {users.length === 0 ? (
           <p className='text-xs text-link dark:text-darklink py-4 text-center'>
             {t('userDetail.recent.empty')}
@@ -180,58 +180,74 @@ function RecentUsersRail({
               <Link
                 key={u.id}
                 href={`/usuarios/${u.id}`}
-                className={`group flex items-center gap-3 p-2 rounded-md border transition-colors ${
+                className={`group relative block p-3 pb-4 rounded-lg border transition-colors ${
                   isCurrent
-                    ? 'border-primary bg-lightprimary/40'
-                    : 'border-transparent hover:border-border dark:hover:border-darkborder hover:bg-muted/40 dark:hover:bg-darkmuted/40'
+                    ? 'border-success bg-lightsuccess/25'
+                    : 'border-border dark:border-darkborder hover:border-success/60 hover:bg-lightsuccess/10'
                 }`}>
-                <div className='relative shrink-0'>
-                  <Avatar className='size-11 ring-1 ring-border dark:ring-darkborder'>
-                    {u.avatarUrl && <AvatarImage src={u.avatarUrl} alt={u.fullName} className='object-cover' />}
-                    <AvatarFallback className='bg-lightprimary text-primary'>
-                      <Icon icon='solar:user-bold-duotone' height={22} width={22} />
-                    </AvatarFallback>
-                  </Avatar>
-                  {u.status === 'active' && (
-                    <span className='absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-success ring-2 ring-card' />
-                  )}
+                {/* Top row: avatar (left) + call/chat (right) */}
+                <div className='flex items-start justify-between gap-2 mb-3'>
+                  <div className='relative shrink-0'>
+                    <Avatar className='size-12 ring-1 ring-border dark:ring-darkborder'>
+                      {u.avatarUrl && <AvatarImage src={u.avatarUrl} alt={u.fullName} className='object-cover' />}
+                      <AvatarFallback className='bg-lightprimary text-primary'>
+                        <Icon icon='solar:user-bold-duotone' height={24} width={24} />
+                      </AvatarFallback>
+                    </Avatar>
+                    {u.status === 'active' && (
+                      <span className='absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-success ring-2 ring-card' />
+                    )}
+                  </div>
+                  <div className='flex items-center gap-1.5 shrink-0'>
+                    <a
+                      href={u.phone ? `tel:${u.phone}` : undefined}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={t('userDetail.recent.callAria', { name: u.fullName })}
+                      aria-disabled={!u.phone}
+                      className={`h-8 w-8 inline-flex items-center justify-center rounded-full transition-colors ${
+                        u.phone
+                          ? 'bg-muted/50 dark:bg-darkmuted/40 text-link dark:text-darklink hover:bg-success hover:text-white'
+                          : 'bg-muted/30 text-link/40 dark:text-darklink/40 cursor-not-allowed pointer-events-none'
+                      }`}>
+                      <Icon icon='solar:phone-linear' height={14} width={14} />
+                    </a>
+                    <a
+                      href={wa ? `https://wa.me/${wa}` : undefined}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={t('userDetail.recent.chatAria', { name: u.fullName })}
+                      aria-disabled={!wa}
+                      className={`h-8 w-8 inline-flex items-center justify-center rounded-full transition-colors ${
+                        wa
+                          ? 'bg-muted/50 dark:bg-darkmuted/40 text-link dark:text-darklink hover:bg-success hover:text-white'
+                          : 'bg-muted/30 text-link/40 dark:text-darklink/40 cursor-not-allowed pointer-events-none'
+                      }`}>
+                      <Icon icon='solar:chat-round-line-linear' height={14} width={14} />
+                    </a>
+                  </div>
                 </div>
-                <div className='flex-1 min-w-0'>
-                  <p className={`text-sm font-medium truncate ${isCurrent ? 'text-primary' : 'text-dark dark:text-white'}`}>
+
+                {/* Name + role — full-width, below the top row */}
+                <div className='min-w-0 pr-10'>
+                  <p className={`text-sm font-semibold truncate ${isCurrent ? 'text-success' : 'text-dark dark:text-white'}`}>
                     {u.fullName}
                   </p>
-                  <p className='text-xs text-link dark:text-darklink truncate'>
+                  <p className='text-xs text-link dark:text-darklink truncate mt-0.5'>
                     {t(roleLabelKey(u.role))}
                   </p>
                 </div>
-                <div className='flex items-center gap-1 shrink-0'>
-                  <a
-                    href={u.phone ? `tel:${u.phone}` : undefined}
-                    onClick={(e) => e.stopPropagation()}
-                    aria-label={t('userDetail.recent.callAria', { name: u.fullName })}
-                    aria-disabled={!u.phone}
-                    className={`h-7 w-7 inline-flex items-center justify-center rounded-md transition-colors ${
-                      u.phone
-                        ? 'text-link dark:text-darklink hover:text-success hover:bg-lightsuccess'
-                        : 'text-link/40 dark:text-darklink/40 cursor-not-allowed pointer-events-none'
-                    }`}>
-                    <Icon icon='solar:phone-linear' height={14} width={14} />
-                  </a>
-                  <a
-                    href={wa ? `https://wa.me/${wa}` : undefined}
-                    target='_blank'
-                    rel='noopener noreferrer'
-                    onClick={(e) => e.stopPropagation()}
-                    aria-label={t('userDetail.recent.chatAria', { name: u.fullName })}
-                    aria-disabled={!wa}
-                    className={`h-7 w-7 inline-flex items-center justify-center rounded-md transition-colors ${
-                      wa
-                        ? 'text-link dark:text-darklink hover:text-success hover:bg-lightsuccess'
-                        : 'text-link/40 dark:text-darklink/40 cursor-not-allowed pointer-events-none'
-                    }`}>
-                    <Icon icon='solar:chat-round-line-linear' height={14} width={14} />
-                  </a>
-                </div>
+
+                {/* Bottom-right navigate arrow */}
+                <span
+                  aria-hidden='true'
+                  className={`absolute bottom-3 right-3 h-7 w-7 inline-flex items-center justify-center rounded-full transition-colors ${
+                    isCurrent
+                      ? 'bg-success text-white'
+                      : 'border border-success text-success group-hover:bg-success group-hover:text-white'
+                  }`}>
+                  <Icon icon='tabler:arrow-up-right' height={14} width={14} />
+                </span>
               </Link>
             )
           })
