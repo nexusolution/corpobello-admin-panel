@@ -608,18 +608,26 @@ function StatusPill({ status, t }: { status: ActivityStatus; t: TFn }) {
 
 function ActivityTable({ user, t, locale }: { user: AppUser; t: TFn; locale: string }) {
   const [search, setSearch] = useState('')
+  const [entries, setEntries] = useState<ActivityEntry[]>(user.activity ?? [])
+
+  useEffect(() => {
+    setEntries(user.activity ?? [])
+  }, [user.activity])
+
+  function handleDelete(id: string) {
+    setEntries((prev) => prev.filter((e) => e.id !== id))
+  }
 
   const rows = useMemo(() => {
-    const list = user.activity ?? []
-    if (!search) return list
+    if (!search) return entries
     const q = search.toLowerCase()
-    return list.filter(
+    return entries.filter(
       (r) =>
         r.primary.toLowerCase().includes(q) ||
         (r.secondary?.toLowerCase().includes(q) ?? false) ||
         (r.tertiary?.toLowerCase().includes(q) ?? false)
     )
-  }, [user.activity, search])
+  }, [entries, search])
 
   const titleKey: TranslationKey =
     user.role === 'profesional'
@@ -704,7 +712,15 @@ function ActivityTable({ user, t, locale }: { user: AppUser; t: TFn; locale: str
                 </td>
               </tr>
             ) : (
-              rows.map((entry) => <ActivityRow key={entry.id} entry={entry} t={t} locale={locale} />)
+              rows.map((entry) => (
+                <ActivityRow
+                  key={entry.id}
+                  entry={entry}
+                  t={t}
+                  locale={locale}
+                  onDelete={handleDelete}
+                />
+              ))
             )}
           </tbody>
         </table>
@@ -713,14 +729,46 @@ function ActivityTable({ user, t, locale }: { user: AppUser; t: TFn; locale: str
   )
 }
 
+type RowActionTint = 'primary' | 'success' | 'error'
+const ROW_ACTION_TINT: Record<RowActionTint, string> = {
+  primary: 'bg-lightprimary text-primary hover:bg-primary hover:text-white',
+  success: 'bg-lightsuccess text-success hover:bg-success hover:text-white',
+  error: 'bg-lighterror text-error hover:bg-error hover:text-white',
+}
+
+function RowActionButton({
+  icon,
+  tint,
+  label,
+  onClick,
+}: {
+  icon: string
+  tint: RowActionTint
+  label: string
+  onClick?: () => void
+}) {
+  return (
+    <button
+      type='button'
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={`h-8 w-8 inline-flex items-center justify-center rounded-full transition-colors ${ROW_ACTION_TINT[tint]}`}>
+      <Icon icon={icon} height={15} width={15} />
+    </button>
+  )
+}
+
 function ActivityRow({
   entry,
   t,
   locale,
+  onDelete,
 }: {
   entry: ActivityEntry
   t: TFn
   locale: string
+  onDelete: (id: string) => void
 }) {
   const { date, time } = formatDateTime(entry.date, locale)
   return (
@@ -736,12 +784,24 @@ function ActivityRow({
       <td className='py-3 px-3 text-link dark:text-darklink'>{entry.tertiary ?? '—'}</td>
       <td className='py-3 px-3'>{entry.status && <StatusPill status={entry.status} t={t} />}</td>
       <td className='py-3 px-3 text-right'>
-        <button
-          type='button'
-          aria-label='row actions'
-          className='h-8 w-8 inline-flex items-center justify-center rounded text-link dark:text-darklink hover:text-primary'>
-          <Icon icon='tabler:dots' height={18} width={18} />
-        </button>
+        <div className='inline-flex items-center gap-2'>
+          <RowActionButton
+            icon='solar:pen-line-duotone'
+            tint='primary'
+            label={t('users.action.edit')}
+          />
+          <RowActionButton
+            icon='solar:eye-line-duotone'
+            tint='success'
+            label={t('users.action.viewDetail')}
+          />
+          <RowActionButton
+            icon='solar:trash-bin-trash-line-duotone'
+            tint='error'
+            label={t('users.action.delete')}
+            onClick={() => onDelete(entry.id)}
+          />
+        </div>
       </td>
     </tr>
   )
