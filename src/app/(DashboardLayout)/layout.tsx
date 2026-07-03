@@ -38,7 +38,7 @@ export default function Layout({
         }`}>
         {/* Header/sidebar */}
         <div
-          className='xl:block hidden'
+          className='xl:block hidden relative z-50'
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}>
           <Sidebar isCollapse={collapsed && !hovered} />
