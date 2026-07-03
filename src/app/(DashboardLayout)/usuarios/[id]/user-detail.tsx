@@ -420,7 +420,7 @@ function SummaryCard({ user, t, locale }: { user: AppUser; t: TFn; locale: strin
       </div>
 
       {/* Role-specific KPI trio */}
-      <div className='grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5'>
+      <div className='grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6'>
         {user.role === 'profesional' && user.professionalDetails && (
           <>
             <KpiCell
@@ -507,7 +507,7 @@ function SummaryCard({ user, t, locale }: { user: AppUser; t: TFn; locale: strin
       </div>
 
       {/* Footer meta grid */}
-      <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5 pt-4 border-t border-border dark:border-darkborder'>
+      <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 pt-6 border-t border-border dark:border-darkborder'>
         <MetaCell
           icon='solar:buildings-3-line-duotone'
           label={t('userDetail.summary.sucursalLabel')}
@@ -566,26 +566,26 @@ function KpiCell({
 }) {
   const style = TINT_STYLES[tint]
   return (
-    <div className={`rounded-md p-3 ${style.bg}`}>
-      <div className='flex items-center gap-1.5 mb-1'>
+    <div className={`rounded-lg p-4 ${style.bg}`}>
+      <div className='flex items-center gap-1.5 mb-1.5'>
         <span className={`h-2 w-2 rotate-45 ${style.dot}`} />
         <p className='text-[11px] font-medium text-link dark:text-darklink'>{t(titleKey)}</p>
       </div>
       <p className='text-lg font-bold text-dark dark:text-white leading-tight'>{value}</p>
-      <p className='text-[11px] text-link dark:text-darklink mt-0.5'>{t(footerKey)}</p>
+      <p className='text-[11px] text-link dark:text-darklink mt-1'>{t(footerKey)}</p>
     </div>
   )
 }
 
 function MetaCell({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
-    <div className='flex items-start gap-2'>
-      <span className='h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-md bg-muted/40 dark:bg-darkmuted/30 text-link dark:text-darklink'>
-        <Icon icon={icon} height={16} width={16} />
+    <div className='flex items-start gap-3'>
+      <span className='h-9 w-9 shrink-0 inline-flex items-center justify-center rounded-md bg-muted/50 dark:bg-darkmuted/40 text-link dark:text-darklink'>
+        <Icon icon={icon} height={18} width={18} />
       </span>
-      <div className='min-w-0'>
+      <div className='min-w-0 pt-0.5'>
         <p className='text-[11px] font-medium tracking-wide uppercase text-link dark:text-darklink'>{label}</p>
-        <p className='text-sm text-dark dark:text-white truncate'>{value}</p>
+        <p className='text-sm text-dark dark:text-white truncate mt-0.5'>{value}</p>
       </div>
     </div>
   )
