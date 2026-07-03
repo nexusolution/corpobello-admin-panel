@@ -430,6 +430,7 @@ function SummaryCard({ user, t, locale }: { user: AppUser; t: TFn; locale: strin
                 years: String(user.professionalDetails.yearsExperience),
               })}
               footerKey='userDetail.pro.experience.footer'
+              progress={Math.min(100, (user.professionalDetails.yearsExperience / 20) * 100)}
               t={t}
             />
             <KpiCell
@@ -437,6 +438,7 @@ function SummaryCard({ user, t, locale }: { user: AppUser; t: TFn; locale: strin
               titleKey='userDetail.pro.patients.title'
               value={String(user.professionalDetails.patientsAttended)}
               footerKey='userDetail.pro.patients.footer'
+              progress={Math.min(100, (user.professionalDetails.patientsAttended / 500) * 100)}
               t={t}
             />
             <KpiCell
@@ -446,6 +448,7 @@ function SummaryCard({ user, t, locale }: { user: AppUser; t: TFn; locale: strin
                 value: user.professionalDetails.rating.toFixed(1),
               })}
               footerKey='userDetail.pro.rating.footer'
+              progress={(user.professionalDetails.rating / 5) * 100}
               t={t}
             />
           </>
@@ -458,6 +461,7 @@ function SummaryCard({ user, t, locale }: { user: AppUser; t: TFn; locale: strin
               titleKey='userDetail.op.bookings.title'
               value={String(user.operatorDetails.bookingsThisMonth)}
               footerKey='userDetail.op.bookings.footer'
+              progress={Math.min(100, user.operatorDetails.bookingsThisMonth)}
               t={t}
             />
             <KpiCell
@@ -465,6 +469,7 @@ function SummaryCard({ user, t, locale }: { user: AppUser; t: TFn; locale: strin
               titleKey='userDetail.op.calls.title'
               value={String(user.operatorDetails.callsHandled)}
               footerKey='userDetail.op.calls.footer'
+              progress={Math.min(100, (user.operatorDetails.callsHandled / 150) * 100)}
               t={t}
             />
             <KpiCell
@@ -474,6 +479,7 @@ function SummaryCard({ user, t, locale }: { user: AppUser; t: TFn; locale: strin
                 value: Math.round(user.operatorDetails.responseRate * 100).toString(),
               })}
               footerKey='userDetail.op.response.footer'
+              progress={user.operatorDetails.responseRate * 100}
               t={t}
             />
           </>
@@ -486,6 +492,7 @@ function SummaryCard({ user, t, locale }: { user: AppUser; t: TFn; locale: strin
               titleKey='userDetail.admin.lastLogin.title'
               value={formatDate(user.adminDetails.lastLoginIso, locale)}
               footerKey='userDetail.admin.lastLogin.footer'
+              progress={100}
               t={t}
             />
             <KpiCell
@@ -493,6 +500,7 @@ function SummaryCard({ user, t, locale }: { user: AppUser; t: TFn; locale: strin
               titleKey='userDetail.admin.users.title'
               value={String(user.adminDetails.createdUsers)}
               footerKey='userDetail.admin.users.footer'
+              progress={Math.min(100, user.adminDetails.createdUsers * 5)}
               t={t}
             />
             <KpiCell
@@ -500,6 +508,7 @@ function SummaryCard({ user, t, locale }: { user: AppUser; t: TFn; locale: strin
               titleKey='userDetail.admin.config.title'
               value={String(user.adminDetails.configChanges)}
               footerKey='userDetail.admin.config.footer'
+              progress={Math.min(100, user.adminDetails.configChanges * 2)}
               t={t}
             />
           </>
@@ -545,10 +554,31 @@ function SummaryCard({ user, t, locale }: { user: AppUser; t: TFn; locale: strin
 }
 
 type KpiTint = 'blue' | 'orange' | 'cyan'
-const TINT_STYLES: Record<KpiTint, { bg: string; dot: string }> = {
-  blue: { bg: 'bg-lightprimary/50', dot: 'bg-primary' },
-  orange: { bg: 'bg-lightwarning/50', dot: 'bg-warning' },
-  cyan: { bg: 'bg-lightsuccess/50', dot: 'bg-success' },
+const TINT_STYLES: Record<
+  KpiTint,
+  { bg: string; dot: string; text: string; barTrack: string; barFill: string }
+> = {
+  blue: {
+    bg: 'bg-lightprimary/50',
+    dot: 'bg-primary',
+    text: 'text-primary',
+    barTrack: 'bg-primary/20',
+    barFill: 'bg-primary',
+  },
+  orange: {
+    bg: 'bg-lightwarning/50',
+    dot: 'bg-warning',
+    text: 'text-warning',
+    barTrack: 'bg-warning/20',
+    barFill: 'bg-warning',
+  },
+  cyan: {
+    bg: 'bg-lightsuccess/50',
+    dot: 'bg-success',
+    text: 'text-success',
+    barTrack: 'bg-success/20',
+    barFill: 'bg-success',
+  },
 }
 
 function KpiCell({
@@ -556,15 +586,19 @@ function KpiCell({
   titleKey,
   value,
   footerKey,
+  progress,
   t,
 }: {
   tint: KpiTint
   titleKey: TranslationKey
   value: string
   footerKey: TranslationKey
+  /** 0..100 — fraction filled in the progress bar */
+  progress: number
   t: TFn
 }) {
   const style = TINT_STYLES[tint]
+  const pct = Math.max(0, Math.min(100, progress))
   return (
     <div className={`rounded-lg p-4 ${style.bg}`}>
       <div className='flex items-center gap-1.5 mb-1.5'>
@@ -572,7 +606,16 @@ function KpiCell({
         <p className='text-[11px] font-medium text-link dark:text-darklink'>{t(titleKey)}</p>
       </div>
       <p className='text-lg font-bold text-dark dark:text-white leading-tight'>{value}</p>
-      <p className='text-[11px] text-link dark:text-darklink mt-1'>{t(footerKey)}</p>
+      <div className={`mt-2.5 h-1.5 rounded-full overflow-hidden ${style.barTrack}`}>
+        <div
+          className={`h-full rounded-full ${style.barFill} transition-all`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className={`text-[11px] mt-1.5 flex items-center gap-1 font-medium ${style.text}`}>
+        <Icon icon='tabler:arrow-up-right' height={11} width={11} />
+        <span>{t(footerKey)}</span>
+      </p>
     </div>
   )
 }
