@@ -939,21 +939,25 @@ export function UserDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* Top area: rail (left) + identity (center) + summary (right) */}
+      {/* Two-column layout: rail on the left spans full height; right column
+          stacks identity+summary above the activity table so both share the
+          same right-column width. */}
       <div className='grid grid-cols-1 xl:grid-cols-12 gap-6'>
         <div className='xl:col-span-2'>
           <RecentUsersRail currentId={id} users={recent} t={t} />
         </div>
-        <div className='xl:col-span-6'>
-          <IdentityCard user={user} t={t} />
-        </div>
-        <div className='xl:col-span-4'>
-          <SummaryCard user={user} t={t} locale={locale} />
+        <div className='xl:col-span-10 space-y-6'>
+          <div className='grid grid-cols-1 xl:grid-cols-10 gap-6'>
+            <div className='xl:col-span-6'>
+              <IdentityCard user={user} t={t} />
+            </div>
+            <div className='xl:col-span-4'>
+              <SummaryCard user={user} t={t} locale={locale} />
+            </div>
+          </div>
+          <ActivityTable user={user} t={t} locale={locale} />
         </div>
       </div>
-
-      {/* Bottom: activity */}
-      <ActivityTable user={user} t={t} locale={locale} />
     </div>
   )
 }
