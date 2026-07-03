@@ -898,7 +898,43 @@ function AddUserDialog({
 
 // ---------- Pagination ----------
 
-const PAGE_SIZE = 15 // 5 cards wide × 3 rows
+const PAGE_SIZE_OPTIONS = [15, 30, 45, 60] as const
+const DEFAULT_PAGE_SIZE = 15 // 5 cards wide × 3 rows
+
+function PageSizeSelect({
+  value,
+  onChange,
+}: {
+  value: number
+  onChange: (v: number) => void
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type='button'
+          className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border dark:border-darkborder text-sm text-dark dark:text-white hover:border-primary transition-colors'>
+          <span>{value}</span>
+          <Icon icon='tabler:chevron-down' height={14} width={14} className='text-link dark:text-darklink' />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align='start' className='min-w-[80px]'>
+        {PAGE_SIZE_OPTIONS.map((opt) => (
+          <DropdownMenuItem
+            key={opt}
+            onClick={() => onChange(opt)}
+            className={
+              opt === value
+                ? 'bg-lightprimary text-primary focus:bg-lightprimary focus:text-primary'
+                : ''
+            }>
+            {opt}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 function Pagination({
   currentPage,
@@ -930,13 +966,13 @@ function Pagination({
   if (totalPages <= 1) return null
 
   return (
-    <nav className='flex items-center gap-1' aria-label='Pagination'>
+    <nav className='flex items-center gap-1.5' aria-label='Pagination'>
       <button
         type='button'
         onClick={() => onChange(currentPage - 1)}
         disabled={currentPage <= 1}
         aria-label='Previous'
-        className='h-9 w-9 inline-flex items-center justify-center rounded-md border border-border dark:border-darkborder text-link dark:text-darklink hover:text-primary hover:border-primary disabled:opacity-40 disabled:hover:text-link disabled:hover:border-border transition-colors'>
+        className='h-9 w-9 inline-flex items-center justify-center rounded-full border border-border dark:border-darkborder text-link dark:text-darklink hover:text-primary hover:border-primary disabled:opacity-40 disabled:hover:text-link disabled:hover:border-border transition-colors'>
         <Icon icon='tabler:chevron-left' height={16} width={16} />
       </button>
       {pageNumbers.map((p, i) => {
@@ -956,7 +992,7 @@ function Pagination({
             type='button'
             onClick={() => onChange(p)}
             aria-current={isCurrent ? 'page' : undefined}
-            className={`h-9 min-w-9 px-3 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors ${
+            className={`h-9 w-9 inline-flex items-center justify-center rounded-full text-sm font-medium transition-colors ${
               isCurrent
                 ? 'bg-primary text-white'
                 : 'border border-border dark:border-darkborder text-dark dark:text-white hover:text-primary hover:border-primary'
@@ -970,7 +1006,7 @@ function Pagination({
         onClick={() => onChange(currentPage + 1)}
         disabled={currentPage >= totalPages}
         aria-label='Next'
-        className='h-9 w-9 inline-flex items-center justify-center rounded-md border border-border dark:border-darkborder text-link dark:text-darklink hover:text-primary hover:border-primary disabled:opacity-40 disabled:hover:text-link disabled:hover:border-border transition-colors'>
+        className='h-9 w-9 inline-flex items-center justify-center rounded-full border border-border dark:border-darkborder text-link dark:text-darklink hover:text-primary hover:border-primary disabled:opacity-40 disabled:hover:text-link disabled:hover:border-border transition-colors'>
         <Icon icon='tabler:chevron-right' height={16} width={16} />
       </button>
     </nav>
@@ -987,6 +1023,7 @@ export function UsersTable() {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<SortKey>('name-asc')
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE)
   const [currentPage, setCurrentPage] = useState(1)
   const [createOpen, setCreateOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<AppUser | null>(null)
@@ -1025,10 +1062,16 @@ export function UsersTable() {
     setCurrentPage(1)
   }, [roleFilter, search, sort])
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  // Reset to page 1 whenever the page size changes so we don't strand the
+  // viewer on a page that no longer exists.
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [pageSize])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage = Math.min(currentPage, totalPages)
-  const startIdx = (safePage - 1) * PAGE_SIZE
-  const endIdx = Math.min(startIdx + PAGE_SIZE, filtered.length)
+  const startIdx = (safePage - 1) * pageSize
+  const endIdx = Math.min(startIdx + pageSize, filtered.length)
   const paged = filtered.slice(startIdx, endIdx)
 
   function openCreate() {
@@ -1227,18 +1270,26 @@ export function UsersTable() {
             ))}
           </div>
           <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
-            <p className='text-sm text-link dark:text-darklink'>
-              {t('users.pagination.range', {
-                start: String(filtered.length === 0 ? 0 : startIdx + 1),
-                end: String(endIdx),
-                total: String(filtered.length),
-              })}
-            </p>
-            <Pagination
-              currentPage={safePage}
-              totalPages={totalPages}
-              onChange={setCurrentPage}
-            />
+            <div className='flex items-center gap-2'>
+              <span className='text-sm text-link dark:text-darklink'>
+                {t('users.pagination.show')} {t('users.pagination.perPage')}
+              </span>
+              <PageSizeSelect value={pageSize} onChange={setPageSize} />
+            </div>
+            <div className='flex items-center gap-4'>
+              <p className='text-sm text-link dark:text-darklink'>
+                {t('users.pagination.range', {
+                  start: String(filtered.length === 0 ? 0 : startIdx + 1),
+                  end: String(endIdx),
+                  total: String(filtered.length),
+                })}
+              </p>
+              <Pagination
+                currentPage={safePage}
+                totalPages={totalPages}
+                onChange={setCurrentPage}
+              />
+            </div>
           </div>
         </>
       )}
