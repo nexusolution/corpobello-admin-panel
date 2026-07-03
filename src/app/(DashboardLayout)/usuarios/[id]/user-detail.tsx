@@ -266,9 +266,12 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
 
   return (
     <div className='rounded-lg border border-border dark:border-darkborder bg-card overflow-hidden'>
-      {/* Hero with avatar (left) + identity block (right, inside banner) */}
-      <div className='relative bg-gradient-to-r from-lightprimary via-lightsuccess/60 to-lightprimary py-3 px-6'>
-        <div className='flex items-center gap-5 flex-wrap'>
+      {/* Hero — decorative colored strip only */}
+      <div className='h-16 bg-gradient-to-r from-lightprimary via-lightsuccess/60 to-lightprimary' />
+
+      <div className='px-6 pt-6 pb-6'>
+        {/* Avatar + identity block — below the hero, above the contact block */}
+        <div className='flex items-center gap-5 flex-wrap mb-6'>
           <div className='relative shrink-0'>
             <Avatar className='size-28 !rounded-xl ring-4 ring-card shadow-md'>
               {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.fullName} className='object-cover' />}
@@ -311,9 +314,7 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
             </div>
           </div>
         </div>
-      </div>
 
-      <div className='px-6 pt-5 pb-6'>
         {/* Contact block */}
         <div className='grid grid-cols-1 sm:grid-cols-3 gap-4'>
           <ContactCell
