@@ -270,7 +270,7 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
       <div className='h-24 bg-gradient-to-r from-lightprimary via-lightsuccess/60 to-lightprimary' />
 
       {/* Avatar — absolute, straddles the hero/content boundary */}
-      <div className='absolute left-6 top-14'>
+      <div className='absolute left-6 top-16'>
         <div className='relative'>
           <Avatar className='size-32 !rounded-xl ring-4 ring-card shadow-md'>
             {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.fullName} className='object-cover' />}
