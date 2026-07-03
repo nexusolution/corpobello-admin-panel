@@ -265,11 +265,23 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
   const rating = user.professionalDetails?.rating
 
   return (
-    <div className='relative rounded-lg border border-border dark:border-darkborder bg-card'>
-      {/* Hero (gradient) — identity block sits to the right of the absolute-positioned avatar */}
-      <div className='bg-gradient-to-r from-lightprimary via-lightsuccess/40 to-lightprimary rounded-t-lg'>
-        <div className='pl-40 pr-6 py-6 min-h-[132px] flex items-center'>
-          <div className='flex-1 min-w-0'>
+    <div className='rounded-lg border border-border dark:border-darkborder bg-card overflow-hidden'>
+      {/* Hero with avatar (left) + identity block (right, inside banner) */}
+      <div className='relative bg-gradient-to-r from-lightprimary via-lightsuccess/60 to-lightprimary p-6'>
+        <div className='flex items-center gap-5 flex-wrap'>
+          <div className='relative shrink-0'>
+            <Avatar className='size-28 !rounded-xl ring-4 ring-card shadow-md'>
+              {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.fullName} className='object-cover' />}
+              <AvatarFallback className='!rounded-xl bg-lightprimary text-primary'>
+                <Icon icon='solar:user-bold-duotone' height={56} width={56} />
+              </AvatarFallback>
+            </Avatar>
+            {user.status === 'active' && (
+              <span className='absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full bg-success ring-2 ring-card' />
+            )}
+          </div>
+
+          <div className='flex-1 min-w-[220px]'>
             <div className='flex items-center gap-2 flex-wrap mb-2'>
               <span className='inline-flex items-center gap-1.5 text-xs font-medium text-success'>
                 <span className='h-2 w-2 rounded-full bg-success' />
@@ -284,15 +296,13 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
 
             <div className='flex items-start justify-between gap-4 flex-wrap'>
               <div className='min-w-0'>
-                <h2 className='text-xl font-bold text-dark dark:text-white leading-tight'>
-                  {user.fullName}
-                </h2>
+                <h2 className='text-xl font-bold text-dark dark:text-white'>{user.fullName}</h2>
                 <p className='text-sm text-link dark:text-darklink mt-0.5'>
                   {user.bio ?? roleLabel}
                 </p>
               </div>
               {rating !== undefined && (
-                <div className='flex items-center gap-2 shrink-0'>
+                <div className='flex items-center gap-2'>
                   <StarRating rating={rating} />
                   <span className='text-sm font-semibold text-dark dark:text-white'>{rating.toFixed(1)}</span>
                   <span className='text-xs text-link dark:text-darklink'>/5.0</span>
@@ -303,60 +313,42 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
         </div>
       </div>
 
-      {/* Avatar — absolute, overhangs the hero into the content area */}
-      <div className='absolute left-6 top-6'>
-        <div className='relative'>
-          <Avatar className='size-28 !rounded-xl ring-4 ring-card shadow-md'>
-            {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.fullName} className='object-cover' />}
-            <AvatarFallback className='!rounded-xl bg-lightprimary text-primary'>
-              <Icon icon='solar:user-bold-duotone' height={56} width={56} />
-            </AvatarFallback>
-          </Avatar>
-          {user.status === 'active' && (
-            <span className='absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full bg-success ring-2 ring-card' />
-          )}
-        </div>
-      </div>
-
-      {/* Content section — divider on top, contact block, action buttons */}
-      <div className='px-6 pt-6 pb-6 border-t border-border dark:border-darkborder'>
-        <div className='grid grid-cols-1 sm:grid-cols-3 gap-4 pl-0 sm:pl-32'>
+      <div className='px-6 pt-5 pb-6'>
+        {/* Contact block */}
+        <div className='grid grid-cols-1 sm:grid-cols-3 gap-4'>
           <ContactCell
-            icon='solar:phone-linear'
+            icon='solar:phone-bold-duotone'
+            tint='success'
             label={t('userDetail.identity.contactPhone')}
             value={user.phone ?? '—'}
           />
           <ContactCell
-            icon='solar:letter-linear'
+            icon='solar:letter-bold-duotone'
+            tint='primary'
             label={t('userDetail.identity.contactEmail')}
             value={user.email}
           />
           <ContactCell
-            icon='solar:map-point-linear'
+            icon='solar:map-point-bold-duotone'
+            tint='warning'
             label={t('userDetail.identity.contactLocation')}
             value={user.location ?? '—'}
           />
         </div>
 
-        {/* Action buttons — Call (filled green pill), Message (outlined pill), More (round dots) */}
-        <div className='grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 mt-6'>
+        {/* Action buttons */}
+        <div className='grid grid-cols-1 sm:grid-cols-2 gap-2 mt-5'>
           <button
             type='button'
-            className='inline-flex items-center justify-center gap-2 py-3 rounded-full bg-success text-white text-sm font-semibold hover:bg-success/90 transition-colors'>
-            <Icon icon='solar:phone-bold' height={16} width={16} />
+            className='inline-flex items-center justify-center gap-2 py-2.5 rounded-md bg-success text-white text-sm font-medium hover:bg-success/90 transition-colors'>
+            <Icon icon='solar:phone-linear' height={16} width={16} />
             {t('userDetail.identity.call')}
           </button>
           <button
             type='button'
-            className='inline-flex items-center justify-center gap-2 py-3 rounded-full border border-success text-success text-sm font-semibold hover:bg-lightsuccess transition-colors'>
+            className='inline-flex items-center justify-center gap-2 py-2.5 rounded-md border border-success text-success text-sm font-medium hover:bg-success/10 transition-colors'>
             <Icon icon='solar:chat-round-line-linear' height={16} width={16} />
             {t('userDetail.identity.chat')}
-          </button>
-          <button
-            type='button'
-            aria-label='More'
-            className='h-12 w-12 justify-self-center inline-flex items-center justify-center rounded-full border border-border dark:border-darkborder text-link dark:text-darklink hover:text-primary hover:border-primary transition-colors'>
-            <Icon icon='tabler:dots-vertical' height={18} width={18} />
           </button>
         </div>
       </div>
@@ -364,19 +356,29 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
   )
 }
 
+type ContactTint = 'success' | 'primary' | 'warning'
+const CONTACT_TINT: Record<ContactTint, { bg: string; text: string }> = {
+  success: { bg: 'bg-lightsuccess', text: 'text-success' },
+  primary: { bg: 'bg-lightprimary', text: 'text-primary' },
+  warning: { bg: 'bg-lightwarning', text: 'text-warning' },
+}
+
 function ContactCell({
   icon,
+  tint,
   label,
   value,
 }: {
   icon: string
+  tint: ContactTint
   label: string
   value: string
 }) {
+  const style = CONTACT_TINT[tint]
   return (
-    <div className='flex items-start gap-3'>
-      <span className='h-9 w-9 shrink-0 inline-flex items-center justify-center rounded-full bg-muted/50 dark:bg-darkmuted/40 text-link dark:text-darklink'>
-        <Icon icon={icon} height={16} width={16} />
+    <div className='flex items-start gap-2'>
+      <span className={`h-9 w-9 shrink-0 inline-flex items-center justify-center rounded-md ${style.bg} ${style.text}`}>
+        <Icon icon={icon} height={18} width={18} />
       </span>
       <div className='min-w-0'>
         <p className='text-[11px] font-medium tracking-wide uppercase text-link dark:text-darklink'>{label}</p>
