@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { Icon } from '@iconify/react'
 import Swal from 'sweetalert2'
 
@@ -1128,7 +1129,9 @@ export function UsersTable() {
                     </td>
                     {visibleColumns.has('name') && (
                       <td className='py-3 px-3'>
-                        <div className='flex items-center gap-3'>
+                        <Link
+                          href={`/usuarios/${user.id}`}
+                          className='flex items-center gap-3 group'>
                           <Avatar className='size-10 ring-1 ring-border dark:ring-darkborder'>
                             {user.avatarUrl && (
                               <AvatarImage
@@ -1145,10 +1148,10 @@ export function UsersTable() {
                               />
                             </AvatarFallback>
                           </Avatar>
-                          <span className='text-dark dark:text-white font-medium'>
+                          <span className='text-dark dark:text-white font-medium group-hover:text-primary transition-colors'>
                             {user.fullName}
                           </span>
-                        </div>
+                        </Link>
                       </td>
                     )}
                     {visibleColumns.has('role') && (
@@ -1184,6 +1187,12 @@ export function UsersTable() {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align='end' className='w-44'>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/usuarios/${user.id}`} className='w-full'>
+                              <Icon icon='solar:eye-line-duotone' height={16} width={16} className='mr-2' />
+                              {t('users.action.viewDetail')}
+                            </Link>
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => openEdit(user)}>
                             <Icon icon='solar:pen-line-duotone' height={16} width={16} className='mr-2' />
                             {t('users.action.edit')}
