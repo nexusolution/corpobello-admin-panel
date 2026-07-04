@@ -139,12 +139,22 @@ export function BotWhatsappTab() {
         <div className='space-y-5'>
           {/* Conexión de WhatsApp */}
           <div className='rounded-md border border-border dark:border-darkborder p-5'>
-            <div className='flex items-center justify-between mb-3 gap-2'>
-              <h3 className='text-base font-semibold text-dark dark:text-white'>
-                {t('configuracion.bot.connection.title')}
-              </h3>
+            <div className='flex items-start justify-between mb-4 gap-2'>
+              <div className='flex items-start gap-3 min-w-0'>
+                <div className='size-10 shrink-0 rounded-md bg-lightsuccess flex items-center justify-center'>
+                  <Icon icon='ic:baseline-whatsapp' height={20} width={20} className='text-success' />
+                </div>
+                <div className='min-w-0'>
+                  <h3 className='text-base font-semibold text-dark dark:text-white leading-tight'>
+                    {t('configuracion.bot.connection.title')}
+                  </h3>
+                  <p className='text-xs text-link dark:text-darklink mt-0.5 leading-tight'>
+                    {t('configuracion.bot.connection.subtitle')}
+                  </p>
+                </div>
+              </div>
               {draft.connected && (
-                <span className='inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-lightsuccess text-success text-xs font-medium'>
+                <span className='inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-lightsuccess text-success text-xs font-medium shrink-0'>
                   <span className='h-1.5 w-1.5 rounded-full bg-success' />
                   {t('configuracion.bot.connection.connected')}
                 </span>
@@ -184,9 +194,19 @@ export function BotWhatsappTab() {
 
           {/* Comportamiento del bot */}
           <div className='rounded-md border border-border dark:border-darkborder p-5'>
-            <h3 className='text-base font-semibold text-dark dark:text-white mb-4'>
-              {t('configuracion.bot.behavior.title')}
-            </h3>
+            <div className='flex items-start gap-3 mb-4'>
+              <div className='size-10 shrink-0 rounded-md bg-lightprimary flex items-center justify-center'>
+                <Icon icon='solar:robot-line-duotone' height={20} width={20} className='text-primary' />
+              </div>
+              <div className='min-w-0'>
+                <h3 className='text-base font-semibold text-dark dark:text-white leading-tight'>
+                  {t('configuracion.bot.behavior.title')}
+                </h3>
+                <p className='text-xs text-link dark:text-darklink mt-0.5 leading-tight'>
+                  {t('configuracion.bot.behavior.subtitle')}
+                </p>
+              </div>
+            </div>
 
             <div className='space-y-3'>
               <ToggleRow
@@ -252,9 +272,19 @@ export function BotWhatsappTab() {
         <div className='space-y-5'>
           {/* Mensaje de bienvenida */}
           <div className='rounded-md border border-border dark:border-darkborder p-5'>
-            <h3 className='text-base font-semibold text-dark dark:text-white mb-3'>
-              {t('configuracion.bot.welcome.title')}
-            </h3>
+            <div className='flex items-start gap-3 mb-3'>
+              <div className='size-10 shrink-0 rounded-md bg-lightwarning flex items-center justify-center'>
+                <Icon icon='solar:chat-round-line-line-duotone' height={20} width={20} className='text-warning' />
+              </div>
+              <div className='min-w-0'>
+                <h3 className='text-base font-semibold text-dark dark:text-white leading-tight'>
+                  {t('configuracion.bot.welcome.title')}
+                </h3>
+                <p className='text-xs text-link dark:text-darklink mt-0.5 leading-tight'>
+                  {t('configuracion.bot.welcome.subtitle')}
+                </p>
+              </div>
+            </div>
             <textarea
               ref={welcomeRef}
               value={draft.welcomeMessage}
@@ -278,9 +308,19 @@ export function BotWhatsappTab() {
 
           {/* Vista previa */}
           <div className='rounded-md border border-border dark:border-darkborder p-5 bg-muted/30 dark:bg-darkmuted/20'>
-            <h3 className='text-xs font-semibold text-link dark:text-darklink uppercase tracking-wide mb-3'>
-              {t('configuracion.bot.welcome.preview')}
-            </h3>
+            <div className='flex items-start gap-3 mb-3'>
+              <div className='size-10 shrink-0 rounded-md bg-lighterror flex items-center justify-center'>
+                <Icon icon='solar:eye-line-duotone' height={20} width={20} className='text-error' />
+              </div>
+              <div className='min-w-0'>
+                <h3 className='text-sm font-semibold text-dark dark:text-white leading-tight'>
+                  {t('configuracion.bot.welcome.preview')}
+                </h3>
+                <p className='text-xs text-link dark:text-darklink mt-0.5 leading-tight'>
+                  {t('configuracion.bot.welcome.preview.subtitle')}
+                </p>
+              </div>
+            </div>
             <div className='flex items-start gap-2'>
               <div className='h-8 w-8 rounded-full bg-lightsuccess text-success flex items-center justify-center shrink-0'>
                 <Icon icon='ic:baseline-whatsapp' height={16} width={16} />

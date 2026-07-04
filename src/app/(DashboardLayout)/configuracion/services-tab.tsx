@@ -98,20 +98,31 @@ export function ServicesTab() {
 
   return (
     <div>
-      {/* Header row — title + count + add button */}
-      <div className='flex items-center justify-between mb-5 gap-3 flex-wrap'>
-        <div className='flex items-center gap-2'>
-          <h2 className='text-base font-semibold text-dark dark:text-white'>
-            {t('configuracion.services.title')}
-          </h2>
-          <span className='inline-flex items-center justify-center min-w-[28px] h-6 px-2 rounded-full bg-lightprimary text-primary text-xs font-semibold'>
-            {services.length}
-          </span>
+      {/* Header row — icon + title + subtitle + count + add button */}
+      <div className='flex items-start justify-between mb-5 gap-3 flex-wrap'>
+        <div className='flex items-start gap-3'>
+          <div className='size-10 shrink-0 rounded-md bg-lightprimary flex items-center justify-center'>
+            <Icon icon='solar:bag-heart-line-duotone' height={20} width={20} className='text-primary' />
+          </div>
+          <div className='min-w-0'>
+            <div className='flex items-center gap-2'>
+              <h2 className='text-base font-semibold text-dark dark:text-white leading-tight'>
+                {t('configuracion.services.title')}
+              </h2>
+              <span className='inline-flex items-center justify-center min-w-[24px] h-5 px-1.5 rounded-full bg-lightprimary text-primary text-[11px] font-semibold'>
+                {services.length}
+              </span>
+            </div>
+            <p className='text-xs text-link dark:text-darklink mt-0.5 leading-tight'>
+              {t('configuracion.services.title.subtitle')}
+            </p>
+          </div>
         </div>
         <button
           type='button'
           onClick={() => showUnderDevAlert(t('configuracion.services.addButton'), t)}
           className='inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
+          <Icon icon='tabler:plus' height={16} width={16} />
           {t('configuracion.services.addButton')}
         </button>
       </div>

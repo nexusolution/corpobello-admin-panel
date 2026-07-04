@@ -96,6 +96,42 @@ function showSavedToast(t: TFn) {
 
 // ---------- Reusable bits ----------
 
+type SectionTint = 'primary' | 'success' | 'warning' | 'error'
+
+const SECTION_TINT: Record<SectionTint, { bg: string; text: string }> = {
+  primary: { bg: 'bg-lightprimary', text: 'text-primary' },
+  success: { bg: 'bg-lightsuccess', text: 'text-success' },
+  warning: { bg: 'bg-lightwarning', text: 'text-warning' },
+  error: { bg: 'bg-lighterror', text: 'text-error' },
+}
+
+function SectionHeader({
+  icon,
+  title,
+  subtitle,
+  tint,
+}: {
+  icon: string
+  title: string
+  subtitle?: string
+  tint: SectionTint
+}) {
+  const style = SECTION_TINT[tint]
+  return (
+    <div className='flex items-start gap-3 mb-4'>
+      <div className={`size-9 shrink-0 rounded-md flex items-center justify-center ${style.bg}`}>
+        <Icon icon={icon} height={18} width={18} className={style.text} />
+      </div>
+      <div className='min-w-0'>
+        <h3 className='text-sm font-semibold text-dark dark:text-white leading-tight'>{title}</h3>
+        {subtitle && (
+          <p className='text-xs text-link dark:text-darklink mt-0.5 leading-tight'>{subtitle}</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function FieldInput({
   label,
   value,
@@ -205,9 +241,12 @@ function ClinicTab({
     <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
       {/* Left column — Datos de la clínica */}
       <div className='space-y-5'>
-        <h3 className='text-sm font-semibold text-dark dark:text-white uppercase tracking-wide'>
-          {t('configuracion.clinic.section.info')}
-        </h3>
+        <SectionHeader
+          icon='solar:buildings-3-line-duotone'
+          title={t('configuracion.clinic.section.info')}
+          subtitle={t('configuracion.clinic.section.info.subtitle')}
+          tint='primary'
+        />
 
         <div className='grid grid-cols-1 sm:grid-cols-2 gap-5'>
           <FieldInput
@@ -259,9 +298,12 @@ function ClinicTab({
       {/* Right column — Identidad + Horario */}
       <div className='space-y-6'>
         <div>
-          <h3 className='text-sm font-semibold text-dark dark:text-white uppercase tracking-wide mb-3'>
-            {t('configuracion.clinic.section.identity')}
-          </h3>
+          <SectionHeader
+            icon='solar:pallete-2-line-duotone'
+            title={t('configuracion.clinic.section.identity')}
+            subtitle={t('configuracion.clinic.section.identity.subtitle')}
+            tint='warning'
+          />
           <div className='flex items-start gap-4'>
             <button
               type='button'
@@ -303,9 +345,12 @@ function ClinicTab({
         </div>
 
         <div>
-          <h3 className='text-sm font-semibold text-dark dark:text-white uppercase tracking-wide mb-3'>
-            {t('configuracion.clinic.section.schedule')}
-          </h3>
+          <SectionHeader
+            icon='solar:clock-circle-line-duotone'
+            title={t('configuracion.clinic.section.schedule')}
+            subtitle={t('configuracion.clinic.section.schedule.subtitle')}
+            tint='success'
+          />
           <div className='space-y-3 rounded-md border border-border dark:border-darkborder p-4'>
             <ScheduleRow
               label={t('configuracion.clinic.schedule.weekdays')}
