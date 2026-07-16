@@ -3,10 +3,14 @@ import TopCards from "../components/dashboard/TopCards";
 import { WelcomeBanner } from "../components/dashboard/WelcomeBanner";
 import QuickAccess from "../components/dashboard/QuickAccess";
 import AgendaDay from "../components/dashboard/AgendaDay";
+import DashboardGreeting from "../components/dashboard/DashboardGreeting";
 
 const page = () => {
   return (
     <div className="grid grid-cols-12 gap-6">
+      <div className="col-span-12">
+        <DashboardGreeting />
+      </div>
       <div className="col-span-12">
         <TopCards />
       </div>

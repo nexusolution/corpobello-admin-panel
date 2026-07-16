@@ -128,7 +128,10 @@ const TopCards = () => {
         {FUNNEL_CARDS.map((item) => {
           return (
             <SwiperSlide key={item.key}>
-              <Link href={item.url}>
+              {/* Per Andrés 2026-06-30: each indicator opens the corresponding
+                  list. The stage is passed as a query param so the Kanban can
+                  focus/filter that column once the data layer lands. */}
+              <Link href={`${item.url}?stage=${item.key}`}>
                 <Card
                   className={`!rounded-md !p-3 !gap-2 shadow-none ${item.bgcolor} border-0 w-full`}>
                   <div className='text-center'>

@@ -218,28 +218,33 @@ const AgendaDay = () => {
             return (
               <div
                 key={appt.id}
-                className='flex items-center gap-3 py-2.5 first:pt-0 last:pb-0'>
+                className='flex items-stretch gap-3 py-2.5 first:pt-0 last:pb-0'>
+                {/* Left color bar = treatment identity. Per Andrés 2026-06-30:
+                    "barra izquierda = tratamiento". Thin and full-height so it
+                    reads at a glance without a text label. */}
+                <span
+                  className={`w-1 shrink-0 self-stretch rounded-full ${tColor.dotClass}`}
+                  title={t(tColor.labelKey as TranslationKey)}
+                  aria-hidden='true'
+                />
+
                 {/* Time */}
-                <div className='shrink-0 w-12 text-sm font-semibold text-dark dark:text-white tabular-nums'>
+                <div className='shrink-0 w-12 self-center text-sm font-semibold text-dark dark:text-white tabular-nums'>
                   {appt.time}
                 </div>
 
                 {/* Patient + treatment */}
-                <div className='flex-1 min-w-0'>
+                <div className='flex-1 min-w-0 self-center'>
                   <div className='text-sm font-medium text-dark dark:text-white truncate'>
                     {appt.patientName}
                   </div>
-                  <div className='text-xs text-link dark:text-darklink truncate flex items-center gap-1.5'>
-                    <span
-                      className={`inline-block h-2 w-2 rounded-full shrink-0 ${tColor.dotClass}`}
-                      aria-hidden='true'
-                    />
-                    <span className='truncate'>{appt.treatmentLabel}</span>
+                  <div className='text-xs text-link dark:text-darklink truncate'>
+                    {appt.treatmentLabel}
                   </div>
                 </div>
 
                 {/* Pro + sucursal (hidden on narrow screens) */}
-                <div className='hidden md:block shrink-0 text-xs text-link dark:text-darklink text-right'>
+                <div className='hidden md:block shrink-0 self-center text-xs text-link dark:text-darklink text-right'>
                   <div className='truncate max-w-[120px]'>
                     {t('agenda.with')} {appt.professional}
                   </div>
@@ -248,12 +253,13 @@ const AgendaDay = () => {
                   </div>
                 </div>
 
-                {/* Status pill */}
+                {/* Right dot = appointment status. Per Andrés: "punto derecho =
+                    estado", color only, no text, a touch more visible. The
+                    status name shows on hover for accessibility. */}
                 <span
-                  className={`shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${sStyle.bg} ${sStyle.text}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${sStyle.dot}`} />
-                  <span className='hidden sm:inline'>{t(sStyle.labelKey)}</span>
-                </span>
+                  className={`shrink-0 self-center h-2.5 w-2.5 rounded-full ${sStyle.dot}`}
+                  title={t(sStyle.labelKey)}
+                />
               </div>
             )
           })
