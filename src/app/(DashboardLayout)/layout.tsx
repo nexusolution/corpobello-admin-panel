@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from './layout/header/Header'
 import Sidebar from './layout/sidebar/Sidebar'
+import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 
 export default function Layout({
   children,
@@ -15,16 +16,31 @@ export default function Layout({
   const [hovered, setHovered] = useState(false)
   const [authChecked, setAuthChecked] = useState(false)
 
-  // Mock auth gate: until Supabase wires in, treat localStorage 'panel-auth'
-  // as the session flag. Missing flag → redirect to login. The login form
-  // sets the flag before navigating to '/'.
+  // Auth gate: require a live Supabase session, else redirect to login. Also
+  // re-check on auth-state changes (e.g. sign-out in another tab). When
+  // Supabase isn't configured yet, send to login rather than expose the panel.
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const isAuthed = localStorage.getItem('panel-auth') === 'true'
-    if (!isAuthed) {
+    if (!isSupabaseConfigured()) {
       router.replace('/auth/login')
-    } else {
-      setAuthChecked(true)
+      return
+    }
+    const supabase = getSupabase()
+    let active = true
+
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!active) return
+      if (session) setAuthChecked(true)
+      else router.replace('/auth/login')
+    })
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return
+      if (!session) router.replace('/auth/login')
+    })
+
+    return () => {
+      active = false
+      sub.subscription.unsubscribe()
     }
   }, [router])
 

@@ -59,7 +59,7 @@ export function DashboardGreeting() {
   return (
     <div className='mb-1'>
       <h1 className='text-xl sm:text-2xl font-semibold text-dark dark:text-white'>
-        {hello}, {name}.
+        {name ? `${hello}, ${name}.` : `${hello}.`}
       </h1>
       <div className='mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5'>
         {lines.map((line) => (

@@ -442,6 +442,12 @@ export const dictionaries = {
     'auth.login.errorTitle': 'Ups, hay errores',
     'auth.login.errorBody': 'Revisá los campos marcados y volvé a intentarlo.',
     'auth.login.errorConfirm': 'Entendido',
+    'auth.login.submitting': 'Iniciando sesión…',
+    'auth.login.errorSignInTitle': 'No pudimos iniciar sesión',
+    'auth.login.errorSignInBody':
+      'Revisá tu email y contraseña e intentá de nuevo.',
+    'auth.login.errorNotConfigured':
+      'El inicio de sesión todavía no está configurado. Contactá al administrador.',
     // User detail page
     'userDetail.title': 'Detalle de usuario',
     'userDetail.breadcrumb.parent': 'Usuarios',
@@ -989,6 +995,12 @@ export const dictionaries = {
     'auth.login.errorTitle': 'Oops, there are errors',
     'auth.login.errorBody': 'Check the highlighted fields and try again.',
     'auth.login.errorConfirm': 'Got it',
+    'auth.login.submitting': 'Signing in…',
+    'auth.login.errorSignInTitle': 'Could not sign in',
+    'auth.login.errorSignInBody':
+      'Check your email and password and try again.',
+    'auth.login.errorNotConfigured':
+      'Login is not set up yet. Contact the administrator.',
     // User detail page
     'userDetail.title': 'User details',
     'userDetail.breadcrumb.parent': 'Users',

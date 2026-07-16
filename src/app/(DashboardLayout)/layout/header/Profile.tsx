@@ -14,13 +14,14 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
+import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 
 const Profile = () => {
   const router = useRouter()
 
-  function handleLogout() {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('panel-auth')
+  async function handleLogout() {
+    if (isSupabaseConfigured()) {
+      await getSupabase().auth.signOut()
     }
     router.push('/auth/login')
   }

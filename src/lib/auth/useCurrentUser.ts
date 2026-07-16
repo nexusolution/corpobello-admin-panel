@@ -1,21 +1,77 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+
+import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
+
 // The signed-in user, as the UI needs it: a display name and a role that
 // drives what each screen prioritises (Andrés 2026-06-30 — same dashboard,
 // reprioritised per role).
+//
+// The DB enum (app_users.role) currently has only 'admin' | 'operador'
+// (migration 0004). 'profesional' is kept here so the role-aware UI is ready
+// for when the enum is extended; until then it simply never comes back from
+// the query.
 export type UserRole = 'admin' | 'operador' | 'profesional'
 
 export interface CurrentUser {
   name: string
   role: UserRole
+  loading: boolean
 }
 
-// PHASE 1 (now): a placeholder so the role-aware UI can be built and reviewed
-// before auth exists.
-//
-// PHASE 2 (Supabase Auth): replace the body with a read of the live session +
-// the `app_users` role for the signed-in user. The return shape stays the
-// same, so DashboardGreeting and any other consumer don't change.
+interface AppUserRow {
+  display_name: string | null
+  role: UserRole | null
+}
+
+// Reads the live Supabase session and the matching `app_users` row (role +
+// display_name). While loading — or when Supabase isn't configured yet — it
+// returns an empty name so the greeting renders without a dangling label.
 export function useCurrentUser(): CurrentUser {
-  return { name: 'Andrés', role: 'admin' }
+  const [user, setUser] = useState<CurrentUser>({
+    name: '',
+    role: 'operador',
+    loading: true,
+  })
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      setUser({ name: '', role: 'operador', loading: false })
+      return
+    }
+
+    let active = true
+    const supabase = getSupabase()
+
+    void (async () => {
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser()
+
+      if (!authUser) {
+        if (active) setUser({ name: '', role: 'operador', loading: false })
+        return
+      }
+
+      const { data } = await supabase
+        .from('app_users')
+        .select('display_name, role')
+        .eq('id', authUser.id)
+        .single<AppUserRow>()
+
+      if (!active) return
+
+      const name =
+        data?.display_name ?? authUser.email?.split('@')[0] ?? ''
+      const role: UserRole = data?.role ?? 'operador'
+      setUser({ name, role, loading: false })
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  return user
 }

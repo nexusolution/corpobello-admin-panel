@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useTranslation } from '@/lib/i18n/context'
 import type { Locale, TranslationKey } from '@/lib/i18n/dictionaries'
+import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 
 type LanguageOption = {
   code: Locale
@@ -34,16 +35,18 @@ type FieldErrors = {
   password?: TranslationKey
 }
 
-const showValidationAlert = (
-  t: (key: TranslationKey) => string
+const showErrorAlert = (
+  t: (key: TranslationKey) => string,
+  titleKey: TranslationKey = 'auth.login.errorTitle',
+  bodyKey: TranslationKey = 'auth.login.errorBody',
 ) => {
   const isDark =
     typeof document !== 'undefined' &&
     document.documentElement.classList.contains('dark')
 
   Swal.fire({
-    title: t('auth.login.errorTitle'),
-    text: t('auth.login.errorBody'),
+    title: t(titleKey),
+    text: t(bodyKey),
     // Custom red X — swal2's built-in error icon clips when shrunk
     // (its X strokes use fixed-offset positioning), so render our own.
     iconHtml:
@@ -71,6 +74,7 @@ export const Login = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<FieldErrors>({})
+  const [submitting, setSubmitting] = useState(false)
   const currentLanguage =
     LOGIN_LANGUAGES.find((l) => l.code === locale) ?? LOGIN_LANGUAGES[0]
 
@@ -87,20 +91,49 @@ export const Login = () => {
     return next
   }
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const next = validate()
     setErrors(next)
     if (Object.keys(next).length > 0) {
-      showValidationAlert(t)
+      showErrorAlert(t)
       return
     }
-    // Visual-only flow: set mock auth flag + navigate to dashboard. Real
-    // Supabase signIn comes later.
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('panel-auth', 'true')
+    if (!isSupabaseConfigured()) {
+      showErrorAlert(
+        t,
+        'auth.login.errorSignInTitle',
+        'auth.login.errorNotConfigured',
+      )
+      return
     }
-    router.push('/')
+    setSubmitting(true)
+    try {
+      const { error } = await getSupabase().auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
+      if (error) {
+        // Wrong credentials, disabled user, etc. Keep the message generic so
+        // we don't leak whether the email exists.
+        showErrorAlert(
+          t,
+          'auth.login.errorSignInTitle',
+          'auth.login.errorSignInBody',
+        )
+        return
+      }
+      // Session is persisted by the client; the DashboardLayout gate reads it.
+      router.push('/')
+    } catch {
+      showErrorAlert(
+        t,
+        'auth.login.errorSignInTitle',
+        'auth.login.errorSignInBody',
+      )
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const clearError = (field: keyof FieldErrors) => {
@@ -228,8 +261,11 @@ export const Login = () => {
               )}
             </div>
 
-            <Button type='submit' className='w-full mt-6'>
-              {t('auth.login.submit')}
+            <Button
+              type='submit'
+              className='w-full mt-6'
+              disabled={submitting}>
+              {submitting ? t('auth.login.submitting') : t('auth.login.submit')}
             </Button>
           </form>
 

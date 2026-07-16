@@ -30,6 +30,7 @@
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@supabase/supabase-js": "^2.110.6",
     "@tabler/icons-react": "^3.44.0",
     "@tailwindcss/postcss": "^4.1.6",
     "aos": "2.3.4",
