@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Header from './layout/header/Header'
 import Sidebar from './layout/sidebar/Sidebar'
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
+import { FullPageSpinner } from '@/app/components/shared/FullPageSpinner'
 
 export default function Layout({
   children,
@@ -44,7 +45,9 @@ export default function Layout({
     }
   }, [router])
 
-  if (!authChecked) return null
+  // While the Supabase session is being verified, show a spinner instead of a
+  // blank screen (the sidebar/header can't render until we know we're signed in).
+  if (!authChecked) return <FullPageSpinner />
 
   return (
     <div className='flex w-full min-h-screen'>
