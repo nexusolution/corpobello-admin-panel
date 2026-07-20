@@ -74,12 +74,15 @@ async function confirmDiscardChanges(t: TFn): Promise<boolean> {
   return result.isConfirmed
 }
 
-function showSavedToast(t: TFn) {
+// This screen has no backing store yet — the bot reads its menu/pricing/settings
+// from code, not the DB — so "saving" here must not pretend to persist. Instead
+// of a green success toast we show an honest info toast.
+function showPreviewToast(t: TFn) {
   const isDark = isDarkMode()
   Swal.fire({
-    title: t('configuracion.saved.toast'),
-    icon: 'success',
-    iconColor: '#13deb9',
+    title: t('configuracion.notSaved.toast'),
+    icon: 'info',
+    iconColor: '#5d87ff',
     toast: true,
     position: 'top-end',
     showConfirmButton: false,
@@ -456,13 +459,20 @@ export function ConfigurationContent() {
 
   function handleSave() {
     if (!isDirty) return
-    // Mock save — just promote draft to initial. Real impl will POST to Supabase.
-    setInitial(draft)
-    showSavedToast(t)
+    // No persistence yet: don't promote draft to "saved" — just tell the truth.
+    // When a clinic_settings table + bot integration land, this POSTs for real.
+    showPreviewToast(t)
   }
 
   return (
-    <div className='rounded-lg border border-border dark:border-darkborder bg-card overflow-hidden'>
+    <div className='space-y-4'>
+      {/* Honest preview banner — this screen isn't connected to the bot yet. */}
+      <div className='flex items-start gap-2.5 rounded-lg border border-info/30 bg-lightinfo/60 dark:bg-lightinfo/20 px-4 py-3'>
+        <Icon icon='solar:info-circle-line-duotone' height={18} width={18} className='text-info shrink-0 mt-0.5' />
+        <p className='text-sm text-dark dark:text-white'>{t('configuracion.previewBanner')}</p>
+      </div>
+
+      <div className='rounded-lg border border-border dark:border-darkborder bg-card overflow-hidden'>
       {/* Tab bar */}
       <div className='border-b border-border dark:border-darkborder overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
         <div className='inline-flex'>
@@ -534,6 +544,7 @@ export function ConfigurationContent() {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

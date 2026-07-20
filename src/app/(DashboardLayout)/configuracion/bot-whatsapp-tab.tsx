@@ -44,12 +44,14 @@ function isDarkMode(): boolean {
   )
 }
 
+// No backing store yet (the bot reads its settings from code, not the DB), so
+// this reports an honest "not saved" preview instead of a green success toast.
 function showSavedToast(t: TFn) {
   const isDark = isDarkMode()
   Swal.fire({
-    title: t('configuracion.saved.toast'),
-    icon: 'success',
-    iconColor: '#13deb9',
+    title: t('configuracion.notSaved.toast'),
+    icon: 'info',
+    iconColor: '#5d87ff',
     toast: true,
     position: 'top-end',
     showConfirmButton: false,
