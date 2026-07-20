@@ -1,8 +1,11 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Icon } from '@iconify/react'
 
 import CardBox from '../shared/CardBox'
+import { fetchFunnelCounts, type FunnelCounts } from './data'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
@@ -18,87 +21,91 @@ type TaskRow = {
   iconColor: string
   priority: Priority
   action: 'review' | 'view' | 'open' | 'stage2'
+  /** Deep-link target for the live rows (kanban filtered by stage). */
+  url?: string
 }
 
-const ROWS: TaskRow[] = [
-  {
-    key: 'confirmDeposits',
-    titleKey: 'tasks.confirmDeposits.title',
-    subtitleKey: 'tasks.confirmDeposits.subtitle',
-    count: 5,
-    icon: 'solar:wallet-money-line-duotone',
-    iconBg: 'bg-lighterror',
-    iconColor: 'text-error',
-    priority: 'urgent',
-    action: 'review',
-  },
-  {
-    key: 'expiringReservations',
-    titleKey: 'tasks.expiringReservations.title',
-    subtitleKey: 'tasks.expiringReservations.subtitle',
-    count: 3,
-    icon: 'solar:clock-circle-line-duotone',
-    iconBg: 'bg-lighterror',
-    iconColor: 'text-error',
-    priority: 'urgent',
-    action: 'view',
-  },
-  {
-    key: 'awaitingResponse',
-    titleKey: 'tasks.awaitingResponse.title',
-    subtitleKey: 'tasks.awaitingResponse.subtitle',
-    count: 8,
-    icon: 'solar:chat-round-line-duotone',
-    iconBg: 'bg-lightwarning',
-    iconColor: 'text-warning',
-    priority: 'medium',
-    action: 'open',
-  },
-  {
-    key: 'incompleteDeposits',
-    titleKey: 'tasks.incompleteDeposits.title',
-    subtitleKey: 'tasks.incompleteDeposits.subtitle',
-    count: 4,
-    icon: 'solar:card-line-duotone',
-    iconBg: 'bg-lightwarning',
-    iconColor: 'text-warning',
-    priority: 'high',
-    action: 'view',
-  },
-  {
-    key: 'pendingConsents',
-    titleKey: 'tasks.pendingConsents.title',
-    subtitleKey: 'tasks.pendingConsents.subtitle',
-    count: 2,
-    icon: 'solar:document-text-line-duotone',
-    iconBg: 'bg-lightwarning',
-    iconColor: 'text-warning',
-    priority: 'high',
-    action: 'view',
-  },
-  {
-    key: 'evolutionPhotos',
-    titleKey: 'tasks.evolutionPhotos.title',
-    subtitleKey: 'tasks.evolutionPhotos.subtitle',
-    count: null,
-    icon: 'solar:camera-line-duotone',
-    iconBg: 'bg-muted/60 dark:bg-darkmuted/40',
-    iconColor: 'text-link dark:text-darklink',
-    priority: 'disabled',
-    action: 'stage2',
-  },
-  {
-    key: 'stockAlerts',
-    titleKey: 'tasks.stockAlerts.title',
-    subtitleKey: 'tasks.stockAlerts.subtitle',
-    count: 4,
-    icon: 'solar:box-line-duotone',
-    iconBg: 'bg-lightwarning',
-    iconColor: 'text-warning',
-    priority: 'high',
-    action: 'view',
-  },
-]
+// Build the attention rows from live lead-status counts. The two rows that map
+// to data the bot already writes (deposits to confirm = 'reservado', awaiting
+// reply = 'sin_respuesta') carry real counts and deep-link into the Kanban. The
+// rest depend on data models from later stages (agenda TTL → Etapa 2, consents
+// → Etapa 4, evolution photos → Etapa 3, stock → inventory), so they're shown
+// as upcoming (no fabricated numbers) rather than hidden.
+function buildRows(counts: FunnelCounts | null): TaskRow[] {
+  const live = (key: number | undefined): number | null =>
+    counts ? (key ?? 0) : null
+  return [
+    {
+      key: 'confirmDeposits',
+      titleKey: 'tasks.confirmDeposits.title',
+      subtitleKey: 'tasks.confirmDeposits.subtitle',
+      count: live(counts?.awaitingDeposit),
+      icon: 'solar:wallet-money-line-duotone',
+      iconBg: 'bg-lighterror',
+      iconColor: 'text-error',
+      priority: 'urgent',
+      action: 'review',
+      url: '/kanban?stage=awaitingDeposit',
+    },
+    {
+      key: 'awaitingResponse',
+      titleKey: 'tasks.awaitingResponse.title',
+      subtitleKey: 'tasks.awaitingResponse.subtitle',
+      count: live(counts?.followUp),
+      icon: 'solar:chat-round-line-duotone',
+      iconBg: 'bg-lightwarning',
+      iconColor: 'text-warning',
+      priority: 'medium',
+      action: 'open',
+      url: '/kanban?stage=followUp',
+    },
+    // ---- Upcoming (need later-stage data models) ----
+    {
+      key: 'expiringReservations',
+      titleKey: 'tasks.expiringReservations.title',
+      subtitleKey: 'tasks.expiringReservations.subtitle',
+      count: null,
+      icon: 'solar:clock-circle-line-duotone',
+      iconBg: 'bg-muted/60 dark:bg-darkmuted/40',
+      iconColor: 'text-link dark:text-darklink',
+      priority: 'disabled',
+      action: 'stage2',
+    },
+    {
+      key: 'pendingConsents',
+      titleKey: 'tasks.pendingConsents.title',
+      subtitleKey: 'tasks.pendingConsents.subtitle',
+      count: null,
+      icon: 'solar:document-text-line-duotone',
+      iconBg: 'bg-muted/60 dark:bg-darkmuted/40',
+      iconColor: 'text-link dark:text-darklink',
+      priority: 'disabled',
+      action: 'stage2',
+    },
+    {
+      key: 'evolutionPhotos',
+      titleKey: 'tasks.evolutionPhotos.title',
+      subtitleKey: 'tasks.evolutionPhotos.subtitle',
+      count: null,
+      icon: 'solar:camera-line-duotone',
+      iconBg: 'bg-muted/60 dark:bg-darkmuted/40',
+      iconColor: 'text-link dark:text-darklink',
+      priority: 'disabled',
+      action: 'stage2',
+    },
+    {
+      key: 'stockAlerts',
+      titleKey: 'tasks.stockAlerts.title',
+      subtitleKey: 'tasks.stockAlerts.subtitle',
+      count: null,
+      icon: 'solar:box-line-duotone',
+      iconBg: 'bg-muted/60 dark:bg-darkmuted/40',
+      iconColor: 'text-link dark:text-darklink',
+      priority: 'disabled',
+      action: 'stage2',
+    },
+  ]
+}
 
 const PRIORITY_STRIPE: Record<Priority, string> = {
   urgent: 'border-l-error',
@@ -123,10 +130,20 @@ const ACTION_LABEL_KEY: Record<TaskRow['action'], TranslationKey> = {
 
 const TasksAttention = () => {
   const { t } = useTranslation()
-  const totalCount = ROWS.reduce(
-    (sum, row) => sum + (row.count ?? 0),
-    0
-  )
+  const [counts, setCounts] = useState<FunnelCounts | null>(null)
+
+  useEffect(() => {
+    let active = true
+    void fetchFunnelCounts().then(({ counts }) => {
+      if (active) setCounts(counts)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const ROWS = buildRows(counts)
+  const totalCount = ROWS.reduce((sum, row) => sum + (row.count ?? 0), 0)
 
   return (
     <CardBox className='h-full w-full'>
@@ -169,13 +186,23 @@ const TasksAttention = () => {
 
               <span
                 className={`text-lg font-bold w-8 text-right shrink-0 ${COUNT_COLOR[row.priority]}`}>
-                {row.count ?? '—'}
+                {row.count !== null
+                  ? row.count
+                  : row.priority === 'disabled'
+                    ? '—'
+                    : '…'}
               </span>
 
               {row.action === 'stage2' ? (
                 <span className='px-2.5 py-1 rounded-md border border-border dark:border-darkborder text-xs font-medium text-link dark:text-darklink shrink-0'>
                   {t(ACTION_LABEL_KEY[row.action])}
                 </span>
+              ) : row.url ? (
+                <Link
+                  href={row.url}
+                  className='px-3 py-1 rounded-md border border-warning text-warning text-xs font-medium hover:bg-lightwarning transition-colors shrink-0'>
+                  {t(ACTION_LABEL_KEY[row.action])}
+                </Link>
               ) : (
                 <button
                   type='button'
