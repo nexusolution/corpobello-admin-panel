@@ -68,3 +68,16 @@ export async function persistUserActive(
   const { error } = await getSupabase().from('app_users').update({ active }).eq('id', id)
   return error ? error.message : null
 }
+
+/** Persist a display-name change (app_users.display_name). */
+export async function persistUserName(
+  id: string,
+  displayName: string,
+): Promise<string | null> {
+  if (!isSupabaseConfigured()) return null
+  const { error } = await getSupabase()
+    .from('app_users')
+    .update({ display_name: displayName })
+    .eq('id', id)
+  return error ? error.message : null
+}

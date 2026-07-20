@@ -12,8 +12,21 @@ import {
   type AppUser,
   type UserRole,
 } from '../mock-data'
-import { fetchAppUsers } from '../data'
+import {
+  fetchAppUsers,
+  persistUserActive,
+  persistUserName,
+  persistUserRole,
+} from '../data'
 import { PageSkeleton } from '@/app/components/shared/PageSkeleton'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -889,6 +902,119 @@ function NotFoundState({ t }: { t: TFn }) {
   )
 }
 
+// ---------- Edit profile dialog (name + role — the fields app_users stores) ----------
+
+const EDIT_ROLE_OPTIONS: ReadonlyArray<{ value: UserRole; labelKey: TranslationKey }> = [
+  { value: 'admin', labelKey: 'users.role.admin' },
+  { value: 'operador', labelKey: 'users.role.operador' },
+  { value: 'profesional', labelKey: 'users.role.profesional' },
+]
+
+function EditProfileDialog({
+  open,
+  onOpenChange,
+  user,
+  onSave,
+  t,
+}: {
+  open: boolean
+  onOpenChange: (next: boolean) => void
+  user: AppUser
+  onSave: (name: string, role: UserRole) => void
+  t: TFn
+}) {
+  const [name, setName] = useState(user.fullName)
+  const [role, setRole] = useState<UserRole>(user.role)
+
+  // Re-seed the draft whenever the dialog (re)opens for the current user.
+  useEffect(() => {
+    if (open) {
+      setName(user.fullName)
+      setRole(user.role)
+    }
+  }, [open, user.fullName, user.role])
+
+  const isValid = name.trim().length > 0
+  const isDirty = name.trim() !== user.fullName || role !== user.role
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className='max-w-[460px]'>
+        <DialogHeader className='border-b border-border dark:border-darkborder pb-3 mb-2'>
+          <DialogTitle className='text-lg text-dark dark:text-white'>
+            {t('userDetail.editDialog.title')}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className='space-y-5 mt-2'>
+          <div>
+            <Label htmlFor='edit-name' className='font-medium mb-1.5 block'>
+              {t('users.dialog.nameLabel')}
+            </Label>
+            <input
+              id='edit-name'
+              type='text'
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+            />
+          </div>
+
+          <div>
+            <Label className='font-medium mb-1.5 block'>{t('users.dialog.emailLabel')}</Label>
+            {/* Email is the Supabase Auth login — not editable from the panel. */}
+            <input
+              type='email'
+              value={user.email}
+              disabled
+              className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-muted/40 dark:bg-darkmuted/40 text-sm text-link dark:text-darklink cursor-not-allowed'
+            />
+          </div>
+
+          <div>
+            <Label className='font-medium mb-2 block'>{t('users.dialog.roleLabel')}</Label>
+            <RadioGroup
+              value={role}
+              onValueChange={(v) => setRole(v as UserRole)}
+              className='space-y-0 rounded-md border border-border dark:border-darkborder overflow-hidden'>
+              {EDIT_ROLE_OPTIONS.map((opt, i) => (
+                <div
+                  key={opt.value}
+                  className={`flex items-center gap-3 p-3 ${
+                    i < EDIT_ROLE_OPTIONS.length - 1
+                      ? 'border-b border-border dark:border-darkborder'
+                      : ''
+                  } ${role === opt.value ? 'bg-lightprimary/30' : 'hover:bg-muted/40'} transition-colors`}>
+                  <RadioGroupItem value={opt.value} id={`edit-role-${opt.value}`} />
+                  <Label htmlFor={`edit-role-${opt.value}`} className='flex-1 cursor-pointer text-sm font-medium text-dark dark:text-white'>
+                    {t(opt.labelKey)}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+
+          <div className='flex items-center justify-end gap-3 pt-1'>
+            <button
+              type='button'
+              onClick={() => onOpenChange(false)}
+              className='px-4 py-2 rounded-md text-sm font-medium text-dark dark:text-white border border-border dark:border-darkborder hover:bg-muted/40 transition-colors'>
+              {t('users.dialog.discard')}
+            </button>
+            <button
+              type='button'
+              disabled={!isValid || !isDirty}
+              onClick={() => onSave(name.trim(), role)}
+              className='px-4 py-2 rounded-md text-sm font-medium bg-primary text-white hover:bg-primaryemphasis disabled:opacity-50 disabled:cursor-not-allowed transition-colors'>
+              {t('users.dialog.saveChanges')}
+            </button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ---------- Main ----------
 
 export function UserDetail({ id }: { id: string }) {
@@ -896,6 +1022,7 @@ export function UserDetail({ id }: { id: string }) {
   const router = useRouter()
   const [allUsers, setAllUsers] = useState<AppUser[]>([])
   const [loading, setLoading] = useState(true)
+  const [editOpen, setEditOpen] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -911,6 +1038,29 @@ export function UserDetail({ id }: { id: string }) {
 
   const user = allUsers.find((u) => u.id === id)
   const recent = useRecentUsers(id, allUsers)
+
+  // Toggle active/inactive — optimistic local update + persist to app_users.
+  function handleToggleActive() {
+    if (!user) return
+    const nextActive = user.status !== 'active'
+    setAllUsers((prev) =>
+      prev.map((u) =>
+        u.id === user.id ? { ...u, status: nextActive ? 'active' : 'inactive' } : u
+      )
+    )
+    void persistUserActive(user.id, nextActive)
+  }
+
+  // Save name/role edits — optimistic + persist both fields.
+  function handleSaveProfile(name: string, role: UserRole) {
+    if (!user) return
+    setAllUsers((prev) =>
+      prev.map((u) => (u.id === user.id ? { ...u, fullName: name, role } : u))
+    )
+    if (name !== user.fullName) void persistUserName(user.id, name)
+    if (role !== user.role) void persistUserRole(user.id, role)
+    setEditOpen(false)
+  }
 
   if (loading) {
     return <PageSkeleton />
@@ -952,12 +1102,14 @@ export function UserDetail({ id }: { id: string }) {
         <div className='flex items-center gap-2'>
           <button
             type='button'
+            onClick={() => setEditOpen(true)}
             className='inline-flex items-center gap-2 px-4 py-2 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 dark:hover:bg-darkmuted/40 transition-colors'>
             <Icon icon='solar:pen-line-duotone' height={16} width={16} />
             {t('userDetail.editProfile')}
           </button>
           <button
             type='button'
+            onClick={handleToggleActive}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               user.status === 'active'
                 ? 'bg-error text-white hover:bg-error/90'
@@ -994,6 +1146,14 @@ export function UserDetail({ id }: { id: string }) {
           <ActivityTable user={user} t={t} locale={locale} />
         </div>
       </div>
+
+      <EditProfileDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        user={user}
+        onSave={handleSaveProfile}
+        t={t}
+      />
     </div>
   )
 }
