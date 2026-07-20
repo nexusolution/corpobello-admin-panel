@@ -224,7 +224,7 @@ export const MOCK_LEADS: Lead[] = [
     lastActivityHoursAgo: 26, tags: [TAG_META], notesCount: 2, photosCount: 3, status: 'reservado',
     quote: { listAmount: 1200, currency: 'USD', sentAtHoursAgo: 30 },
     reservation: { slot: 'Sáb 5 jul · 11:00', sucursal: 'caballito', depositAmount: 100000, depositCurrency: 'ARS', comprobanteStatus: 'pending' },
-    conversation: { lastStage: 'Esperando comprobante de seña', exchangeCount: 16, faqTopics: ['Cuidados pre-sesión'] },
+    conversation: { lastStage: 'Esperando comprobante de depósito', exchangeCount: 16, faqTopics: ['Cuidados pre-sesión'] },
     photos: [PHOTO_FACIAL, PHOTO_FACIAL, PHOTO_ZONE],
     internalNotes: [
       { text: 'Confirmar 24h antes del turno.', author: 'Andrés', createdAtHoursAgo: 24 },
