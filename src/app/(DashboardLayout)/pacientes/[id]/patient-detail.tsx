@@ -16,6 +16,19 @@ import { SUCURSAL_LABELS } from '../mock-data'
 import { PageSkeleton } from '@/app/components/shared/PageSkeleton'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
+import {
+  fetchTags,
+  fetchEntityTags,
+  assignTag,
+  unassignTag,
+  type Tag,
+} from '@/lib/data/tags'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 type TabKey = 'contact' | 'conversation' | 'quotes' | 'reservations' | 'notes'
@@ -366,6 +379,95 @@ function NotesTab({
   )
 }
 
+// ---------- Patient tag bar (assign/remove indicator tags) ----------
+
+function PatientTagBar({ patientId, t }: { patientId: string; t: TFn }) {
+  const [all, setAll] = useState<Tag[]>([])
+  const [assigned, setAssigned] = useState<Tag[]>([])
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    void Promise.all([fetchTags(false), fetchEntityTags('patient', patientId)]).then(
+      ([tagsRes, ent]) => {
+        if (!active) return
+        // Only patient- and general-scope tags are relevant to a patient.
+        setAll(tagsRes.data.filter((x) => x.scope === 'patient' || x.scope === 'general'))
+        setAssigned(ent)
+      }
+    )
+    return () => {
+      active = false
+    }
+  }, [patientId])
+
+  const assignedIds = new Set(assigned.map((x) => x.id))
+  const available = all.filter((x) => !assignedIds.has(x.id))
+
+  async function add(tag: Tag) {
+    if (busy) return
+    setBusy(true)
+    setAssigned((prev) => [...prev, tag])
+    const err = await assignTag(tag.id, 'patient', patientId)
+    if (err) setAssigned((prev) => prev.filter((x) => x.id !== tag.id))
+    setBusy(false)
+  }
+  async function remove(tag: Tag) {
+    if (busy) return
+    setBusy(true)
+    setAssigned((prev) => prev.filter((x) => x.id !== tag.id))
+    const err = await unassignTag(tag.id, 'patient', patientId)
+    if (err) setAssigned((prev) => [...prev, tag])
+    setBusy(false)
+  }
+
+  return (
+    <div className='flex items-center gap-2 flex-wrap'>
+      {assigned.map((tag) => (
+        <span
+          key={tag.id}
+          style={{ backgroundColor: `${tag.color}1f`, color: tag.color }}
+          className='inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium'>
+          <span className='h-1.5 w-1.5 rounded-full' style={{ backgroundColor: tag.color }} />
+          {tag.name}
+          <button
+            type='button'
+            aria-label={`Quitar ${tag.name}`}
+            onClick={() => remove(tag)}
+            className='ml-0.5 hover:opacity-70'>
+            <Icon icon='tabler:x' height={12} width={12} />
+          </button>
+        </span>
+      ))}
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type='button'
+            className='inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-dashed border-border dark:border-darkborder text-xs font-medium text-link dark:text-darklink hover:border-primary hover:text-primary transition-colors'>
+            <Icon icon='tabler:plus' height={12} width={12} />
+            {t('patientDetail.tags.add')}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align='start' className='min-w-[200px] max-h-72 overflow-y-auto'>
+          {available.length === 0 ? (
+            <div className='px-2 py-2 text-xs text-link dark:text-darklink'>
+              {all.length === 0 ? t('patientDetail.tags.none') : t('patientDetail.tags.allAssigned')}
+            </div>
+          ) : (
+            available.map((tag) => (
+              <DropdownMenuItem key={tag.id} onClick={() => add(tag)} className='gap-2'>
+                <span className='h-2.5 w-2.5 rounded-full shrink-0' style={{ backgroundColor: tag.color }} />
+                <span className='truncate'>{tag.name}</span>
+              </DropdownMenuItem>
+            ))
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  )
+}
+
 // ---------- Not found ----------
 
 function NotFoundState({ t }: { t: TFn }) {
@@ -462,6 +564,9 @@ export function PatientDetail({ id }: { id: string }) {
           </div>
         </div>
       </div>
+
+      {/* Indicator tags */}
+      <PatientTagBar patientId={c.id} t={t} />
 
       {/* Card with tabs */}
       <div className='rounded-lg border border-border dark:border-darkborder bg-card overflow-hidden'>

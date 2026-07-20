@@ -157,6 +157,14 @@ const SidebarContent: MenuItem[] = [
         adminOnly: true,
       },
       {
+        name: 'Etiquetas',
+        nameKey: 'sidebar.tags',
+        icon: 'solar:tag-line-duotone',
+        id: uniqueId(),
+        url: '/etiquetas',
+        adminOnly: true,
+      },
+      {
         name: 'Configuración',
         nameKey: 'sidebar.config',
         icon: 'solar:tuning-3-line-duotone',
