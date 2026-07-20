@@ -166,7 +166,15 @@ const SidebarLayout = ({
 }) => {
   const pathname = usePathname()
   const { t } = useTranslation()
-  const { role, loading } = useCurrentUser()
+  const { name, role, loading } = useCurrentUser()
+
+  const roleLabel = t(
+    role === 'admin'
+      ? 'users.role.admin'
+      : role === 'operador'
+        ? 'users.role.operador'
+        : 'users.role.profesional'
+  )
 
   // adminOnly entries (Usuarios, Configuración, reports, audit) are visible to
   // admins only. While the role is still loading we keep them shown, so an admin
@@ -279,10 +287,10 @@ const SidebarLayout = ({
               />
               <div className='overflow-hidden'>
                 <h5 className='text-sm font-semibold text-charcoal dark:text-white truncate'>
-                  Mathew
+                  {loading ? '…' : name || roleLabel}
                 </h5>
                 <span className='text-xs text-link dark:text-darklink'>
-                  Designer
+                  {loading ? '' : roleLabel}
                 </span>
               </div>
             </div>

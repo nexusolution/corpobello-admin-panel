@@ -6,12 +6,12 @@ import { Icon } from '@iconify/react'
 import Swal from 'sweetalert2'
 
 import {
-  MOCK_USERS,
   SUCURSAL_LABELS,
   type AppUser,
   type UserRole,
   type UserSucursal,
 } from './mock-data'
+import { fetchAppUsers, persistUserActive, persistUserRole } from './data'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -1019,7 +1019,9 @@ type RoleFilter = 'all' | UserRole
 
 export function UsersTable() {
   const { t } = useTranslation()
-  const [users, setUsers] = useState<AppUser[]>(MOCK_USERS)
+  const [users, setUsers] = useState<AppUser[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<SortKey>('name-asc')
@@ -1027,6 +1029,20 @@ export function UsersTable() {
   const [currentPage, setCurrentPage] = useState(1)
   const [createOpen, setCreateOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<AppUser | null>(null)
+
+  // Load real app_users from Supabase on mount.
+  useEffect(() => {
+    let active = true
+    void fetchAppUsers().then(({ data, error }) => {
+      if (!active) return
+      setUsers(data)
+      setLoadError(error)
+      setLoading(false)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
 
   const filtered = useMemo(() => {
     let list = users
@@ -1083,14 +1099,17 @@ export function UsersTable() {
     setCreateOpen(true)
   }
   function toggleActive(user: AppUser) {
+    const nextActive = user.status !== 'active'
     setUsers((prev) =>
       prev.map((u) =>
-        u.id === user.id ? { ...u, status: u.status === 'active' ? 'inactive' : 'active' } : u
+        u.id === user.id ? { ...u, status: nextActive ? 'active' : 'inactive' } : u
       )
     )
+    void persistUserActive(user.id, nextActive)
   }
   function changeRole(user: AppUser, role: UserRole) {
     setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, role } : u)))
+    void persistUserRole(user.id, role)
   }
 
   async function handleDelete(user: AppUser) {
@@ -1231,7 +1250,20 @@ export function UsersTable() {
       </div>
 
       {/* User grid */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className='rounded-lg border border-border dark:border-darkborder bg-card py-16 flex flex-col items-center justify-center text-center gap-3'>
+          <Icon icon='tabler:loader-2' height={32} width={32} className='text-primary animate-spin' />
+          <p className='text-sm text-link dark:text-darklink'>{t('users.loading')}</p>
+        </div>
+      ) : loadError ? (
+        <div className='rounded-lg border border-border dark:border-darkborder bg-card py-16 flex flex-col items-center justify-center text-center gap-3'>
+          <div className='size-16 rounded-full bg-lighterror/60 flex items-center justify-center'>
+            <Icon icon='solar:cloud-cross-line-duotone' height={30} width={30} className='text-error' />
+          </div>
+          <p className='text-base font-semibold text-dark dark:text-white'>{t('users.error.title')}</p>
+          <p className='text-sm text-link dark:text-darklink max-w-[340px]'>{t('users.error.body')}</p>
+        </div>
+      ) : filtered.length === 0 ? (
         <div className='rounded-lg border border-border dark:border-darkborder bg-card py-16 flex flex-col items-center justify-center text-center gap-3'>
           <div className='size-16 rounded-full bg-muted/60 dark:bg-darkmuted/40 flex items-center justify-center'>
             <Icon icon='solar:magnifer-line-duotone' height={28} width={28} className='text-link dark:text-darklink' />

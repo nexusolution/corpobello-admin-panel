@@ -15,6 +15,7 @@ export type UserRole = 'admin' | 'operador' | 'profesional'
 
 export interface CurrentUser {
   name: string
+  email: string
   role: UserRole
   loading: boolean
 }
@@ -30,13 +31,14 @@ interface AppUserRow {
 export function useCurrentUser(): CurrentUser {
   const [user, setUser] = useState<CurrentUser>({
     name: '',
+    email: '',
     role: 'operador',
     loading: true,
   })
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
-      setUser({ name: '', role: 'operador', loading: false })
+      setUser({ name: '', email: '', role: 'operador', loading: false })
       return
     }
 
@@ -49,7 +51,7 @@ export function useCurrentUser(): CurrentUser {
       } = await supabase.auth.getUser()
 
       if (!authUser) {
-        if (active) setUser({ name: '', role: 'operador', loading: false })
+        if (active) setUser({ name: '', email: '', role: 'operador', loading: false })
         return
       }
 
@@ -61,10 +63,10 @@ export function useCurrentUser(): CurrentUser {
 
       if (!active) return
 
-      const name =
-        data?.display_name ?? authUser.email?.split('@')[0] ?? ''
+      const email = authUser.email ?? ''
+      const name = data?.display_name ?? email.split('@')[0] ?? ''
       const role: UserRole = data?.role ?? 'operador'
-      setUser({ name, role, loading: false })
+      setUser({ name, email, role, loading: false })
     })()
 
     return () => {
