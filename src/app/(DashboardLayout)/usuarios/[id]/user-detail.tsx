@@ -6,13 +6,14 @@ import { useRouter } from 'next/navigation'
 import { Icon } from '@iconify/react'
 
 import {
-  MOCK_USERS,
   SUCURSAL_LABELS,
   type ActivityEntry,
   type ActivityStatus,
   type AppUser,
   type UserRole,
 } from '../mock-data'
+import { fetchAppUsers } from '../data'
+import { PageSkeleton } from '@/app/components/shared/PageSkeleton'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -28,7 +29,7 @@ type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 const RECENT_KEY = 'panel-recent-users'
 const RECENT_LIMIT = 6
 
-function useRecentUsers(currentId: string): AppUser[] {
+function useRecentUsers(currentId: string, allUsers: AppUser[]): AppUser[] {
   const [ids, setIds] = useState<string[]>([])
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -48,9 +49,9 @@ function useRecentUsers(currentId: string): AppUser[] {
 
   return useMemo(() => {
     return ids
-      .map((id) => MOCK_USERS.find((u) => u.id === id))
+      .map((id) => allUsers.find((u) => u.id === id))
       .filter((u): u is AppUser => Boolean(u))
-  }, [ids])
+  }, [ids, allUsers])
 }
 
 function roleLabelKey(role: UserRole): TranslationKey {
@@ -893,8 +894,27 @@ function NotFoundState({ t }: { t: TFn }) {
 export function UserDetail({ id }: { id: string }) {
   const { t, locale } = useTranslation()
   const router = useRouter()
-  const user = MOCK_USERS.find((u) => u.id === id)
-  const recent = useRecentUsers(id)
+  const [allUsers, setAllUsers] = useState<AppUser[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let active = true
+    void fetchAppUsers().then(({ data }) => {
+      if (!active) return
+      setAllUsers(data)
+      setLoading(false)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const user = allUsers.find((u) => u.id === id)
+  const recent = useRecentUsers(id, allUsers)
+
+  if (loading) {
+    return <PageSkeleton />
+  }
 
   if (!user) {
     return <NotFoundState t={t} />
