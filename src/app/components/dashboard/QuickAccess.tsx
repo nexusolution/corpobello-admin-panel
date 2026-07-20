@@ -7,6 +7,7 @@ import { Icon } from '@iconify/react'
 import CardBox from '../shared/CardBox'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
+import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 
@@ -18,6 +19,9 @@ type Tile = {
   iconColor: string
   url: string
   underDevelopment?: boolean
+  /** Links into an admin-gated page — hidden for non-admins so the tile
+   *  doesn't offer a destination that would just bounce them back. */
+  adminOnly?: boolean
 }
 
 const TILES: Tile[] = [
@@ -71,6 +75,7 @@ const TILES: Tile[] = [
     iconBg: 'bg-lightinfo',
     iconColor: 'text-info',
     url: '/configuracion',
+    adminOnly: true,
   },
   {
     // Stats is a separate module concept (not just a route), so we mark it
@@ -113,11 +118,14 @@ function showUnderDevelopmentAlert(itemName: string, t: TFn) {
 
 const QuickAccess = () => {
   const { t } = useTranslation()
+  const { role, loading } = useCurrentUser()
+  const canSeeAdmin = loading || role === 'admin'
+  const tiles = TILES.filter((tile) => canSeeAdmin || !tile.adminOnly)
 
   return (
     <CardBox className='h-full w-full'>
       <div className='grid grid-cols-2 gap-2'>
-        {TILES.map((tile) => {
+        {tiles.map((tile) => {
           const label = t(tile.labelKey)
           // Statistics is the highlighted CTA — span both columns so it stays
           // visually distinct AND fills the otherwise-orphan last row (7 tiles

@@ -8,10 +8,9 @@ import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 // drives what each screen prioritises (Andrés 2026-06-30 — same dashboard,
 // reprioritised per role).
 //
-// The DB enum (app_users.role) currently has only 'admin' | 'operador'
-// (migration 0004). 'profesional' is kept here so the role-aware UI is ready
-// for when the enum is extended; until then it simply never comes back from
-// the query.
+// The DB enum (app_users.role) is admin | operador | profesional (migration
+// 0004 seeded the first two; 0005 added 'profesional'). All three drive the
+// role-reprioritised dashboard and admin-page gating.
 export type UserRole = 'admin' | 'operador' | 'profesional'
 
 export interface CurrentUser {

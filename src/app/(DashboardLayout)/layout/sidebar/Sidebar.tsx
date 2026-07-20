@@ -23,6 +23,7 @@ import {
 import 'tailwind-sidebar/styles.css'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
+import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 
@@ -165,6 +166,14 @@ const SidebarLayout = ({
 }) => {
   const pathname = usePathname()
   const { t } = useTranslation()
+  const { role, loading } = useCurrentUser()
+
+  // adminOnly entries (Usuarios, Configuración, reports, audit) are visible to
+  // admins only. While the role is still loading we keep them shown, so an admin
+  // never sees their own admin section flash away before the role resolves;
+  // once we know it's a non-admin they're filtered out. This pairs with the
+  // AdminGate route guard — hiding the link isn't enough on its own.
+  const canSeeAdmin = loading || role === 'admin'
 
   // Sidebar stays dark regardless of theme so menu text reads on the black bg.
   const sidebarMode: 'light' | 'dark' = 'dark'
@@ -202,26 +211,36 @@ const SidebarLayout = ({
 
       <SimpleBar className='h-[calc(100vh-100px)]'>
         <div className={`pb-28 ${isCollapse ? 'px-3 mini-menu' : 'px-6'}`}>
-          {SidebarContent.map((section, index) => (
-            <div key={index}>
-              {renderSidebarItems(
-                [
-                  ...(section.heading || section.headingKey
-                    ? [
-                        {
-                          heading: section.heading,
-                          headingKey: section.headingKey,
-                        },
-                      ]
-                    : []),
-                  ...(section.children || []),
-                ],
-                pathname,
-                t,
-                onClose
-              )}
-            </div>
-          ))}
+          {SidebarContent.map((section, index) => {
+            const visibleChildren = (section.children || []).filter(
+              (child) => canSeeAdmin || !child.adminOnly
+            )
+            // Drop a whole section (and its heading) once every item in it is
+            // admin-only and hidden — no orphan "Administración" heading.
+            if (section.children?.length && visibleChildren.length === 0) {
+              return null
+            }
+            return (
+              <div key={index}>
+                {renderSidebarItems(
+                  [
+                    ...(section.heading || section.headingKey
+                      ? [
+                          {
+                            heading: section.heading,
+                            headingKey: section.headingKey,
+                          },
+                        ]
+                      : []),
+                    ...visibleChildren,
+                  ],
+                  pathname,
+                  t,
+                  onClose
+                )}
+              </div>
+            )
+          })}
         </div>
       </SimpleBar>
 
