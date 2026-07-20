@@ -165,6 +165,14 @@ const SidebarContent: MenuItem[] = [
         adminOnly: true,
       },
       {
+        name: 'Auto-gestión',
+        nameKey: 'sidebar.autoGestion',
+        icon: 'solar:tuning-4-line-duotone',
+        id: uniqueId(),
+        url: '/auto-gestion',
+        adminOnly: true,
+      },
+      {
         name: 'Configuración',
         nameKey: 'sidebar.config',
         icon: 'solar:tuning-3-line-duotone',
