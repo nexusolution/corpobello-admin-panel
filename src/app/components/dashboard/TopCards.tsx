@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Icon } from '@iconify/react'
 import Link from 'next/link'
 
@@ -9,12 +10,15 @@ import { Autoplay } from 'swiper/modules'
 import { Card } from '@/components/ui/card'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
+import { fetchFunnelCounts, type FunnelCounts } from './data'
 
 // Import Swiper styles
 import 'swiper/css'
 
 // Funnel pipeline stages, in flow order. Each card mirrors a stage in the
-// patient lifecycle from first message to follow-up.
+// patient lifecycle from first message to follow-up. `count` is now filled
+// from live Supabase data (leads.status + patients); the literals below are
+// only the fallback shown before the fetch resolves.
 type FunnelCard = {
   key: string
   labelKey: TranslationKey
@@ -102,6 +106,17 @@ const FUNNEL_CARDS: FunnelCard[] = [
 
 const TopCards = () => {
   const { t } = useTranslation()
+  const [counts, setCounts] = useState<FunnelCounts | null>(null)
+
+  useEffect(() => {
+    let active = true
+    void fetchFunnelCounts().then(({ counts }) => {
+      if (active) setCounts(counts)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
 
   return (
     <div>
@@ -146,7 +161,7 @@ const TopCards = () => {
                     </p>
                     <h5
                       className={`text-lg font-semibold ${item.textclr} mb-0`}>
-                      {item.count}
+                      {counts ? (counts[item.key] ?? 0) : '…'}
                     </h5>
                   </div>
                 </Card>
