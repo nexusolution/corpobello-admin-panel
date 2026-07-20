@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Swal from 'sweetalert2'
 import { Icon } from '@iconify/react'
 
@@ -203,6 +204,7 @@ function PageSizeSelect({
 
 export function PatientsTable() {
   const { t } = useTranslation()
+  const router = useRouter()
   const [patients, setPatients] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -512,7 +514,7 @@ export function PatientsTable() {
                           <TooltipTrigger asChild>
                             <button
                               type='button'
-                              onClick={() => showUnderDevelopmentAlert(t('pacientes.action.view'), t)}
+                              onClick={() => router.push(`/pacientes/${patient.id}`)}
                               aria-label={t('pacientes.action.view')}
                               className='h-8 w-8 inline-flex items-center justify-center rounded-full bg-lightsecondary text-secondary hover:bg-secondary hover:text-white transition-colors'>
                               <Icon icon='solar:eye-line-duotone' height={16} width={16} />
