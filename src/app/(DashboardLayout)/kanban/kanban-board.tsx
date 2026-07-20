@@ -23,12 +23,12 @@ import { CSS } from '@dnd-kit/utilities'
 
 import {
   COLUMNS,
-  MOCK_LEADS,
   SUCURSAL_LABELS,
   type Lead,
   type LeadStatus,
   type Sucursal,
 } from './mock-data'
+import { fetchLeads, persistLeadStatus } from './data'
 import { LeadDetailDialog } from './lead-detail-dialog'
 import { getTreatmentColor } from '@/lib/treatment-colors'
 import { useTranslation } from '@/lib/i18n/context'
@@ -147,7 +147,7 @@ function LeadCardBody({
               {lead.patientName}
             </p>
             <p className='text-xs text-link dark:text-darklink truncate'>
-              ···{lead.phoneLast4} · {SUCURSAL_LABELS[lead.sucursal]}
+              ···{lead.phoneLast4} · {lead.sucursal ? SUCURSAL_LABELS[lead.sucursal] : '—'}
             </p>
           </div>
         </div>
@@ -604,9 +604,47 @@ function SucursalSelect({
 
 const COLUMNS_PER_PAGE = 4
 
+// Centered board-level state: loading spinner, load error, or the friendly
+// "no leads yet" empty message shown when the bot hasn't produced any.
+function BoardMessage({
+  variant,
+  title,
+  body,
+}: {
+  variant: 'loading' | 'error' | 'empty'
+  title: string
+  body?: string
+}) {
+  return (
+    <div className='flex flex-col items-center justify-center text-center gap-3 py-24 rounded-lg border border-dashed border-border dark:border-darkborder'>
+      {variant === 'loading' ? (
+        <Icon icon='tabler:loader-2' height={36} width={36} className='text-primary animate-spin' />
+      ) : (
+        <div
+          className={`size-16 rounded-full flex items-center justify-center ${
+            variant === 'error' ? 'bg-lighterror/60' : 'bg-lightprimary/60'
+          }`}>
+          <Icon
+            icon={variant === 'error' ? 'solar:cloud-cross-line-duotone' : 'solar:layers-minimalistic-line-duotone'}
+            height={30}
+            width={30}
+            className={variant === 'error' ? 'text-error' : 'text-primary'}
+          />
+        </div>
+      )}
+      <div className='space-y-1'>
+        <p className='text-base font-semibold text-dark dark:text-white'>{title}</p>
+        {body && <p className='text-sm text-link dark:text-darklink max-w-[380px]'>{body}</p>}
+      </div>
+    </div>
+  )
+}
+
 export function KanbanBoard() {
   const { t } = useTranslation()
-  const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS)
+  const [leads, setLeads] = useState<Lead[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [showSecondary, setShowSecondary] = useState(false)
   const [sucursalFilter, setSucursalFilter] = useState<Sucursal | 'all'>('all')
@@ -623,6 +661,20 @@ export function KanbanBoard() {
     [leads, detailLeadId]
   )
 
+  // Load real leads from Supabase on mount.
+  useEffect(() => {
+    let active = true
+    void fetchLeads().then(({ data, error }) => {
+      if (!active) return
+      setLeads(data)
+      setLoadError(error)
+      setLoading(false)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+
   function handleChangeColor(columnId: LeadStatus, color: string) {
     setColumnColors((prev) => ({ ...prev, [columnId]: color }))
   }
@@ -636,11 +688,13 @@ export function KanbanBoard() {
     setLeads((prev) =>
       prev.map((l) => (l.id === id ? { ...l, status } : l))
     )
+    void persistLeadStatus(id, status)
   }
   function handleArchiveLead(id: string) {
     setLeads((prev) =>
       prev.map((l) => (l.id === id ? { ...l, status: 'archivado' as LeadStatus } : l))
     )
+    void persistLeadStatus(id, 'archivado')
     setDetailLeadId(null)
   }
   function handleAddNote(id: string, text: string) {
@@ -725,6 +779,13 @@ export function KanbanBoard() {
   }
 
   function handleDragEnd() {
+    // The card's status was updated optimistically during drag-over; persist
+    // its final column to Supabase (best-effort — the board stays responsive
+    // even if the write fails).
+    if (activeId) {
+      const moved = leads.find((l) => l.id === activeId)
+      if (moved) void persistLeadStatus(moved.id, moved.status)
+    }
     setActiveId(null)
   }
 
@@ -796,6 +857,13 @@ export function KanbanBoard() {
       </div>
 
       {/* Board */}
+      {loading ? (
+        <BoardMessage variant='loading' title={t('kanban.loading')} />
+      ) : loadError ? (
+        <BoardMessage variant='error' title={t('kanban.error.title')} body={t('kanban.error.body')} />
+      ) : leads.length === 0 ? (
+        <BoardMessage variant='empty' title={t('kanban.emptyBoard.title')} body={t('kanban.emptyBoard.body')} />
+      ) : (
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -832,6 +900,7 @@ export function KanbanBoard() {
           )}
         </DragOverlay>
       </DndContext>
+      )}
 
       {/* Lead detail modal — opens on card click */}
       <LeadDetailDialog

@@ -56,7 +56,9 @@ export type Lead = {
   patientName: string
   phoneLast4: string
   phoneFull: string
-  sucursal: Sucursal
+  // null when the sucursal isn't known on the lead row (it lives in the
+  // conversation state, not on `leads`) — rendered as "—".
+  sucursal: Sucursal | null
   treatmentLabel: string
   lastActivityHoursAgo: number
   tags: Tag[]

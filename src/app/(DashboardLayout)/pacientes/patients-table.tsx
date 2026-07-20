@@ -1,15 +1,15 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Swal from 'sweetalert2'
 import { Icon } from '@iconify/react'
 
 import {
-  MOCK_PATIENTS,
   SUCURSAL_LABELS,
   type Patient,
   type PatientStatus,
 } from './mock-data'
+import { fetchPatients } from './data'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -203,12 +203,29 @@ function PageSizeSelect({
 
 export function PatientsTable() {
   const { t } = useTranslation()
-  const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS)
+  const [patients, setPatients] = useState<Patient[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [pageSize, setPageSize] = useState(5)
   const [currentPage, setCurrentPage] = useState(1)
+
+  // Load real patients from Supabase on mount. Delete stays local (optimistic)
+  // for now; create/edit are still under-development stubs.
+  useEffect(() => {
+    let active = true
+    void fetchPatients().then(({ data, error }) => {
+      if (!active) return
+      setPatients(data)
+      setLoadError(error)
+      setLoading(false)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
 
   // Tab counts (from raw data, not filtered)
   const counts = useMemo(
@@ -378,7 +395,30 @@ export function PatientsTable() {
             </tr>
           </thead>
           <tbody>
-            {paged.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={9} className='py-16 px-3'>
+                  <div className='flex flex-col items-center justify-center text-center gap-3'>
+                    <Icon icon='tabler:loader-2' height={32} width={32} className='text-primary animate-spin' />
+                    <p className='text-sm text-link dark:text-darklink'>{t('pacientes.loading')}</p>
+                  </div>
+                </td>
+              </tr>
+            ) : loadError ? (
+              <tr>
+                <td colSpan={9} className='py-16 px-3'>
+                  <div className='flex flex-col items-center justify-center text-center gap-3'>
+                    <div className='size-16 rounded-full bg-lighterror/60 flex items-center justify-center'>
+                      <Icon icon='solar:cloud-cross-line-duotone' height={30} width={30} className='text-error' />
+                    </div>
+                    <div className='space-y-1'>
+                      <p className='text-base font-semibold text-dark dark:text-white'>{t('pacientes.error.title')}</p>
+                      <p className='text-sm text-link dark:text-darklink max-w-[340px]'>{t('pacientes.error.body')}</p>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            ) : paged.length === 0 ? (
               <tr>
                 <td colSpan={9} className='py-16 px-3'>
                   {patients.length === 0 ? (
@@ -437,7 +477,7 @@ export function PatientsTable() {
                       ···{patient.phoneLast4}
                     </td>
                     <td className='py-3 px-3 text-link dark:text-darklink'>
-                      {SUCURSAL_LABELS[patient.sucursal]}
+                      {patient.sucursal ? SUCURSAL_LABELS[patient.sucursal] : '—'}
                     </td>
                     <td className='py-3 px-3'>
                       <span className='inline-flex items-center gap-1.5 text-link dark:text-darklink'>
