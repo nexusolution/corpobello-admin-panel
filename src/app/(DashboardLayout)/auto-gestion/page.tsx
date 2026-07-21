@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 
 import { TreatmentsToggle } from './treatments-toggle'
 import { PricesSection } from './prices-section'
+import { TextsSection } from './texts-section'
 import { HeroBanner } from '@/app/components/shared/HeroBanner'
 import { AdminGate } from '@/lib/auth/AdminGate'
 
@@ -20,6 +21,7 @@ export default function AutoGestionPage() {
         />
         <TreatmentsToggle />
         <PricesSection />
+        <TextsSection />
       </div>
     </AdminGate>
   )
