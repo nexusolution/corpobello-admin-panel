@@ -266,10 +266,10 @@ const SidebarLayout = ({
                 className='flex justify-center bg-lightprimary rounded-lg p-2'>
                 <Image
                   src='/images/profile/doctor.png'
-                  alt='Mathew'
+                  alt='Perfil'
                   width={36}
                   height={36}
-                  className='rounded-full'
+                  className='h-9 w-9 rounded-full object-cover'
                 />
               </Link>
             </TooltipTrigger>
@@ -280,10 +280,10 @@ const SidebarLayout = ({
             <div className='flex items-center gap-3 overflow-hidden'>
               <Image
                 src='/images/profile/doctor.png'
-                alt='Mathew'
+                alt='Perfil'
                 width={40}
                 height={40}
-                className='rounded-full shrink-0'
+                className='h-10 w-10 rounded-full object-cover shrink-0'
               />
               <div className='overflow-hidden'>
                 <h5 className='text-sm font-semibold text-charcoal dark:text-white truncate'>
