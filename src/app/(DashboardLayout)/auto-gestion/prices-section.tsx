@@ -2,22 +2,42 @@
 
 import { useEffect, useState } from 'react'
 import { Icon } from '@iconify/react'
+import Swal from 'sweetalert2'
 
 import {
   fetchTreatmentPrices,
   updateTreatmentPrice,
+  bulkUpdateTreatmentPrices,
+  applyPercent,
   type TreatmentPrice,
+  type Rounding,
+  type Direction,
 } from '@/lib/data/treatment-prices'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 
-function formatCurrency(cur: string): string {
+function sym(cur: string): string {
   return cur === 'USD' ? 'USD' : '$'
 }
 
-function PriceRow({ price, t }: { price: TreatmentPrice; t: TFn }) {
+function isDark(): boolean {
+  return (
+    typeof document !== 'undefined' &&
+    document.documentElement.classList.contains('dark')
+  )
+}
+
+function PriceRow({
+  price,
+  onSaved,
+  t,
+}: {
+  price: TreatmentPrice
+  onSaved: (slug: string, list: number, efec: number) => void
+  t: TFn
+}) {
   const [list, setList] = useState(String(price.listAmount))
   const [efec, setEfec] = useState(String(price.efectivoAmount))
   const [saving, setSaving] = useState(false)
@@ -37,15 +57,13 @@ function PriceRow({ price, t }: { price: TreatmentPrice; t: TFn }) {
     if (err) {
       setError(true)
     } else {
-      // Reflect the saved value as the new baseline.
-      price.listAmount = Number(list)
-      price.efectivoAmount = Number(efec)
+      onSaved(price.slug, Number(list), Number(efec))
       setSaved(true)
       setTimeout(() => setSaved(false), 1500)
     }
   }
 
-  const sym = formatCurrency(price.currency)
+  const s = sym(price.currency)
 
   return (
     <div className='flex items-center justify-between gap-3 py-3 flex-wrap'>
@@ -57,7 +75,7 @@ function PriceRow({ price, t }: { price: TreatmentPrice; t: TFn }) {
         <label className='flex flex-col'>
           <span className='text-[10px] uppercase tracking-wide text-link dark:text-darklink mb-0.5'>{t('autoGestion.prices.list')}</span>
           <div className='flex items-center gap-1'>
-            <span className='text-xs text-link dark:text-darklink'>{sym}</span>
+            <span className='text-xs text-link dark:text-darklink'>{s}</span>
             <input
               type='number'
               value={list}
@@ -69,7 +87,7 @@ function PriceRow({ price, t }: { price: TreatmentPrice; t: TFn }) {
         <label className='flex flex-col'>
           <span className='text-[10px] uppercase tracking-wide text-success mb-0.5'>{t('autoGestion.prices.efectivo')}</span>
           <div className='flex items-center gap-1'>
-            <span className='text-xs text-link dark:text-darklink'>{sym}</span>
+            <span className='text-xs text-link dark:text-darklink'>{s}</span>
             <input
               type='number'
               value={efec}
@@ -101,11 +119,76 @@ function PriceRow({ price, t }: { price: TreatmentPrice; t: TFn }) {
   )
 }
 
+// ---------- Mass-update bar ----------
+
+function MassUpdateBar({
+  count,
+  onApply,
+  t,
+}: {
+  count: number
+  onApply: (percent: number, direction: Direction, rounding: Rounding) => void
+  t: TFn
+}) {
+  const [direction, setDirection] = useState<Direction>('increase')
+  const [percent, setPercent] = useState('10')
+  const [rounding, setRounding] = useState<Rounding>('up1000')
+
+  const p = Number(percent)
+  const valid = Number.isFinite(p) && p > 0
+
+  const selectCls =
+    'px-2.5 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+
+  return (
+    <div className='rounded-md border border-dashed border-border dark:border-darkborder p-3 mb-4 flex items-end gap-3 flex-wrap'>
+      <div className='flex flex-col'>
+        <span className='text-[10px] uppercase tracking-wide text-link dark:text-darklink mb-0.5'>{t('autoGestion.mass.direction')}</span>
+        <select value={direction} onChange={(e) => setDirection(e.target.value as Direction)} className={selectCls}>
+          <option value='increase'>{t('autoGestion.mass.increase')}</option>
+          <option value='decrease'>{t('autoGestion.mass.decrease')}</option>
+        </select>
+      </div>
+      <div className='flex flex-col'>
+        <span className='text-[10px] uppercase tracking-wide text-link dark:text-darklink mb-0.5'>{t('autoGestion.mass.percent')}</span>
+        <div className='flex items-center gap-1'>
+          <input
+            type='number'
+            value={percent}
+            onChange={(e) => setPercent(e.target.value)}
+            className='w-20 px-2 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+          />
+          <span className='text-sm text-link dark:text-darklink'>%</span>
+        </div>
+      </div>
+      <div className='flex flex-col'>
+        <span className='text-[10px] uppercase tracking-wide text-link dark:text-darklink mb-0.5'>{t('autoGestion.mass.rounding')}</span>
+        <select value={rounding} onChange={(e) => setRounding(e.target.value as Rounding)} className={selectCls}>
+          <option value='up1000'>{t('autoGestion.mass.round.up1000')}</option>
+          <option value='nearest1000'>{t('autoGestion.mass.round.nearest1000')}</option>
+          <option value='none'>{t('autoGestion.mass.round.none')}</option>
+        </select>
+      </div>
+      <button
+        type='button'
+        disabled={!valid}
+        onClick={() => onApply(p, direction, rounding)}
+        className='px-4 py-1.5 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis disabled:opacity-40 disabled:cursor-not-allowed transition-colors'>
+        {t('autoGestion.mass.apply', { count: String(count) })}
+      </button>
+    </div>
+  )
+}
+
+// ---------- Section ----------
+
 export function PricesSection() {
   const { t } = useTranslation()
   const [items, setItems] = useState<TreatmentPrice[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  // Bumped after a mass update so every PriceRow remounts with fresh values.
+  const [version, setVersion] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -119,6 +202,58 @@ export function PricesSection() {
       active = false
     }
   }, [])
+
+  function handleRowSaved(slug: string, list: number, efec: number) {
+    setItems((prev) =>
+      prev.map((i) => (i.slug === slug ? { ...i, listAmount: list, efectivoAmount: efec } : i))
+    )
+  }
+
+  async function handleMassApply(percent: number, direction: Direction, rounding: Rounding) {
+    const dark = isDark()
+    const dirLabel = direction === 'increase' ? t('autoGestion.mass.increase') : t('autoGestion.mass.decrease')
+    const res = await Swal.fire({
+      title: t('autoGestion.mass.confirmTitle'),
+      text: t('autoGestion.mass.confirmBody', {
+        dir: dirLabel.toLowerCase(),
+        percent: String(percent),
+        count: String(items.length),
+      }),
+      icon: 'warning',
+      iconColor: '#ffae1f',
+      showCancelButton: true,
+      confirmButtonText: t('autoGestion.mass.confirmYes'),
+      cancelButtonText: t('autoGestion.mass.confirmNo'),
+      confirmButtonColor: '#5d87ff',
+      cancelButtonColor: dark ? '#3f4a5d' : '#e5e7eb',
+      background: dark ? '#2a3547' : '#ffffff',
+      color: dark ? '#ffffff' : '#2a3547',
+      width: '380px',
+      customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
+    })
+    if (!res.isConfirmed) return
+
+    const next = items.map((i) => ({
+      ...i,
+      listAmount: applyPercent(i.listAmount, percent, direction, rounding),
+      efectivoAmount: applyPercent(i.efectivoAmount, percent, direction, rounding),
+    }))
+    setItems(next)
+    setVersion((v) => v + 1)
+    const err = await bulkUpdateTreatmentPrices(next)
+    Swal.fire({
+      title: err ? t('autoGestion.mass.failToast') : t('autoGestion.mass.doneToast'),
+      icon: err ? 'error' : 'success',
+      iconColor: err ? '#fa896b' : '#13deb9',
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 2200,
+      background: dark ? '#2a3547' : '#ffffff',
+      color: dark ? '#ffffff' : '#2a3547',
+      customClass: { popup: '!rounded-lg', title: '!text-sm' },
+    })
+  }
 
   return (
     <div className='rounded-lg border border-border dark:border-darkborder bg-card p-5 sm:p-6'>
@@ -146,11 +281,14 @@ export function PricesSection() {
           <p className='text-sm text-link dark:text-darklink max-w-[360px]'>{t('autoGestion.prices.empty.body')}</p>
         </div>
       ) : (
-        <div className='divide-y divide-border dark:divide-darkborder'>
-          {items.map((p) => (
-            <PriceRow key={p.slug} price={p} t={t} />
-          ))}
-        </div>
+        <>
+          <MassUpdateBar count={items.length} onApply={handleMassApply} t={t} />
+          <div className='divide-y divide-border dark:divide-darkborder'>
+            {items.map((p) => (
+              <PriceRow key={`${p.slug}-${version}`} price={p} onSaved={handleRowSaved} t={t} />
+            ))}
+          </div>
+        </>
       )}
 
       <p className='text-xs text-link dark:text-darklink mt-5 flex items-start gap-1.5'>
