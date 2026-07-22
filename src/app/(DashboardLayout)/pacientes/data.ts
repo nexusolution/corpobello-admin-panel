@@ -80,6 +80,43 @@ export async function fetchPatients(): Promise<PatientsResult> {
   return { data: patients, error: null }
 }
 
+/** Create a patient manually from the panel. RLS allows operators to insert. */
+export async function createPatient(fields: {
+  fullName: string
+  phone: string
+  email: string
+  sucursal: string | null
+}): Promise<{ patient: Patient | null; error: string | null }> {
+  if (!isSupabaseConfigured()) return { patient: null, error: 'not-configured' }
+  const { data, error } = await getSupabase()
+    .from('patients')
+    .insert({
+      full_name: fields.fullName,
+      whatsapp_phone: fields.phone.trim() || null,
+      email: fields.email.trim() || null,
+      sucursal: fields.sucursal,
+      status: 'nuevo',
+    })
+    .select('id, full_name, whatsapp_phone, sucursal, status, created_at')
+    .single()
+  if (error || !data) return { patient: null, error: error?.message ?? 'insert-failed' }
+  const row = data as PatientRow
+  return {
+    patient: {
+      id: row.id,
+      fullName: row.full_name?.trim() || row.whatsapp_phone || 'Sin nombre',
+      phoneLast4: phoneLast4(row.whatsapp_phone),
+      phoneFull: row.whatsapp_phone ?? '',
+      sucursal: normalizeSucursal(row.sucursal),
+      mainTreatmentLabel: '—',
+      status: mapStatus(row.status),
+      createdAtDays: daysSince(row.created_at) ?? 0,
+      lastVisitDays: null,
+    },
+    error: null,
+  }
+}
+
 // ============================================================================
 // Patient 360° detail (A1) — pulls the linked lead → conversations → messages
 // and quotes, plus internal notes. Reservations are derived from the lead's

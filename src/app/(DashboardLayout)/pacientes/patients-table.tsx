@@ -9,8 +9,16 @@ import {
   SUCURSAL_LABELS,
   type Patient,
   type PatientStatus,
+  type Sucursal,
 } from './mock-data'
-import { fetchPatients } from './data'
+import { fetchPatients, createPatient } from './data'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -200,6 +208,139 @@ function PageSizeSelect({
   )
 }
 
+// ---------- New patient dialog ----------
+
+const SUCURSAL_OPTIONS: Sucursal[] = ['caballito', 'merlo', 'moreno']
+
+function NewPatientDialog({
+  open,
+  onOpenChange,
+  onCreated,
+  t,
+}: {
+  open: boolean
+  onOpenChange: (next: boolean) => void
+  onCreated: (p: Patient) => void
+  t: TFn
+}) {
+  const [fullName, setFullName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [sucursal, setSucursal] = useState<Sucursal | ''>('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setFullName('')
+      setPhone('')
+      setEmail('')
+      setSucursal('')
+      setError(false)
+    }
+  }, [open])
+
+  const valid = fullName.trim().length > 0 && phone.replace(/\D/g, '').length >= 7
+
+  async function submit() {
+    if (!valid) return
+    setSaving(true)
+    setError(false)
+    const { patient, error: err } = await createPatient({
+      fullName: fullName.trim(),
+      phone: phone.trim(),
+      email: email.trim(),
+      sucursal: sucursal || null,
+    })
+    setSaving(false)
+    if (err || !patient) {
+      setError(true)
+      return
+    }
+    onCreated(patient)
+    onOpenChange(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className='max-w-[460px]'>
+        <DialogHeader className='border-b border-border dark:border-darkborder pb-3 mb-2'>
+          <DialogTitle className='text-lg text-dark dark:text-white'>{t('pacientes.newDialog.title')}</DialogTitle>
+        </DialogHeader>
+        <div className='space-y-4 mt-2'>
+          <div>
+            <Label htmlFor='np-name' className='font-medium mb-1.5 block'>
+              {t('pacientes.newDialog.name')} <span className='text-error'>*</span>
+            </Label>
+            <input
+              id='np-name'
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder={t('pacientes.newDialog.namePlaceholder')}
+              className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+            />
+          </div>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+            <div>
+              <Label htmlFor='np-phone' className='font-medium mb-1.5 block'>
+                {t('pacientes.newDialog.phone')} <span className='text-error'>*</span>
+              </Label>
+              <input
+                id='np-phone'
+                type='tel'
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder='+54 9 11 …'
+                className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+              />
+            </div>
+            <div>
+              <Label htmlFor='np-sucursal' className='font-medium mb-1.5 block'>{t('pacientes.newDialog.sucursal')}</Label>
+              <select
+                id='np-sucursal'
+                value={sucursal}
+                onChange={(e) => setSucursal(e.target.value as Sucursal | '')}
+                className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
+                <option value=''>{t('pacientes.newDialog.sucursalNone')}</option>
+                {SUCURSAL_OPTIONS.map((s) => (
+                  <option key={s} value={s}>{SUCURSAL_LABELS[s]}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div>
+            <Label htmlFor='np-email' className='font-medium mb-1.5 block'>{t('pacientes.newDialog.email')}</Label>
+            <input
+              id='np-email'
+              type='email'
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder='email@ejemplo.com'
+              className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+            />
+          </div>
+          {error && <p className='text-xs text-error'>{t('pacientes.newDialog.error')}</p>}
+          <div className='flex items-center justify-end gap-3 pt-1'>
+            <button
+              type='button'
+              onClick={() => onOpenChange(false)}
+              className='px-4 py-2 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 transition-colors'>
+              {t('pacientes.newDialog.cancel')}
+            </button>
+            <button
+              type='button'
+              disabled={!valid || saving}
+              onClick={submit}
+              className='px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis disabled:opacity-50 transition-colors'>
+              {saving ? t('pacientes.newDialog.saving') : t('pacientes.newDialog.create')}
+            </button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ---------- Main table ----------
 
 export function PatientsTable() {
@@ -213,6 +354,7 @@ export function PatientsTable() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [pageSize, setPageSize] = useState(5)
   const [currentPage, setCurrentPage] = useState(1)
+  const [createOpen, setCreateOpen] = useState(false)
 
   // Load real patients from Supabase on mount. Delete stays local (optimistic)
   // for now; create/edit are still under-development stubs.
@@ -349,7 +491,7 @@ export function PatientsTable() {
           </button>
           <button
             type='button'
-            onClick={() => showUnderDevelopmentAlert(t('pacientes.new'), t)}
+            onClick={() => setCreateOpen(true)}
             className='flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
             <Icon icon='tabler:plus' height={16} width={16} />
             {t('pacientes.new')}
@@ -588,6 +730,17 @@ export function PatientsTable() {
           </button>
         </div>
       </div>
+
+      <NewPatientDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={(p) => {
+          setPatients((prev) => [p, ...prev])
+          setStatusFilter('all')
+          setCurrentPage(1)
+        }}
+        t={t}
+      />
     </div>
   )
 }
