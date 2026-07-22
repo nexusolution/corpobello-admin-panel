@@ -339,13 +339,22 @@ export function PatientsTable() {
           </div>
         </div>
 
-        <button
-          type='button'
-          onClick={() => showUnderDevelopmentAlert(t('pacientes.new'), t)}
-          className='w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
-          <Icon icon='tabler:plus' height={16} width={16} />
-          {t('pacientes.new')}
-        </button>
+        <div className='flex items-center gap-2 w-full sm:w-auto'>
+          <button
+            type='button'
+            onClick={() => router.push('/importar-pacientes')}
+            className='flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:border-primary hover:text-primary transition-colors'>
+            <Icon icon='solar:import-line-duotone' height={16} width={16} />
+            {t('sidebar.import')}
+          </button>
+          <button
+            type='button'
+            onClick={() => showUnderDevelopmentAlert(t('pacientes.new'), t)}
+            className='flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
+            <Icon icon='tabler:plus' height={16} width={16} />
+            {t('pacientes.new')}
+          </button>
+        </div>
       </div>
 
       {/* Search + filter chips */}

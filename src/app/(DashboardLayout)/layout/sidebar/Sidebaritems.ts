@@ -68,13 +68,6 @@ const SidebarContent: MenuItem[] = [
         url: '/pacientes',
       },
       {
-        name: 'Importar',
-        nameKey: 'sidebar.import',
-        icon: 'solar:import-line-duotone',
-        id: uniqueId(),
-        url: '/importar-pacientes',
-      },
-      {
         name: 'Kanban',
         nameKey: 'sidebar.kanban',
         icon: 'solar:layers-minimalistic-line-duotone',
