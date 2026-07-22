@@ -15,6 +15,8 @@ export function HeroBanner({
   titleKey,
   currentKey,
   subtitleKey,
+  parentKey,
+  parentHref,
   icon,
 }: {
   /** i18n key for the H1 title */
@@ -23,6 +25,10 @@ export function HeroBanner({
   currentKey: TranslationKey
   /** Optional i18n key for a subtitle/description line below the breadcrumb */
   subtitleKey?: TranslationKey
+  /** Optional intermediate crumb between Home and the current page. */
+  parentKey?: TranslationKey
+  /** Route the parent crumb links to (required when parentKey is set). */
+  parentHref?: string
   /** Iconify icon name shown inside the decorative circle */
   icon: string
 }) {
@@ -44,6 +50,14 @@ export function HeroBanner({
             {t('common.breadcrumb.home')}
           </Link>
           <Icon icon='tabler:chevron-right' height={14} width={14} />
+          {parentKey && parentHref && (
+            <>
+              <Link href={parentHref} className='hover:text-primary transition-colors'>
+                {t(parentKey)}
+              </Link>
+              <Icon icon='tabler:chevron-right' height={14} width={14} />
+            </>
+          )}
           <span className='text-dark dark:text-white font-medium'>
             {t(currentKey)}
           </span>

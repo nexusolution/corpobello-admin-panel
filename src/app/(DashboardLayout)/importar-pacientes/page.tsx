@@ -13,6 +13,8 @@ export default function ImportPatientsPage() {
       <HeroBanner
         titleKey='import.title'
         currentKey='import.breadcrumb.current'
+        parentKey='sidebar.patients'
+        parentHref='/pacientes'
         icon='solar:import-line-duotone'
       />
       <ImportWizard />
