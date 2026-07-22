@@ -60,7 +60,16 @@ function StepDots({ step, t }: { step: Step; t: TFn }) {
   )
 }
 
-export function ImportWizard() {
+export function ImportWizard({
+  onImported,
+  onClose,
+}: {
+  /** Fired after a successful import, so an embedding list can refresh. */
+  onImported?: () => void
+  /** When set (modal mode), the done step shows a Close button instead of a
+   *  link to /pacientes. */
+  onClose?: () => void
+} = {}) {
   const { t } = useTranslation()
   const [step, setStep] = useState<Step>('upload')
   const [fileName, setFileName] = useState('')
@@ -105,6 +114,7 @@ export function ImportWizard() {
     setResult(res)
     setBusy(false)
     setStep('done')
+    if (!res.error && res.inserted > 0) onImported?.()
   }
 
   function reset() {
@@ -248,9 +258,15 @@ export function ImportWizard() {
             <button type='button' onClick={reset} className='px-4 py-2 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 transition-colors'>
               {t('import.done.again')}
             </button>
-            <Link href='/pacientes' className='px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
-              {t('import.done.toPatients')}
-            </Link>
+            {onClose ? (
+              <button type='button' onClick={onClose} className='px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
+                {t('import.done.close')}
+              </button>
+            ) : (
+              <Link href='/pacientes' className='px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
+                {t('import.done.toPatients')}
+              </Link>
+            )}
           </div>
         </div>
       )}

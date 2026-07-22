@@ -12,6 +12,7 @@ import {
   type Sucursal,
 } from './mock-data'
 import { fetchPatients, createPatient } from './data'
+import { ImportWizard } from '../importar-pacientes/import-wizard'
 import {
   Dialog,
   DialogContent,
@@ -355,6 +356,15 @@ export function PatientsTable() {
   const [pageSize, setPageSize] = useState(5)
   const [currentPage, setCurrentPage] = useState(1)
   const [createOpen, setCreateOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+
+  // Re-fetch after a bulk import so the new rows appear.
+  function reloadPatients() {
+    void fetchPatients().then(({ data, error }) => {
+      setPatients(data)
+      setLoadError(error)
+    })
+  }
 
   // Load real patients from Supabase on mount. Delete stays local (optimistic)
   // for now; create/edit are still under-development stubs.
@@ -484,7 +494,7 @@ export function PatientsTable() {
         <div className='flex items-center gap-2 w-full sm:w-auto'>
           <button
             type='button'
-            onClick={() => router.push('/importar-pacientes')}
+            onClick={() => setImportOpen(true)}
             className='flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:border-primary hover:text-primary transition-colors'>
             <Icon icon='solar:import-line-duotone' height={16} width={16} />
             {t('sidebar.import')}
@@ -741,6 +751,18 @@ export function PatientsTable() {
         }}
         t={t}
       />
+
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className='max-w-3xl max-h-[90vh] overflow-y-auto'>
+          <DialogHeader className='border-b border-border dark:border-darkborder pb-3 mb-2'>
+            <DialogTitle className='text-lg text-dark dark:text-white'>{t('import.title')}</DialogTitle>
+          </DialogHeader>
+          <ImportWizard
+            onImported={reloadPatients}
+            onClose={() => setImportOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
