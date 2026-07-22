@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import Link from 'next/link'
 import { Icon } from '@iconify/react'
 
@@ -38,24 +38,40 @@ function StepDots({ step, t }: { step: Step; t: TFn }) {
   const steps: Step[] = ['upload', 'map', 'preview']
   const idx = step === 'done' ? 3 : steps.indexOf(step)
   return (
-    <div className='flex items-center gap-2 mb-6'>
-      {steps.map((s, i) => (
-        <div key={s} className='flex items-center gap-2'>
-          <div
-            className={`flex items-center gap-1.5 text-xs font-medium ${
-              i <= idx ? 'text-primary' : 'text-link dark:text-darklink'
-            }`}>
-            <span
-              className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] ${
-                i < idx ? 'bg-primary text-white' : i === idx ? 'bg-lightprimary text-primary' : 'bg-muted/60 dark:bg-darkmuted/40'
-              }`}>
-              {i < idx ? '✓' : i + 1}
-            </span>
-            {t(`import.step.${s}` as TranslationKey)}
-          </div>
-          {i < steps.length - 1 && <span className='w-6 h-px bg-border dark:bg-darkborder' />}
-        </div>
-      ))}
+    <div className='flex items-start mb-8 px-2 sm:px-6'>
+      {steps.map((s, i) => {
+        const done = i < idx
+        const active = i === idx
+        return (
+          <Fragment key={s}>
+            <div className='flex flex-col items-center gap-2 shrink-0'>
+              <div
+                className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-semibold border-2 transition-colors ${
+                  done
+                    ? 'bg-primary border-primary text-white'
+                    : active
+                      ? 'border-primary text-primary bg-lightprimary'
+                      : 'border-border dark:border-darkborder text-link dark:text-darklink'
+                }`}>
+                {done ? <Icon icon='tabler:check' height={17} width={17} /> : i + 1}
+              </div>
+              <span
+                className={`text-xs font-medium whitespace-nowrap ${
+                  active || done ? 'text-dark dark:text-white' : 'text-link dark:text-darklink'
+                }`}>
+                {t(`import.step.${s}` as TranslationKey)}
+              </span>
+            </div>
+            {i < steps.length - 1 && (
+              <div
+                className={`flex-1 h-0.5 mx-2 sm:mx-3 mt-[18px] rounded-full transition-colors ${
+                  done ? 'bg-primary' : 'bg-border dark:bg-darkborder'
+                }`}
+              />
+            )}
+          </Fragment>
+        )
+      })}
     </div>
   )
 }
@@ -132,8 +148,11 @@ export function ImportWizard({
     invalid: records.filter((r) => r.status === 'invalid').length,
   }
 
+  // Embedded (modal) mode drops the card chrome — the dialog already provides it.
+  const embedded = !!onClose
+
   return (
-    <div className='rounded-lg border border-border dark:border-darkborder bg-card p-5 sm:p-6'>
+    <div className={embedded ? '' : 'rounded-lg border border-border dark:border-darkborder bg-card p-5 sm:p-6'}>
       <StepDots step={step} t={t} />
 
       {/* Step 1 — upload */}
