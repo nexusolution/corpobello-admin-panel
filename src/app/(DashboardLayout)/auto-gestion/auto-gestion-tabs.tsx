@@ -8,14 +8,16 @@ import { PricesSection } from './prices-section'
 import { TextsSection } from './texts-section'
 import { IntrosSection } from './intros-section'
 import { FaqSection } from './faq-section'
+import { CotizadoresSection } from './cotizadores-section'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
-type TabKey = 'treatments' | 'prices' | 'texts' | 'intros' | 'faq'
+type TabKey = 'treatments' | 'prices' | 'texts' | 'intros' | 'faq' | 'cotizadores'
 
 const TABS: { key: TabKey; labelKey: TranslationKey; icon: string }[] = [
   { key: 'treatments', labelKey: 'autoGestion.treatments.heading', icon: 'solar:widget-line-duotone' },
   { key: 'prices', labelKey: 'autoGestion.prices.heading', icon: 'solar:tag-price-line-duotone' },
+  { key: 'cotizadores', labelKey: 'autoGestion.cotizadores.heading', icon: 'solar:calculator-line-duotone' },
   { key: 'texts', labelKey: 'autoGestion.texts.heading', icon: 'solar:document-text-line-duotone' },
   { key: 'intros', labelKey: 'autoGestion.intros.heading', icon: 'solar:chat-square-like-line-duotone' },
   { key: 'faq', labelKey: 'autoGestion.faq.heading', icon: 'solar:question-circle-line-duotone' },
@@ -52,6 +54,7 @@ export function AutoGestionTabs() {
 
       {tab === 'treatments' && <TreatmentsToggle />}
       {tab === 'prices' && <PricesSection />}
+      {tab === 'cotizadores' && <CotizadoresSection />}
       {tab === 'texts' && <TextsSection />}
       {tab === 'intros' && <IntrosSection />}
       {tab === 'faq' && <FaqSection />}
