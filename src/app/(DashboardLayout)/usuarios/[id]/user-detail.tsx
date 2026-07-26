@@ -17,6 +17,7 @@ import {
   persistUserActive,
   persistUserName,
   persistUserRole,
+  persistUserFields,
 } from '../data'
 import { PageSkeleton } from '@/app/components/shared/PageSkeleton'
 import {
@@ -290,7 +291,17 @@ function StarRating({ rating }: { rating: number }) {
   )
 }
 
-function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
+type UserFieldPatch = { phone?: string; location?: string; sucursal?: string | null }
+
+function IdentityCard({
+  user,
+  t,
+  onUpdate,
+}: {
+  user: AppUser
+  t: TFn
+  onUpdate?: (patch: UserFieldPatch) => void
+}) {
   const roleLabel = t(roleLabelKey(user.role))
   const rating = user.professionalDetails?.rating
 
@@ -354,18 +365,25 @@ function IdentityCard({ user, t }: { user: AppUser; t: TFn }) {
               tint='success'
               label={t('userDetail.identity.contactPhone')}
               value={user.phone ?? '—'}
+              rawValue={user.phone ?? ''}
+              onSave={(v) => onUpdate?.({ phone: v })}
+              t={t}
             />
             <ContactCell
               icon='solar:letter-bold-duotone'
               tint='primary'
               label={t('userDetail.identity.contactEmail')}
               value={user.email}
+              t={t}
             />
             <ContactCell
               icon='solar:map-point-bold-duotone'
               tint='warning'
               label={t('userDetail.identity.contactLocation')}
               value={user.location ?? '—'}
+              rawValue={user.location ?? ''}
+              onSave={(v) => onUpdate?.({ location: v })}
+              t={t}
             />
           </div>
 
@@ -396,16 +414,89 @@ const CONTACT_TINT: Record<ContactTint, { bg: string; text: string }> = {
   warning: { bg: 'bg-lightwarning', text: 'text-warning' },
 }
 
+// Inline value that turns into an input/select with a pencil when `onSave` is
+// given. Used for the editable contact/branch fields on the user detail page.
+function InlineValue({
+  display,
+  rawValue,
+  onSave,
+  options,
+  t,
+}: {
+  display: string
+  rawValue: string
+  onSave?: (v: string) => void
+  options?: { value: string; label: string }[]
+  t: TFn
+}) {
+  const [editing, setEditing] = useState(false)
+  const [v, setV] = useState(rawValue)
+  useEffect(() => setV(rawValue), [rawValue])
+
+  if (!onSave) {
+    return <p className='text-sm text-dark dark:text-white truncate'>{display}</p>
+  }
+  if (!editing) {
+    return (
+      <div className='flex items-center gap-1.5 min-w-0'>
+        <p className='text-sm text-dark dark:text-white truncate'>{display}</p>
+        <button
+          type='button'
+          aria-label={t('userDetail.edit.edit')}
+          onClick={() => setEditing(true)}
+          className='shrink-0 text-link dark:text-darklink hover:text-primary transition-colors'>
+          <Icon icon='solar:pen-line-duotone' height={14} width={14} />
+        </button>
+      </div>
+    )
+  }
+  const inputCls =
+    'w-full min-w-0 px-2 py-1 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary'
+  return (
+    <div className='flex items-center gap-1'>
+      {options ? (
+        <select value={v} onChange={(e) => setV(e.target.value)} className={inputCls}>
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      ) : (
+        <input value={v} onChange={(e) => setV(e.target.value)} className={inputCls} autoFocus />
+      )}
+      <button
+        type='button'
+        aria-label={t('userDetail.edit.save')}
+        onClick={() => { onSave(v.trim()); setEditing(false) }}
+        className='shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-md bg-lightsuccess text-success hover:bg-success hover:text-white transition-colors'>
+        <Icon icon='tabler:check' height={15} width={15} />
+      </button>
+      <button
+        type='button'
+        aria-label={t('userDetail.edit.cancel')}
+        onClick={() => { setV(rawValue); setEditing(false) }}
+        className='shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-md bg-muted/60 dark:bg-darkmuted/40 text-link dark:text-darklink hover:text-error transition-colors'>
+        <Icon icon='tabler:x' height={15} width={15} />
+      </button>
+    </div>
+  )
+}
+
 function ContactCell({
   icon,
   tint,
   label,
   value,
+  rawValue,
+  onSave,
+  t,
 }: {
   icon: string
   tint: ContactTint
   label: string
   value: string
+  rawValue?: string
+  onSave?: (v: string) => void
+  t: TFn
 }) {
   const style = CONTACT_TINT[tint]
   return (
@@ -415,7 +506,7 @@ function ContactCell({
       </span>
       <div className='min-w-0'>
         <p className='text-[11px] font-medium tracking-wide uppercase text-link dark:text-darklink'>{label}</p>
-        <p className='text-sm text-dark dark:text-white truncate'>{value}</p>
+        <InlineValue display={value} rawValue={rawValue ?? ''} onSave={onSave} t={t} />
       </div>
     </div>
   )
@@ -423,9 +514,25 @@ function ContactCell({
 
 // ---------- Right: role-aware summary card ----------
 
-function SummaryCard({ user, t, locale }: { user: AppUser; t: TFn; locale: string }) {
+function SummaryCard({
+  user,
+  t,
+  locale,
+  onUpdate,
+}: {
+  user: AppUser
+  t: TFn
+  locale: string
+  onUpdate?: (patch: UserFieldPatch) => void
+}) {
   const roleLabel = t(roleLabelKey(user.role))
   const sucursalLabel = user.sucursal ? SUCURSAL_LABELS[user.sucursal] : t('users.sucursal.none')
+  const sucursalOptions = [
+    { value: '', label: t('users.sucursal.none') },
+    { value: 'caballito', label: SUCURSAL_LABELS.caballito },
+    { value: 'merlo', label: SUCURSAL_LABELS.merlo },
+    { value: 'moreno', label: SUCURSAL_LABELS.moreno },
+  ]
   const joined = formatDate(user.createdAt, locale)
 
   return (
@@ -551,6 +658,10 @@ function SummaryCard({ user, t, locale }: { user: AppUser; t: TFn; locale: strin
           icon='solar:buildings-3-line-duotone'
           label={t('userDetail.summary.sucursalLabel')}
           value={sucursalLabel}
+          rawValue={user.sucursal ?? ''}
+          options={sucursalOptions}
+          onSave={(v) => onUpdate?.({ sucursal: v || null })}
+          t={t}
         />
         <MetaCell
           icon='solar:calendar-line-duotone'
@@ -650,7 +761,23 @@ function KpiCell({
   )
 }
 
-function MetaCell({ icon, label, value }: { icon: string; label: string; value: string }) {
+function MetaCell({
+  icon,
+  label,
+  value,
+  rawValue,
+  onSave,
+  options,
+  t,
+}: {
+  icon: string
+  label: string
+  value: string
+  rawValue?: string
+  onSave?: (v: string) => void
+  options?: { value: string; label: string }[]
+  t?: TFn
+}) {
   return (
     <div className='flex items-start gap-3'>
       <span className='h-9 w-9 shrink-0 inline-flex items-center justify-center rounded-md bg-muted/50 dark:bg-darkmuted/40 text-link dark:text-darklink'>
@@ -658,7 +785,13 @@ function MetaCell({ icon, label, value }: { icon: string; label: string; value: 
       </span>
       <div className='min-w-0 pt-0.5'>
         <p className='text-[11px] font-medium tracking-wide uppercase text-link dark:text-darklink'>{label}</p>
-        <p className='text-sm text-dark dark:text-white truncate mt-0.5'>{value}</p>
+        {onSave && t ? (
+          <div className='mt-0.5'>
+            <InlineValue display={value} rawValue={rawValue ?? ''} onSave={onSave} options={options} t={t} />
+          </div>
+        ) : (
+          <p className='text-sm text-dark dark:text-white truncate mt-0.5'>{value}</p>
+        )}
       </div>
     </div>
   )
@@ -1062,6 +1195,21 @@ export function UserDetail({ id }: { id: string }) {
     setEditOpen(false)
   }
 
+  // Inline contact-field edits (phone / location / branch) — optimistic + persist.
+  function updateUserField(patch: UserFieldPatch) {
+    if (!user) return
+    const local: Partial<AppUser> = {}
+    if ('phone' in patch) local.phone = patch.phone?.trim() || undefined
+    if ('location' in patch) local.location = patch.location?.trim() || undefined
+    if ('sucursal' in patch) local.sucursal = (patch.sucursal || null) as AppUser['sucursal']
+    setAllUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, ...local } : u)))
+    void persistUserFields(user.id, {
+      ...('phone' in patch ? { phone: patch.phone?.trim() || null } : {}),
+      ...('location' in patch ? { location: patch.location?.trim() || null } : {}),
+      ...('sucursal' in patch ? { sucursal: patch.sucursal || null } : {}),
+    })
+  }
+
   if (loading) {
     return <PageSkeleton />
   }
@@ -1137,10 +1285,10 @@ export function UserDetail({ id }: { id: string }) {
         <div className='xl:col-span-10 space-y-6'>
           <div className='grid grid-cols-1 xl:grid-cols-10 gap-6'>
             <div className='xl:col-span-6'>
-              <IdentityCard user={user} t={t} />
+              <IdentityCard user={user} t={t} onUpdate={updateUserField} />
             </div>
             <div className='xl:col-span-4'>
-              <SummaryCard user={user} t={t} locale={locale} />
+              <SummaryCard user={user} t={t} locale={locale} onUpdate={updateUserField} />
             </div>
           </div>
           <ActivityTable user={user} t={t} locale={locale} />

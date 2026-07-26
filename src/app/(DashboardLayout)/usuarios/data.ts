@@ -9,7 +9,7 @@
 // API — a future follow-up).
 
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
-import type { AppUser, UserRole } from './mock-data'
+import type { AppUser, UserRole, UserSucursal } from './mock-data'
 
 type AppUserRow = {
   id: string
@@ -19,6 +19,14 @@ type AppUserRow = {
   active: boolean | null
   created_at: string | null
   avatar_url: string | null
+  phone: string | null
+  location: string | null
+  sucursal: string | null
+}
+
+function normalizeSucursal(v: string | null): UserSucursal {
+  const s = (v ?? '').trim().toLowerCase()
+  return s === 'caballito' || s === 'merlo' || s === 'moreno' ? s : null
 }
 
 export type UsersResult = {
@@ -31,7 +39,7 @@ export async function fetchAppUsers(): Promise<UsersResult> {
 
   const { data, error } = await getSupabase()
     .from('app_users')
-    .select('id, email, display_name, role, active, created_at, avatar_url')
+    .select('id, email, display_name, role, active, created_at, avatar_url, phone, location, sucursal')
     .order('created_at', { ascending: true })
 
   if (error) return { data: [], error: error.message }
@@ -41,12 +49,12 @@ export async function fetchAppUsers(): Promise<UsersResult> {
     fullName: row.display_name?.trim() || row.email || 'Sin nombre',
     email: row.email ?? '',
     role: (row.role ?? 'operador') as UserRole,
-    // No sucursal / phone / rich details columns on app_users — the card
-    // gracefully falls back (fewer stats, email shown instead of location).
-    sucursal: null,
+    sucursal: normalizeSucursal(row.sucursal),
     status: row.active === false ? 'inactive' : 'active',
     createdAt: row.created_at ?? '',
     ...(row.avatar_url ? { avatarUrl: row.avatar_url } : {}),
+    ...(row.phone ? { phone: row.phone } : {}),
+    ...(row.location ? { location: row.location } : {}),
   }))
 
   return { data: users, error: null }
@@ -113,6 +121,16 @@ export async function createUser(fields: {
     },
     error: null,
   }
+}
+
+/** Persist contact fields (phone / location / branch) on a user row. Admin RLS. */
+export async function persistUserFields(
+  id: string,
+  patch: { phone?: string | null; location?: string | null; sucursal?: string | null },
+): Promise<string | null> {
+  if (!isSupabaseConfigured()) return null
+  const { error } = await getSupabase().from('app_users').update(patch).eq('id', id)
+  return error ? error.message : null
 }
 
 /** Persist a display-name change (app_users.display_name). */
