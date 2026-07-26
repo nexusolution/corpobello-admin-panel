@@ -333,6 +333,46 @@ export async function addPatientNote(
   }
 }
 
+/**
+ * Update the list-level fields of a patient (name, phone, sucursal). Full
+ * contact editing (incl. email) lives on the detail page via
+ * updatePatientContact. Returns an error string on failure.
+ */
+export async function updatePatient(
+  id: string,
+  fields: { fullName: string; phone: string; sucursal: string | null },
+): Promise<string | null> {
+  if (!isSupabaseConfigured()) return null
+  const { error } = await getSupabase()
+    .from('patients')
+    .update({
+      full_name: fields.fullName,
+      whatsapp_phone: fields.phone.trim() || null,
+      sucursal: fields.sucursal,
+    })
+    .eq('id', id)
+  return error ? error.message : null
+}
+
+/**
+ * Delete a patient. Admin-only (RLS policy patients_delete). We `.select()` the
+ * deleted row so we can tell a real deletion (1 row) from an RLS no-op (0 rows,
+ * which PostgREST reports as success) — e.g. a non-admin trying to delete. A
+ * lingering lead no longer blocks this once migration 0015 is applied (the FK
+ * is ON DELETE SET NULL). Returns null on success, else an error string.
+ */
+export async function deletePatient(id: string): Promise<string | null> {
+  if (!isSupabaseConfigured()) return null
+  const { data, error } = await getSupabase()
+    .from('patients')
+    .delete()
+    .eq('id', id)
+    .select('id')
+  if (error) return error.message
+  if (!data || data.length === 0) return 'not-deleted'
+  return null
+}
+
 /** Persist editable contact fields (name + email) on the patient row. */
 export async function updatePatientContact(
   id: string,

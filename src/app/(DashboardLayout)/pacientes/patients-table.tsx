@@ -11,7 +11,7 @@ import {
   type PatientStatus,
   type Sucursal,
 } from './mock-data'
-import { fetchPatients, createPatient } from './data'
+import { fetchPatients, createPatient, updatePatient, deletePatient } from './data'
 import { ImportWizard } from '../importar-pacientes/import-wizard'
 import {
   Dialog,
@@ -102,6 +102,29 @@ async function confirmDeletePatient(name: string, t: TFn): Promise<boolean> {
     },
   })
   return result.isConfirmed
+}
+
+function showDeleteErrorAlert(t: TFn) {
+  const isDark = isDarkMode()
+  Swal.fire({
+    title: t('pacientes.deleteError.title'),
+    text: t('pacientes.deleteError.body'),
+    icon: 'error',
+    iconColor: '#ef4444',
+    confirmButtonText: t('pacientes.deleteError.button'),
+    confirmButtonColor: '#5d87ff',
+    background: isDark ? '#2a3547' : '#ffffff',
+    color: isDark ? '#ffffff' : '#2a3547',
+    width: '360px',
+    padding: '1rem',
+    customClass: {
+      title: '!text-base !font-semibold !pb-0',
+      htmlContainer: '!text-sm !mt-2',
+      icon: '!w-12 !h-12 !mt-2 !mb-1',
+      confirmButton: '!text-sm !px-4 !py-1.5',
+      popup: '!rounded-lg',
+    },
+  })
 }
 
 // ---------- Helpers ----------
@@ -342,6 +365,131 @@ function NewPatientDialog({
   )
 }
 
+// ---------- Edit patient dialog ----------
+
+function EditPatientDialog({
+  patient,
+  onOpenChange,
+  onSaved,
+  t,
+}: {
+  patient: Patient | null
+  onOpenChange: (next: boolean) => void
+  onSaved: (p: Patient) => void
+  t: TFn
+}) {
+  const [fullName, setFullName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [sucursal, setSucursal] = useState<Sucursal | ''>('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(false)
+
+  // Re-seed the form each time a different patient opens the dialog.
+  useEffect(() => {
+    if (patient) {
+      setFullName(patient.fullName)
+      setPhone(patient.phoneFull)
+      setSucursal(patient.sucursal ?? '')
+      setError(false)
+    }
+  }, [patient])
+
+  const valid =
+    fullName.trim().length > 0 && phone.replace(/\D/g, '').length >= 7
+
+  async function submit() {
+    if (!valid || !patient) return
+    setSaving(true)
+    setError(false)
+    const err = await updatePatient(patient.id, {
+      fullName: fullName.trim(),
+      phone: phone.trim(),
+      sucursal: sucursal || null,
+    })
+    setSaving(false)
+    if (err) {
+      setError(true)
+      return
+    }
+    onSaved({
+      ...patient,
+      fullName: fullName.trim(),
+      phoneFull: phone.trim(),
+      phoneLast4: phone.replace(/\D/g, '').slice(-4),
+      sucursal: sucursal || null,
+    })
+    onOpenChange(false)
+  }
+
+  return (
+    <Dialog open={patient !== null} onOpenChange={onOpenChange}>
+      <DialogContent className='max-w-[460px]'>
+        <DialogHeader className='border-b border-border dark:border-darkborder pb-3 mb-2'>
+          <DialogTitle className='text-lg text-dark dark:text-white'>{t('pacientes.editDialog.title')}</DialogTitle>
+        </DialogHeader>
+        <div className='space-y-4 mt-2'>
+          <div>
+            <Label htmlFor='ep-name' className='font-medium mb-1.5 block'>
+              {t('pacientes.newDialog.name')} <span className='text-error'>*</span>
+            </Label>
+            <input
+              id='ep-name'
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder={t('pacientes.newDialog.namePlaceholder')}
+              className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+            />
+          </div>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+            <div>
+              <Label htmlFor='ep-phone' className='font-medium mb-1.5 block'>
+                {t('pacientes.newDialog.phone')} <span className='text-error'>*</span>
+              </Label>
+              <input
+                id='ep-phone'
+                type='tel'
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder='+54 9 11 …'
+                className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+              />
+            </div>
+            <div>
+              <Label htmlFor='ep-sucursal' className='font-medium mb-1.5 block'>{t('pacientes.newDialog.sucursal')}</Label>
+              <select
+                id='ep-sucursal'
+                value={sucursal}
+                onChange={(e) => setSucursal(e.target.value as Sucursal | '')}
+                className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
+                <option value=''>{t('pacientes.newDialog.sucursalNone')}</option>
+                {SUCURSAL_OPTIONS.map((s) => (
+                  <option key={s} value={s}>{SUCURSAL_LABELS[s]}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {error && <p className='text-xs text-error'>{t('pacientes.editDialog.error')}</p>}
+          <div className='flex items-center justify-end gap-3 pt-1'>
+            <button
+              type='button'
+              onClick={() => onOpenChange(false)}
+              className='px-4 py-2 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 transition-colors'>
+              {t('pacientes.newDialog.cancel')}
+            </button>
+            <button
+              type='button'
+              disabled={!valid || saving}
+              onClick={submit}
+              className='px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis disabled:opacity-50 transition-colors'>
+              {saving ? t('pacientes.editDialog.saving') : t('pacientes.editDialog.save')}
+            </button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ---------- Main table ----------
 
 export function PatientsTable() {
@@ -357,6 +505,7 @@ export function PatientsTable() {
   const [currentPage, setCurrentPage] = useState(1)
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [editing, setEditing] = useState<Patient | null>(null)
 
   // Re-fetch after a bulk import so the new rows appear.
   function reloadPatients() {
@@ -441,14 +590,21 @@ export function PatientsTable() {
 
   async function handleDeletePatient(p: Patient) {
     const ok = await confirmDeletePatient(p.fullName, t)
-    if (ok) {
-      setPatients((prev) => prev.filter((x) => x.id !== p.id))
-      setSelected((prev) => {
-        const next = new Set(prev)
-        next.delete(p.id)
-        return next
-      })
+    if (!ok) return
+    // Persist the delete to Supabase FIRST; only drop it from the UI once the
+    // DB confirms. A failure (RLS no-op for non-admins, or any error) keeps
+    // the row and surfaces an alert instead of silently "deleting" locally.
+    const err = await deletePatient(p.id)
+    if (err) {
+      showDeleteErrorAlert(t)
+      return
     }
+    setPatients((prev) => prev.filter((x) => x.id !== p.id))
+    setSelected((prev) => {
+      const next = new Set(prev)
+      next.delete(p.id)
+      return next
+    })
   }
 
   // Filter tabs config
@@ -663,7 +819,7 @@ export function PatientsTable() {
                           <TooltipTrigger asChild>
                             <button
                               type='button'
-                              onClick={() => showUnderDevelopmentAlert(t('pacientes.action.edit'), t)}
+                              onClick={() => setEditing(patient)}
                               aria-label={t('pacientes.action.edit')}
                               className='h-8 w-8 inline-flex items-center justify-center rounded-full bg-lightprimary text-primary hover:bg-primary hover:text-white transition-colors'>
                               <Icon icon='solar:pen-line-duotone' height={16} width={16} />
@@ -748,6 +904,20 @@ export function PatientsTable() {
           setPatients((prev) => [p, ...prev])
           setStatusFilter('all')
           setCurrentPage(1)
+        }}
+        t={t}
+      />
+
+      <EditPatientDialog
+        patient={editing}
+        onOpenChange={(next) => {
+          if (!next) setEditing(null)
+        }}
+        onSaved={(updated) => {
+          setPatients((prev) =>
+            prev.map((x) => (x.id === updated.id ? updated : x)),
+          )
+          setEditing(null)
         }}
         t={t}
       />
