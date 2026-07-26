@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { Icon } from "@iconify/react/dist/iconify.js";
 
 import CardBox from "../shared/CardBox";
-import BreadcrumbComp from "@/app/(DashboardLayout)/layout/shared/breadcrumb/BreadcrumbComp";
+import { HeroBanner } from "../shared/HeroBanner";
 import { useTranslation } from "@/lib/i18n/context";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import {
@@ -63,17 +63,16 @@ const UserProfile = () => {
 
   const currentAvatar = avatar;
 
-  const BCrumb = [
-    { to: "/", title: t("sidebar.home") },
-    { title: t("profile.heading") },
-  ];
-
   const displayName = name || email.split("@")[0] || t("profile.heading");
   const roleLabel = t(ROLE_LABEL_KEY[role]);
 
   return (
-    <>
-      <BreadcrumbComp title={t("profile.heading")} items={BCrumb} />
+    <div className="space-y-6">
+      <HeroBanner
+        titleKey="profile.heading"
+        currentKey="profile.heading"
+        icon="solar:user-circle-line-duotone"
+      />
 
       {loading ? (
         <CardBox className="p-10 flex items-center justify-center">
@@ -147,7 +146,7 @@ const UserProfile = () => {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 
