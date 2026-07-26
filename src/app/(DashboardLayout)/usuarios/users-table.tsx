@@ -862,7 +862,11 @@ function AddUserDialog({
                 placeholder={t('users.dialog.passwordPlaceholder')}
                 className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
               />
-              <p className='text-xs text-link dark:text-darklink mt-1'>{t('users.dialog.passwordHint')}</p>
+              {draft.password.length > 0 && draft.password.length < 6 ? (
+                <p className='text-xs text-error mt-1'>{t('users.dialog.passwordTooShort')}</p>
+              ) : (
+                <p className='text-xs text-link dark:text-darklink mt-1'>{t('users.dialog.passwordHint')}</p>
+              )}
             </div>
           )}
 
@@ -1200,6 +1204,7 @@ export function UsersTable() {
       password: draft.password,
       displayName: draft.fullName.trim(),
       role: draft.role,
+      sucursal: draft.sucursal,
     })
     if (error || !user) {
       const dark =

@@ -89,6 +89,7 @@ export async function createUser(fields: {
   password: string
   displayName: string
   role: UserRole
+  sucursal?: UserSucursal
 }): Promise<{ user: AppUser | null; error: string | null }> {
   if (!isSupabaseConfigured()) return { user: null, error: 'not-configured' }
   const {
@@ -100,7 +101,13 @@ export async function createUser(fields: {
   const res = await fetch('/api/users/create', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify(fields),
+    body: JSON.stringify({
+      email: fields.email,
+      password: fields.password,
+      displayName: fields.displayName,
+      role: fields.role,
+      sucursal: fields.sucursal ?? null,
+    }),
   })
   const json = (await res.json().catch(() => ({}))) as {
     id?: string
@@ -115,7 +122,7 @@ export async function createUser(fields: {
       fullName: fields.displayName,
       email: fields.email,
       role: fields.role,
-      sucursal: null,
+      sucursal: fields.sucursal ?? null,
       status: 'active',
       createdAt: new Date().toISOString(),
     },

@@ -51,7 +51,13 @@ export async function POST(req: Request) {
   }
 
   // 3. Validate input.
-  let body: { email?: string; password?: string; displayName?: string; role?: string }
+  let body: {
+    email?: string
+    password?: string
+    displayName?: string
+    role?: string
+    sucursal?: string | null
+  }
   try {
     body = await req.json()
   } catch {
@@ -61,6 +67,9 @@ export async function POST(req: Request) {
   const password = body.password ?? ''
   const displayName = (body.displayName ?? '').trim()
   const role = body.role ?? ''
+  const sucursal = ['caballito', 'merlo', 'moreno'].includes(body.sucursal ?? '')
+    ? (body.sucursal as string)
+    : null
   if (
     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
     password.length < 6 ||
@@ -90,6 +99,7 @@ export async function POST(req: Request) {
     email,
     display_name: displayName,
     role,
+    sucursal,
   })
   if (insertErr) {
     await admin.auth.admin.deleteUser(created.user.id)
