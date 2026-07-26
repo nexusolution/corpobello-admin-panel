@@ -1,8 +1,6 @@
 import type { Metadata } from 'next'
 
-import { TreatmentsToggle } from './treatments-toggle'
-import { PricesSection } from './prices-section'
-import { TextsSection } from './texts-section'
+import { AutoGestionTabs } from './auto-gestion-tabs'
 import { HeroBanner } from '@/app/components/shared/HeroBanner'
 import { AdminGate } from '@/lib/auth/AdminGate'
 
@@ -19,9 +17,7 @@ export default function AutoGestionPage() {
           currentKey='autoGestion.breadcrumb.current'
           icon='solar:tuning-4-line-duotone'
         />
-        <TreatmentsToggle />
-        <PricesSection />
-        <TextsSection />
+        <AutoGestionTabs />
       </div>
     </AdminGate>
   )
