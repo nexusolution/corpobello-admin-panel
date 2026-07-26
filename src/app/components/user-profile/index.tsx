@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Icon } from "@iconify/react/dist/iconify.js";
 
 import CardBox from "../shared/CardBox";
 import BreadcrumbComp from "@/app/(DashboardLayout)/layout/shared/breadcrumb/BreadcrumbComp";
 import { useTranslation } from "@/lib/i18n/context";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
-import { useCurrentUser, type UserRole } from "@/lib/auth/useCurrentUser";
+import {
+  useCurrentUser,
+  updateCurrentAvatar,
+  type UserRole,
+} from "@/lib/auth/useCurrentUser";
 import { fileToAvatarDataUrl, setOwnAvatar } from "@/lib/auth/avatar";
 
 // My Profile: the real signed-in user from Supabase Auth + app_users. Name/role
@@ -39,14 +43,8 @@ const UserProfile = () => {
   const { t } = useTranslation();
   const { name, email, role, avatar, loading } = useCurrentUser();
 
-  const [currentAvatar, setCurrentAvatar] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  // Sync local avatar once the hook resolves.
-  useEffect(() => {
-    setCurrentAvatar(avatar);
-  }, [avatar]);
 
   async function handleAvatarFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -55,12 +53,15 @@ const UserProfile = () => {
     try {
       const dataUrl = await fileToAvatarDataUrl(file);
       const err = await setOwnAvatar(dataUrl);
-      if (!err) setCurrentAvatar(dataUrl);
+      // Update the shared store so the header + sidebar avatars change at once.
+      if (!err) updateCurrentAvatar(dataUrl);
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
     }
   }
+
+  const currentAvatar = avatar;
 
   const BCrumb = [
     { to: "/", title: t("sidebar.home") },

@@ -1,16 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 
-// The signed-in user, as the UI needs it: a display name and a role that
-// drives what each screen prioritises (Andrés 2026-06-30 — same dashboard,
-// reprioritised per role).
+// The signed-in user, as the UI needs it: name + role (drives the
+// role-reprioritised dashboard and admin-page gating) + avatar.
 //
-// The DB enum (app_users.role) is admin | operador | profesional (migration
-// 0004 seeded the first two; 0005 added 'profesional'). All three drive the
-// role-reprioritised dashboard and admin-page gating.
+// The DB enum (app_users.role) is admin | operador | profesional (0004 seeded
+// the first two; 0005 added 'profesional').
 export type UserRole = 'admin' | 'operador' | 'profesional'
 
 export interface CurrentUser {
@@ -27,55 +25,80 @@ interface AppUserRow {
   avatar_url: string | null
 }
 
-// Reads the live Supabase session and the matching `app_users` row (role +
-// display_name). While loading — or when Supabase isn't configured yet — it
-// returns an empty name so the greeting renders without a dangling label.
-export function useCurrentUser(): CurrentUser {
-  const [user, setUser] = useState<CurrentUser>({
-    name: '',
-    email: '',
-    role: 'operador',
-    avatar: null,
-    loading: true,
+// ---------------------------------------------------------------------------
+// Shared store — one fetch, one source of truth. Every component that calls
+// useCurrentUser() subscribes to this, so a change (e.g. the user updates their
+// avatar on the profile page) propagates to the sidebar + header immediately,
+// with no page refresh. Backed by useSyncExternalStore.
+// ---------------------------------------------------------------------------
+let state: CurrentUser = {
+  name: '',
+  email: '',
+  role: 'operador',
+  avatar: null,
+  loading: true,
+}
+let started = false
+const listeners = new Set<() => void>()
+
+function emit() {
+  for (const l of listeners) l()
+}
+function subscribe(cb: () => void) {
+  listeners.add(cb)
+  return () => {
+    listeners.delete(cb)
+  }
+}
+function getSnapshot(): CurrentUser {
+  return state
+}
+function setState(next: CurrentUser) {
+  state = next
+  emit()
+}
+
+async function load() {
+  if (!isSupabaseConfigured()) {
+    setState({ name: '', email: '', role: 'operador', avatar: null, loading: false })
+    return
+  }
+  const supabase = getSupabase()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
+  if (!authUser) {
+    setState({ name: '', email: '', role: 'operador', avatar: null, loading: false })
+    return
+  }
+  const { data } = await supabase
+    .from('app_users')
+    .select('display_name, role, avatar_url')
+    .eq('id', authUser.id)
+    .single<AppUserRow>()
+
+  const email = authUser.email ?? ''
+  setState({
+    name: data?.display_name ?? email.split('@')[0] ?? '',
+    email,
+    role: data?.role ?? 'operador',
+    avatar: data?.avatar_url ?? null,
+    loading: false,
   })
+}
 
+/** Update the shared avatar so every consumer re-renders at once. */
+export function updateCurrentAvatar(url: string | null) {
+  setState({ ...state, avatar: url })
+}
+
+export function useCurrentUser(): CurrentUser {
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      setUser({ name: '', email: '', role: 'operador', avatar: null, loading: false })
-      return
-    }
-
-    let active = true
-    const supabase = getSupabase()
-
-    void (async () => {
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser()
-
-      if (!authUser) {
-        if (active) setUser({ name: '', email: '', role: 'operador', avatar: null, loading: false })
-        return
-      }
-
-      const { data } = await supabase
-        .from('app_users')
-        .select('display_name, role, avatar_url')
-        .eq('id', authUser.id)
-        .single<AppUserRow>()
-
-      if (!active) return
-
-      const email = authUser.email ?? ''
-      const name = data?.display_name ?? email.split('@')[0] ?? ''
-      const role: UserRole = data?.role ?? 'operador'
-      setUser({ name, email, role, avatar: data?.avatar_url ?? null, loading: false })
-    })()
-
-    return () => {
-      active = false
+    if (!started) {
+      started = true
+      void load()
     }
   }, [])
-
-  return user
+  return snapshot
 }
