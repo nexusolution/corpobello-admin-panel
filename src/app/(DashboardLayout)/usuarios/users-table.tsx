@@ -11,7 +11,13 @@ import {
   type UserRole,
   type UserSucursal,
 } from './mock-data'
-import { fetchAppUsers, persistUserActive, persistUserRole } from './data'
+import {
+  fetchAppUsers,
+  persistUserActive,
+  persistUserRole,
+  persistUserName,
+  createUser as createUserApi,
+} from './data'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -549,6 +555,7 @@ function SortSelect({
 type DraftUser = {
   fullName: string
   email: string
+  password: string
   role: UserRole
   sucursal: UserSucursal
   avatarUrl?: string
@@ -557,6 +564,7 @@ type DraftUser = {
 const EMPTY_DRAFT: DraftUser = {
   fullName: '',
   email: '',
+  password: '',
   role: 'operador',
   sucursal: null,
 }
@@ -630,6 +638,7 @@ function userToDraft(u: AppUser): DraftUser {
   return {
     fullName: u.fullName,
     email: u.email,
+    password: '',
     role: u.role,
     sucursal: u.sucursal,
     avatarUrl: u.avatarUrl,
@@ -667,7 +676,9 @@ function AddUserDialog({
 
   const isValid =
     draft.fullName.trim().length > 0 &&
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim())
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim()) &&
+    // On create a password (min 6) is required; on edit it isn't collected here.
+    (editingUser !== null || draft.password.length >= 6)
 
   const isDirty =
     draft.fullName !== baseline.fullName ||
@@ -829,11 +840,30 @@ function AddUserDialog({
               id='draft-email'
               type='email'
               value={draft.email}
+              disabled={editingUser !== null}
               onChange={(e) => setDraft({ ...draft, email: e.target.value })}
               placeholder={t('users.dialog.emailPlaceholder')}
-              className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+              className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors disabled:opacity-60 disabled:cursor-not-allowed'
             />
           </div>
+
+          {/* Password — only on create (it's the new user's login credential). */}
+          {!editingUser && (
+            <div>
+              <Label htmlFor='draft-password' className='font-medium mb-1.5 block'>
+                {t('users.dialog.passwordLabel')} <span className='text-error'>*</span>
+              </Label>
+              <input
+                id='draft-password'
+                type='text'
+                value={draft.password}
+                onChange={(e) => setDraft({ ...draft, password: e.target.value })}
+                placeholder={t('users.dialog.passwordPlaceholder')}
+                className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+              />
+              <p className='text-xs text-link dark:text-darklink mt-1'>{t('users.dialog.passwordHint')}</p>
+            </div>
+          )}
 
           <div>
             <Label className='font-medium mb-2 block'>
@@ -1149,34 +1179,44 @@ export function UsersTable() {
     }
   }
 
-  function createUser(draft: DraftUser) {
-    const newUser: AppUser = {
-      id: `new-${Date.now()}`,
-      fullName: draft.fullName,
-      email: draft.email,
+  async function createUser(draft: DraftUser) {
+    const { user, error } = await createUserApi({
+      email: draft.email.trim(),
+      password: draft.password,
+      displayName: draft.fullName.trim(),
       role: draft.role,
-      sucursal: draft.sucursal,
-      avatarUrl: draft.avatarUrl,
-      status: 'active',
-      createdAt: new Date().toISOString(),
+    })
+    if (error || !user) {
+      const dark =
+        typeof document !== 'undefined' &&
+        document.documentElement.classList.contains('dark')
+      void Swal.fire({
+        title: t('users.dialog.createError'),
+        icon: 'error',
+        iconColor: '#fa896b',
+        confirmButtonColor: '#5d87ff',
+        background: dark ? '#2a3547' : '#ffffff',
+        color: dark ? '#ffffff' : '#2a3547',
+        width: '360px',
+        customClass: { popup: '!rounded-lg', title: '!text-base' },
+      })
+      return
     }
-    setUsers((prev) => [newUser, ...prev])
+    setUsers((prev) => [user, ...prev])
+    setRoleFilter('all')
   }
   function updateUser(id: string, draft: DraftUser) {
     setUsers((prev) =>
       prev.map((u) =>
         u.id === id
-          ? {
-              ...u,
-              fullName: draft.fullName,
-              email: draft.email,
-              role: draft.role,
-              sucursal: draft.sucursal,
-              avatarUrl: draft.avatarUrl,
-            }
+          ? { ...u, fullName: draft.fullName, role: draft.role, sucursal: draft.sucursal, avatarUrl: draft.avatarUrl }
           : u
       )
     )
+    // Persist the DB-backed fields (name + role). Email is the auth login and
+    // isn't editable here; sucursal/avatar have no app_users columns.
+    void persistUserName(id, draft.fullName.trim())
+    void persistUserRole(id, draft.role)
     setEditingUser(null)
   }
 

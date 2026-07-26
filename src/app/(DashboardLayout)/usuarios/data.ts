@@ -3,9 +3,10 @@
 // role and active. RLS: everyone reads, only admins write — and this page is
 // AdminGate-wrapped, so the writer is always an admin.
 //
-// NOT persisted (kept local for now): create, edit, delete. Those touch the
-// Supabase Auth login account (creating/removing a user's ability to sign in),
-// which needs the Auth admin API / dashboard, not an anon-key client write.
+// Create goes through the server route /api/users/create (service_role) since
+// making an Auth login can't be done with the browser anon key. Edit persists
+// name+role; delete stays local (removing an Auth account also needs the admin
+// API — a future follow-up).
 
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 import type { AppUser, UserRole } from './mock-data'
@@ -67,6 +68,49 @@ export async function persistUserActive(
   if (!isSupabaseConfigured()) return null
   const { error } = await getSupabase().from('app_users').update({ active }).eq('id', id)
   return error ? error.message : null
+}
+
+/**
+ * Create a real user (Auth login + app_users row) via the server route. The
+ * caller's session token is forwarded so the route can verify admin rights.
+ */
+export async function createUser(fields: {
+  email: string
+  password: string
+  displayName: string
+  role: UserRole
+}): Promise<{ user: AppUser | null; error: string | null }> {
+  if (!isSupabaseConfigured()) return { user: null, error: 'not-configured' }
+  const {
+    data: { session },
+  } = await getSupabase().auth.getSession()
+  const token = session?.access_token
+  if (!token) return { user: null, error: 'no-session' }
+
+  const res = await fetch('/api/users/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(fields),
+  })
+  const json = (await res.json().catch(() => ({}))) as {
+    id?: string
+    error?: string
+  }
+  if (!res.ok || !json.id) {
+    return { user: null, error: json.error ?? `error-${res.status}` }
+  }
+  return {
+    user: {
+      id: json.id,
+      fullName: fields.displayName,
+      email: fields.email,
+      role: fields.role,
+      sucursal: null,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+    },
+    error: null,
+  }
 }
 
 /** Persist a display-name change (app_users.display_name). */
