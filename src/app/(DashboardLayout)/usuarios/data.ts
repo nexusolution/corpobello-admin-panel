@@ -123,6 +123,27 @@ export async function createUser(fields: {
   }
 }
 
+/** Delete a user (Auth account + cascaded app_users row) via the server route. */
+export async function deleteUser(id: string): Promise<string | null> {
+  if (!isSupabaseConfigured()) return 'not-configured'
+  const {
+    data: { session },
+  } = await getSupabase().auth.getSession()
+  const token = session?.access_token
+  if (!token) return 'no-session'
+
+  const res = await fetch('/api/users/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ id }),
+  })
+  if (!res.ok) {
+    const json = (await res.json().catch(() => ({}))) as { error?: string }
+    return json.error ?? `error-${res.status}`
+  }
+  return null
+}
+
 /** Persist contact fields (phone / location / branch) on a user row. Admin RLS. */
 export async function persistUserFields(
   id: string,

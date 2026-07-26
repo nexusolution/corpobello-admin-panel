@@ -17,6 +17,7 @@ import {
   persistUserRole,
   persistUserName,
   createUser as createUserApi,
+  deleteUser as deleteUserApi,
 } from './data'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
@@ -1175,6 +1176,20 @@ export function UsersTable() {
       },
     })
     if (result.isConfirmed) {
+      const err = await deleteUserApi(user.id)
+      if (err) {
+        void Swal.fire({
+          title: t('users.delete.error'),
+          icon: 'error',
+          iconColor: '#fa896b',
+          confirmButtonColor: '#5d87ff',
+          background: isDark ? '#2a3547' : '#ffffff',
+          color: isDark ? '#ffffff' : '#2a3547',
+          width: '360px',
+          customClass: { popup: '!rounded-lg', title: '!text-base' },
+        })
+        return
+      }
       setUsers((prev) => prev.filter((u) => u.id !== user.id))
     }
   }
