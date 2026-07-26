@@ -90,8 +90,9 @@ export function WelcomeBanner() {
           </div>
         </div>
 
-        {/* Right half — Today's workload (treatment chip row), anchored to top */}
-        <div className='flex-1 min-w-0 p-6 flex flex-col justify-start'>
+        {/* Right half — Today's workload (treatment chip row), vertically
+            centered to line up with the "Today at a glance" column beside it. */}
+        <div className='flex-1 min-w-0 p-6 flex flex-col justify-center'>
           <h2 className='text-lg sm:text-xl font-semibold text-dark dark:text-white mb-5'>
             {t('treatments.summary.title')}
           </h2>
