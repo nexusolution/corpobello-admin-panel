@@ -166,7 +166,7 @@ const SidebarLayout = ({
 }) => {
   const pathname = usePathname()
   const { t } = useTranslation()
-  const { name, role, loading } = useCurrentUser()
+  const { name, role, avatar, loading } = useCurrentUser()
 
   const roleLabel = t(
     role === 'admin'
@@ -264,13 +264,18 @@ const SidebarLayout = ({
                 href='/auth/login'
                 aria-label='Logout'
                 className='flex justify-center bg-lightprimary rounded-lg p-2'>
-                <Image
-                  src='/images/profile/doctor.png'
-                  alt='Perfil'
-                  width={36}
-                  height={36}
-                  className='h-9 w-9 rounded-full object-cover'
-                />
+                {avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatar} alt='Perfil' className='h-9 w-9 rounded-full object-cover' />
+                ) : (
+                  <Image
+                    src='/images/profile/doctor.png'
+                    alt='Perfil'
+                    width={36}
+                    height={36}
+                    className='h-9 w-9 rounded-full object-cover'
+                  />
+                )}
               </Link>
             </TooltipTrigger>
             <TooltipContent>Logout</TooltipContent>
@@ -278,13 +283,18 @@ const SidebarLayout = ({
         ) : (
           <div className='flex items-center justify-between gap-2 bg-lightprimary rounded-lg p-4'>
             <div className='flex items-center gap-3 overflow-hidden'>
-              <Image
-                src='/images/profile/doctor.png'
-                alt='Perfil'
-                width={40}
-                height={40}
-                className='h-10 w-10 rounded-full object-cover shrink-0'
-              />
+              {avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatar} alt='Perfil' className='h-10 w-10 rounded-full object-cover shrink-0' />
+              ) : (
+                <Image
+                  src='/images/profile/doctor.png'
+                  alt='Perfil'
+                  width={40}
+                  height={40}
+                  className='h-10 w-10 rounded-full object-cover shrink-0'
+                />
+              )}
               <div className='overflow-hidden'>
                 <h5 className='text-sm font-semibold text-charcoal dark:text-white truncate'>
                   {loading ? '…' : name || roleLabel}

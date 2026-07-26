@@ -17,12 +17,14 @@ export interface CurrentUser {
   name: string
   email: string
   role: UserRole
+  avatar: string | null
   loading: boolean
 }
 
 interface AppUserRow {
   display_name: string | null
   role: UserRole | null
+  avatar_url: string | null
 }
 
 // Reads the live Supabase session and the matching `app_users` row (role +
@@ -33,12 +35,13 @@ export function useCurrentUser(): CurrentUser {
     name: '',
     email: '',
     role: 'operador',
+    avatar: null,
     loading: true,
   })
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
-      setUser({ name: '', email: '', role: 'operador', loading: false })
+      setUser({ name: '', email: '', role: 'operador', avatar: null, loading: false })
       return
     }
 
@@ -51,13 +54,13 @@ export function useCurrentUser(): CurrentUser {
       } = await supabase.auth.getUser()
 
       if (!authUser) {
-        if (active) setUser({ name: '', email: '', role: 'operador', loading: false })
+        if (active) setUser({ name: '', email: '', role: 'operador', avatar: null, loading: false })
         return
       }
 
       const { data } = await supabase
         .from('app_users')
-        .select('display_name, role')
+        .select('display_name, role, avatar_url')
         .eq('id', authUser.id)
         .single<AppUserRow>()
 
@@ -66,7 +69,7 @@ export function useCurrentUser(): CurrentUser {
       const email = authUser.email ?? ''
       const name = data?.display_name ?? email.split('@')[0] ?? ''
       const role: UserRole = data?.role ?? 'operador'
-      setUser({ name, email, role, loading: false })
+      setUser({ name, email, role, avatar: data?.avatar_url ?? null, loading: false })
     })()
 
     return () => {

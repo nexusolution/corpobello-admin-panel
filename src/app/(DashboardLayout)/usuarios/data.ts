@@ -18,6 +18,7 @@ type AppUserRow = {
   role: UserRole | null
   active: boolean | null
   created_at: string | null
+  avatar_url: string | null
 }
 
 export type UsersResult = {
@@ -30,7 +31,7 @@ export async function fetchAppUsers(): Promise<UsersResult> {
 
   const { data, error } = await getSupabase()
     .from('app_users')
-    .select('id, email, display_name, role, active, created_at')
+    .select('id, email, display_name, role, active, created_at, avatar_url')
     .order('created_at', { ascending: true })
 
   if (error) return { data: [], error: error.message }
@@ -45,6 +46,7 @@ export async function fetchAppUsers(): Promise<UsersResult> {
     sucursal: null,
     status: row.active === false ? 'inactive' : 'active',
     createdAt: row.created_at ?? '',
+    ...(row.avatar_url ? { avatarUrl: row.avatar_url } : {}),
   }))
 
   return { data: users, error: null }
