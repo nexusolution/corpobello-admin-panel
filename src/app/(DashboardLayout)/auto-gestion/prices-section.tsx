@@ -137,17 +137,30 @@ function MassUpdateBar({
   const p = Number(percent)
   const valid = Number.isFinite(p) && p > 0
 
+  // appearance-none + explicit right padding so the custom chevron never
+  // overlaps the option text (the native arrow did).
   const selectCls =
-    'px-2.5 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+    'appearance-none w-full pl-2.5 pr-8 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+  const chevron = (
+    <Icon
+      icon='tabler:chevron-down'
+      height={14}
+      width={14}
+      className='pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-link dark:text-darklink'
+    />
+  )
 
   return (
     <div className='rounded-md border border-dashed border-border dark:border-darkborder p-3 mb-4 flex items-end gap-3 flex-wrap'>
       <div className='flex flex-col'>
         <span className='text-[10px] uppercase tracking-wide text-link dark:text-darklink mb-0.5'>{t('autoGestion.mass.direction')}</span>
-        <select value={direction} onChange={(e) => setDirection(e.target.value as Direction)} className={selectCls}>
-          <option value='increase'>{t('autoGestion.mass.increase')}</option>
-          <option value='decrease'>{t('autoGestion.mass.decrease')}</option>
-        </select>
+        <div className='relative'>
+          <select value={direction} onChange={(e) => setDirection(e.target.value as Direction)} className={selectCls}>
+            <option value='increase'>{t('autoGestion.mass.increase')}</option>
+            <option value='decrease'>{t('autoGestion.mass.decrease')}</option>
+          </select>
+          {chevron}
+        </div>
       </div>
       <div className='flex flex-col'>
         <span className='text-[10px] uppercase tracking-wide text-link dark:text-darklink mb-0.5'>{t('autoGestion.mass.percent')}</span>
@@ -163,11 +176,14 @@ function MassUpdateBar({
       </div>
       <div className='flex flex-col'>
         <span className='text-[10px] uppercase tracking-wide text-link dark:text-darklink mb-0.5'>{t('autoGestion.mass.rounding')}</span>
-        <select value={rounding} onChange={(e) => setRounding(e.target.value as Rounding)} className={selectCls}>
-          <option value='up1000'>{t('autoGestion.mass.round.up1000')}</option>
-          <option value='nearest1000'>{t('autoGestion.mass.round.nearest1000')}</option>
-          <option value='none'>{t('autoGestion.mass.round.none')}</option>
-        </select>
+        <div className='relative'>
+          <select value={rounding} onChange={(e) => setRounding(e.target.value as Rounding)} className={selectCls}>
+            <option value='up1000'>{t('autoGestion.mass.round.up1000')}</option>
+            <option value='nearest1000'>{t('autoGestion.mass.round.nearest1000')}</option>
+            <option value='none'>{t('autoGestion.mass.round.none')}</option>
+          </select>
+          {chevron}
+        </div>
       </div>
       <button
         type='button'
