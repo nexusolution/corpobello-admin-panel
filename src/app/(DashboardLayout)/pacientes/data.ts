@@ -85,6 +85,7 @@ export async function createPatient(fields: {
   fullName: string
   phone: string
   email: string
+  dni?: string
   sucursal: string | null
 }): Promise<{ patient: Patient | null; error: string | null }> {
   if (!isSupabaseConfigured()) return { patient: null, error: 'not-configured' }
@@ -94,6 +95,7 @@ export async function createPatient(fields: {
       full_name: fields.fullName,
       whatsapp_phone: fields.phone.trim() || null,
       email: fields.email.trim() || null,
+      dni: fields.dni?.trim() || null,
       sucursal: fields.sucursal,
       status: 'nuevo',
     })
@@ -156,6 +158,7 @@ export type PatientContact = {
   id: string
   fullName: string
   email: string
+  dni: string
   phone: string
   sucursal: string | null
   status: PatientStatus
@@ -214,7 +217,7 @@ export async function fetchPatientDetail(
     supabase
       .from('patients')
       .select(
-        'id, full_name, whatsapp_phone, email, sucursal, status, created_at, treatments:current_treatment_id (display_name)',
+        'id, full_name, whatsapp_phone, email, dni, sucursal, status, created_at, treatments:current_treatment_id (display_name)',
       )
       .eq('id', id)
       .maybeSingle(),
@@ -292,6 +295,7 @@ export async function fetchPatientDetail(
     id: p.id,
     fullName: p.full_name?.trim() || p.whatsapp_phone || 'Sin nombre',
     email: p.email ?? '',
+    dni: p.dni ?? '',
     phone: p.whatsapp_phone ?? '',
     sucursal: normalizeSucursal(p.sucursal),
     status: mapStatus(p.status),
@@ -373,15 +377,19 @@ export async function deletePatient(id: string): Promise<string | null> {
   return null
 }
 
-/** Persist editable contact fields (name + email) on the patient row. */
+/** Persist editable contact fields (name + email + DNI) on the patient row. */
 export async function updatePatientContact(
   id: string,
-  fields: { fullName: string; email: string },
+  fields: { fullName: string; email: string; dni?: string },
 ): Promise<string | null> {
   if (!isSupabaseConfigured()) return null
   const { error } = await getSupabase()
     .from('patients')
-    .update({ full_name: fields.fullName, email: fields.email || null })
+    .update({
+      full_name: fields.fullName,
+      email: fields.email || null,
+      ...(fields.dni !== undefined && { dni: fields.dni.trim() || null }),
+    })
     .eq('id', id)
   return error ? error.message : null
 }

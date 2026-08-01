@@ -124,7 +124,7 @@ function ContactTab({
   locale,
 }: {
   detail: PatientDetailData
-  onSaved: (fullName: string, email: string) => void
+  onSaved: (fullName: string, email: string, dni: string) => void
   t: TFn
   locale: string
 }) {
@@ -132,19 +132,25 @@ function ContactTab({
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(c.fullName)
   const [email, setEmail] = useState(c.email)
+  const [dni, setDni] = useState(c.dni)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     setName(c.fullName)
     setEmail(c.email)
-  }, [c.fullName, c.email])
+    setDni(c.dni)
+  }, [c.fullName, c.email, c.dni])
 
   async function handleSave() {
     setSaving(true)
-    await updatePatientContact(c.id, { fullName: name.trim(), email: email.trim() })
+    await updatePatientContact(c.id, {
+      fullName: name.trim(),
+      email: email.trim(),
+      dni: dni.trim(),
+    })
     setSaving(false)
     setEditing(false)
-    onSaved(name.trim(), email.trim())
+    onSaved(name.trim(), email.trim(), dni.trim())
   }
 
   const rows: { label: string; value: string; editable?: boolean }[] = [
@@ -170,7 +176,7 @@ function ContactTab({
           <div className='flex items-center gap-2'>
             <button
               type='button'
-              onClick={() => { setEditing(false); setName(c.fullName); setEmail(c.email) }}
+              onClick={() => { setEditing(false); setName(c.fullName); setEmail(c.email); setDni(c.dni) }}
               className='px-3 py-1.5 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 transition-colors'>
               {t('patientDetail.contact.cancel')}
             </button>
@@ -210,6 +216,19 @@ function ContactTab({
             />
           ) : (
             <p className='text-dark dark:text-white'>{c.email || '—'}</p>
+          )}
+        </div>
+        <div>
+          <p className='text-xs text-link dark:text-darklink mb-1'>{t('patientDetail.contact.dni')}</p>
+          {editing ? (
+            <input
+              value={dni}
+              onChange={(e) => setDni(e.target.value)}
+              placeholder={t('patientDetail.contact.dniPlaceholder')}
+              className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+            />
+          ) : (
+            <p className='text-dark dark:text-white'>{c.dni || '—'}</p>
           )}
         </div>
         {rows.map((r) => (
@@ -532,8 +551,8 @@ export function PatientDetail({ id }: { id: string }) {
   }
   if (!detail) return <NotFoundState t={t} />
 
-  function handleContactSaved(fullName: string, email: string) {
-    setDetail((prev) => (prev ? { ...prev, contact: { ...prev.contact, fullName, email } } : prev))
+  function handleContactSaved(fullName: string, email: string, dni: string) {
+    setDetail((prev) => (prev ? { ...prev, contact: { ...prev.contact, fullName, email, dni } } : prev))
   }
   function handleNoteAdded(note: PatientNote) {
     setDetail((prev) => (prev ? { ...prev, notes: [note, ...prev.notes] } : prev))

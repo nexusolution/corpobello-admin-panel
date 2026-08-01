@@ -250,6 +250,7 @@ function NewPatientDialog({
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
+  const [dni, setDni] = useState('')
   const [sucursal, setSucursal] = useState<Sucursal | ''>('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(false)
@@ -259,6 +260,7 @@ function NewPatientDialog({
       setFullName('')
       setPhone('')
       setEmail('')
+      setDni('')
       setSucursal('')
       setError(false)
     }
@@ -274,6 +276,7 @@ function NewPatientDialog({
       fullName: fullName.trim(),
       phone: phone.trim(),
       email: email.trim(),
+      dni: dni.trim(),
       sucursal: sucursal || null,
     })
     setSaving(false)
@@ -332,16 +335,28 @@ function NewPatientDialog({
               </select>
             </div>
           </div>
-          <div>
-            <Label htmlFor='np-email' className='font-medium mb-1.5 block'>{t('pacientes.newDialog.email')}</Label>
-            <input
-              id='np-email'
-              type='email'
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder='email@ejemplo.com'
-              className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
-            />
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+            <div>
+              <Label htmlFor='np-email' className='font-medium mb-1.5 block'>{t('pacientes.newDialog.email')}</Label>
+              <input
+                id='np-email'
+                type='email'
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder='email@ejemplo.com'
+                className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+              />
+            </div>
+            <div>
+              <Label htmlFor='np-dni' className='font-medium mb-1.5 block'>{t('pacientes.newDialog.dni')}</Label>
+              <input
+                id='np-dni'
+                value={dni}
+                onChange={(e) => setDni(e.target.value)}
+                placeholder='12345678'
+                className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+              />
+            </div>
           </div>
           {error && <p className='text-xs text-error'>{t('pacientes.newDialog.error')}</p>}
           <div className='flex items-center justify-end gap-3 pt-1'>
