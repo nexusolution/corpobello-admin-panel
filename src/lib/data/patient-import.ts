@@ -66,13 +66,20 @@ export function parseCsv(text: string): string[][] {
 
 // ---------- Field mapping ----------
 
-export type TargetField = 'firstName' | 'lastName' | 'phone' | 'email' | 'sucursal'
+export type TargetField =
+  | 'firstName'
+  | 'lastName'
+  | 'phone'
+  | 'email'
+  | 'dni'
+  | 'sucursal'
 
 export const TARGET_FIELDS: TargetField[] = [
   'firstName',
   'lastName',
   'phone',
   'email',
+  'dni',
   'sucursal',
 ]
 
@@ -82,6 +89,7 @@ const HEADER_HINTS: Record<TargetField, string[]> = {
   lastName: ['apellido', 'last', 'surname'],
   phone: ['tel', 'phone', 'celular', 'whatsapp', 'movil', 'móvil'],
   email: ['email', 'mail', 'correo'],
+  dni: ['dni', 'documento', 'cuil', 'cuit'],
   sucursal: ['sucursal', 'branch', 'sede'],
 }
 
@@ -109,6 +117,7 @@ export type ParsedPatient = {
   phone: string
   phoneDigits: string
   email: string
+  dni: string
   sucursal: string | null
   status: 'new' | 'duplicate' | 'invalid'
 }
@@ -129,6 +138,7 @@ export function buildRecords(
     const phone = at(row, mapping.phone)
     const phoneDigits = digitsOf(phone)
     const email = at(row, mapping.email)
+    const dni = at(row, mapping.dni)
     const sucursal = normalizeSucursal(at(row, mapping.sucursal))
 
     let status: ParsedPatient['status'] = 'new'
@@ -141,7 +151,7 @@ export function buildRecords(
       seen.add(phoneDigits)
     }
 
-    return { fullName, phone, phoneDigits, email, sucursal, status }
+    return { fullName, phone, phoneDigits, email, dni, sucursal, status }
   })
 }
 
@@ -162,7 +172,16 @@ export async function fetchExistingPhoneDigits(): Promise<Set<string>> {
   return set
 }
 
-/** Insert the new (non-duplicate, valid) records. Returns count + error. */
+// Insert in chunks so a large export (e.g. 4k+ AgendaPro rows) doesn't blow the
+// PostgREST payload/statement-timeout limits of a single request.
+const INSERT_BATCH_SIZE = 500
+
+/**
+ * Insert the new (non-duplicate, valid) records in batches. Returns the count
+ * actually inserted plus the first error (if any). A failing batch stops the
+ * run but the already-inserted batches persist — the count reflects that, and
+ * re-running skips them via phone dedup.
+ */
 export async function importPatients(
   records: ParsedPatient[],
 ): Promise<{ inserted: number; error: string | null }> {
@@ -174,9 +193,18 @@ export async function importPatients(
     full_name: r.fullName,
     whatsapp_phone: r.phone.trim() || null,
     email: r.email || null,
+    dni: r.dni.trim() || null,
     sucursal: r.sucursal,
     status: 'nuevo',
   }))
-  const { error } = await getSupabase().from('patients').insert(payload)
-  return { inserted: error ? 0 : toInsert.length, error: error ? error.message : null }
+
+  const supabase = getSupabase()
+  let inserted = 0
+  for (let i = 0; i < payload.length; i += INSERT_BATCH_SIZE) {
+    const chunk = payload.slice(i, i + INSERT_BATCH_SIZE)
+    const { error } = await supabase.from('patients').insert(chunk)
+    if (error) return { inserted, error: error.message }
+    inserted += chunk.length
+  }
+  return { inserted, error: null }
 }

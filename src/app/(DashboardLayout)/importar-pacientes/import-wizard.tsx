@@ -25,6 +25,7 @@ const FIELD_LABEL: Record<TargetField, TranslationKey> = {
   lastName: 'import.field.lastName',
   phone: 'import.field.phone',
   email: 'import.field.email',
+  dni: 'import.field.dni',
   sucursal: 'import.field.sucursal',
 }
 
@@ -224,6 +225,7 @@ export function ImportWizard({
                 <tr className='text-link dark:text-darklink text-xs'>
                   <th className='py-2 px-3 text-left font-semibold'>{t('import.col.name')}</th>
                   <th className='py-2 px-3 text-left font-semibold'>{t('import.col.phone')}</th>
+                  <th className='py-2 px-3 text-left font-semibold'>{t('import.col.dni')}</th>
                   <th className='py-2 px-3 text-left font-semibold'>{t('import.col.email')}</th>
                   <th className='py-2 px-3 text-left font-semibold'>{t('import.col.status')}</th>
                 </tr>
@@ -235,6 +237,7 @@ export function ImportWizard({
                     <tr key={i} className='border-t border-border dark:border-darkborder'>
                       <td className='py-2 px-3 text-dark dark:text-white'>{r.fullName || '—'}</td>
                       <td className='py-2 px-3 text-link dark:text-darklink'>{r.phone || '—'}</td>
+                      <td className='py-2 px-3 text-link dark:text-darklink'>{r.dni || '—'}</td>
                       <td className='py-2 px-3 text-link dark:text-darklink truncate max-w-[180px]'>{r.email || '—'}</td>
                       <td className='py-2 px-3'>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${s.cls}`}>{t(s.key)}</span>
