@@ -6,14 +6,14 @@ import { Icon } from '@iconify/react'
 import {
   TATTOO_DEFAULT,
   LASER_DEFAULT,
-  type TattooRulesJson,
-  type LaserRulesJson,
   type LaserZoneEntry,
 } from '@/lib/data/quoting-defaults'
 import {
   fetchQuotingConfig,
   saveTattooConfig,
   saveLaserConfig,
+  type TattooRulesConfig,
+  type LaserRulesConfig,
 } from '@/lib/data/quoting-config'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
@@ -51,6 +51,50 @@ function Field({
         <input
           type='number'
           step={step}
+          value={Number.isFinite(value) ? value : ''}
+          onChange={(e) => onChange(parseFloat(e.target.value))}
+          className='w-full rounded-md border border-border dark:border-darkborder bg-background px-3 py-2 text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+        />
+        {suffix && <span className='text-sm text-link dark:text-darklink shrink-0'>{suffix}</span>}
+      </div>
+      {hint && <span className='text-[10px] text-link dark:text-darklink'>{hint}</span>}
+    </label>
+  )
+}
+
+// Like Field, but the label itself is an editable text input so the clinic can
+// rename the rule ("Recargo por Colores", "Ajuste por Rostro", …). The name is
+// panel-only (patients never see it) and stored in config.labels.
+function NamedField({
+  defaultLabel,
+  name,
+  onNameChange,
+  value,
+  onChange,
+  suffix,
+  hint,
+  renameHint,
+}: {
+  defaultLabel: string
+  name: string | undefined
+  onNameChange: (v: string) => void
+  value: number
+  onChange: (v: number) => void
+  suffix?: string
+  hint?: string
+  renameHint: string
+}) {
+  return (
+    <label className='block'>
+      <input
+        value={name ?? defaultLabel}
+        onChange={(e) => onNameChange(e.target.value)}
+        title={renameHint}
+        className='text-xs font-medium text-dark dark:text-white bg-transparent w-full border-b border-dashed border-transparent hover:border-border dark:hover:border-darkborder focus:border-primary focus:outline-none transition-colors'
+      />
+      <div className='mt-1 flex items-center gap-1.5'>
+        <input
+          type='number'
           value={Number.isFinite(value) ? value : ''}
           onChange={(e) => onChange(parseFloat(e.target.value))}
           className='w-full rounded-md border border-border dark:border-darkborder bg-background px-3 py-2 text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
@@ -123,8 +167,8 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 
 // ── Tattoo editor ─────────────────────────────────────────────────────────
 function TattooEditor({ t }: { t: TFn }) {
-  const [base, setBase] = useState<TattooRulesJson>(TATTOO_DEFAULT)
-  const [draft, setDraft] = useState<TattooRulesJson>(TATTOO_DEFAULT)
+  const [base, setBase] = useState<TattooRulesConfig>(TATTOO_DEFAULT)
+  const [draft, setDraft] = useState<TattooRulesConfig>(TATTOO_DEFAULT)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -132,7 +176,7 @@ function TattooEditor({ t }: { t: TFn }) {
 
   useEffect(() => {
     let active = true
-    void fetchQuotingConfig<TattooRulesJson>('tattoo').then(({ config }) => {
+    void fetchQuotingConfig<TattooRulesConfig>('tattoo').then(({ config }) => {
       if (!active) return
       const eff = config ?? TATTOO_DEFAULT
       setBase(eff)
@@ -149,9 +193,15 @@ function TattooEditor({ t }: { t: TFn }) {
     [draft, base],
   )
 
-  function patch(p: Partial<TattooRulesJson>) {
+  function patch(p: Partial<TattooRulesConfig>) {
     setDraft((d) => ({ ...d, ...p }))
   }
+
+  // Custom rule name helpers (config.labels, panel-only).
+  const nm = (k: string) => draft.labels?.[k]
+  const setNm = (k: string, v: string) =>
+    patch({ labels: { ...(draft.labels ?? {}), [k]: v } })
+  const renameHint = t('autoGestion.cotizadores.renameHint')
 
   async function save() {
     // Bands must be positive and non-empty (the bot rejects otherwise).
@@ -163,7 +213,7 @@ function TattooEditor({ t }: { t: TFn }) {
       setTimeout(() => setError(false), 1800)
       return
     }
-    const payload: TattooRulesJson = { ...draft, bands: cleanBands }
+    const payload: TattooRulesConfig = { ...draft, bands: cleanBands }
     setSaving(true)
     setError(false)
     const err = await saveTattooConfig(payload)
@@ -241,9 +291,13 @@ function TattooEditor({ t }: { t: TFn }) {
 
       {/* Adjustments (% surcharges over the base) */}
       <Card title={t('autoGestion.cotizadores.tattoo.adjustments')}>
+        <p className='text-[11px] text-link dark:text-darklink mb-2'>{t('autoGestion.cotizadores.renameNote')}</p>
         <div className='grid grid-cols-2 sm:grid-cols-3 gap-3'>
-          <Field
-            label={t('autoGestion.cotizadores.tattoo.lineal')}
+          <NamedField
+            defaultLabel={t('autoGestion.cotizadores.tattoo.lineal')}
+            name={nm('lineal')}
+            onNameChange={(v) => setNm('lineal', v)}
+            renameHint={renameHint}
             hint={t('autoGestion.cotizadores.tattoo.linealHint', { n: String(draft.linealMinLargoCm) })}
             value={mulToPct(draft.tipoMultiplier.lineal)}
             suffix='%'
@@ -255,38 +309,56 @@ function TattooEditor({ t }: { t: TFn }) {
             suffix='cm'
             onChange={(v) => patch({ linealMinLargoCm: v })}
           />
-          <Field
-            label={t('autoGestion.cotizadores.tattoo.rostro')}
+          <NamedField
+            defaultLabel={t('autoGestion.cotizadores.tattoo.rostro')}
+            name={nm('rostro')}
+            onNameChange={(v) => setNm('rostro', v)}
+            renameHint={renameHint}
             value={mulToPct(draft.ubicacionMultiplier.rostro)}
             suffix='%'
             onChange={(v) => patch({ ubicacionMultiplier: { ...draft.ubicacionMultiplier, rostro: pctToMul(v) } })}
           />
-          <Field
-            label={t('autoGestion.cotizadores.tattoo.dosColores')}
+          <NamedField
+            defaultLabel={t('autoGestion.cotizadores.tattoo.dosColores')}
+            name={nm('dos_colores')}
+            onNameChange={(v) => setNm('dos_colores', v)}
+            renameHint={renameHint}
             value={mulToPct(draft.colorMultiplier.dos_colores)}
             suffix='%'
             onChange={(v) => patch({ colorMultiplier: { ...draft.colorMultiplier, dos_colores: pctToMul(v) } })}
           />
-          <Field
-            label={t('autoGestion.cotizadores.tattoo.multicolor')}
+          <NamedField
+            defaultLabel={t('autoGestion.cotizadores.tattoo.multicolor')}
+            name={nm('multicolor')}
+            onNameChange={(v) => setNm('multicolor', v)}
+            renameHint={renameHint}
             value={mulToPct(draft.colorMultiplier.multicolor)}
             suffix='%'
             onChange={(v) => patch({ colorMultiplier: { ...draft.colorMultiplier, multicolor: pctToMul(v) } })}
           />
-          <Field
-            label={t('autoGestion.cotizadores.tattoo.verdesAzules')}
+          <NamedField
+            defaultLabel={t('autoGestion.cotizadores.tattoo.verdesAzules')}
+            name={nm('verdes_azules')}
+            onNameChange={(v) => setNm('verdes_azules', v)}
+            renameHint={renameHint}
             value={mulToPct(draft.colorMultiplier.verdes_azules)}
             suffix='%'
             onChange={(v) => patch({ colorMultiplier: { ...draft.colorMultiplier, verdes_azules: pctToMul(v) } })}
           />
-          <Field
-            label={t('autoGestion.cotizadores.tattoo.prevSessions')}
+          <NamedField
+            defaultLabel={t('autoGestion.cotizadores.tattoo.prevSessions')}
+            name={nm('prevSessions')}
+            onNameChange={(v) => setNm('prevSessions', v)}
+            renameHint={renameHint}
             value={fracToPct(draft.prevSessionsRecargo)}
             suffix='%'
             onChange={(v) => patch({ prevSessionsRecargo: pctToFrac(v) })}
           />
-          <Field
-            label={t('autoGestion.cotizadores.tattoo.allergy')}
+          <NamedField
+            defaultLabel={t('autoGestion.cotizadores.tattoo.allergy')}
+            name={nm('allergy')}
+            onNameChange={(v) => setNm('allergy', v)}
+            renameHint={renameHint}
             value={fracToPct(draft.alergiaRecargo)}
             suffix='%'
             onChange={(v) => patch({ alergiaRecargo: pctToFrac(v) })}
@@ -297,20 +369,29 @@ function TattooEditor({ t }: { t: TFn }) {
       {/* Discounts */}
       <Card title={t('autoGestion.cotizadores.tattoo.discounts')}>
         <div className='grid grid-cols-2 sm:grid-cols-3 gap-3'>
-          <Field
-            label={t('autoGestion.cotizadores.tattoo.multi23')}
+          <NamedField
+            defaultLabel={t('autoGestion.cotizadores.tattoo.multi23')}
+            name={nm('multi23')}
+            onNameChange={(v) => setNm('multi23', v)}
+            renameHint={renameHint}
             value={fracToPct(draft.multiTatuajeDiscount)}
             suffix='%'
             onChange={(v) => patch({ multiTatuajeDiscount: pctToFrac(v) })}
           />
-          <Field
-            label={t('autoGestion.cotizadores.tattoo.multi4')}
+          <NamedField
+            defaultLabel={t('autoGestion.cotizadores.tattoo.multi4')}
+            name={nm('multi4')}
+            onNameChange={(v) => setNm('multi4', v)}
+            renameHint={renameHint}
             value={fracToPct(draft.multiTatuajeDiscount4plus)}
             suffix='%'
             onChange={(v) => patch({ multiTatuajeDiscount4plus: pctToFrac(v) })}
           />
-          <Field
-            label={t('autoGestion.cotizadores.efectivo')}
+          <NamedField
+            defaultLabel={t('autoGestion.cotizadores.efectivo')}
+            name={nm('efectivo')}
+            onNameChange={(v) => setNm('efectivo', v)}
+            renameHint={renameHint}
             value={fracToPct(draft.efectivoDiscount)}
             suffix='%'
             onChange={(v) => patch({ efectivoDiscount: pctToFrac(v) })}
@@ -333,8 +414,8 @@ function TattooEditor({ t }: { t: TFn }) {
 
 // ── Láser editor ────────────────────────────────────────────────────────
 function LaserEditor({ t }: { t: TFn }) {
-  const [base, setBase] = useState<LaserRulesJson>(LASER_DEFAULT)
-  const [draft, setDraft] = useState<LaserRulesJson>(LASER_DEFAULT)
+  const [base, setBase] = useState<LaserRulesConfig>(LASER_DEFAULT)
+  const [draft, setDraft] = useState<LaserRulesConfig>(LASER_DEFAULT)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -343,7 +424,7 @@ function LaserEditor({ t }: { t: TFn }) {
 
   useEffect(() => {
     let active = true
-    void fetchQuotingConfig<LaserRulesJson>('laser').then(({ config }) => {
+    void fetchQuotingConfig<LaserRulesConfig>('laser').then(({ config }) => {
       if (!active) return
       const eff = config ?? LASER_DEFAULT
       setBase(eff)

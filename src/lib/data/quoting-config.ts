@@ -10,6 +10,14 @@ import type { TattooRulesJson, LaserRulesJson } from '@/lib/data/quoting-default
 
 type Engine = 'tattoo' | 'laser'
 
+// Optional panel-only custom names for each cotizador rule ("Recargo por
+// Colores", "Ajuste por Rostro", …), keyed by rule id. Stored inside the same
+// config JSON; the bot's Zod parse strips it, so it never affects pricing —
+// it's purely so the clinic can rename rules for easy identification.
+export type RuleLabels = Record<string, string>
+export type TattooRulesConfig = TattooRulesJson & { labels?: RuleLabels }
+export type LaserRulesConfig = LaserRulesJson & { labels?: RuleLabels }
+
 export async function fetchQuotingConfig<T>(
   engine: Engine,
 ): Promise<{ config: T | null; error: string | null }> {
@@ -24,20 +32,20 @@ export async function fetchQuotingConfig<T>(
 }
 
 export async function saveTattooConfig(
-  config: TattooRulesJson,
+  config: TattooRulesConfig,
 ): Promise<string | null> {
   return saveQuotingConfig('tattoo', config)
 }
 
 export async function saveLaserConfig(
-  config: LaserRulesJson,
+  config: LaserRulesConfig,
 ): Promise<string | null> {
   return saveQuotingConfig('laser', config)
 }
 
 async function saveQuotingConfig(
   engine: Engine,
-  config: TattooRulesJson | LaserRulesJson,
+  config: TattooRulesConfig | LaserRulesConfig,
 ): Promise<string | null> {
   if (!isSupabaseConfigured()) return null
   const { error } = await getSupabase().from('quoting_config').upsert(
