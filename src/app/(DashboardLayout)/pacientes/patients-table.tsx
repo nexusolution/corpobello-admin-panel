@@ -783,15 +783,16 @@ export function PatientsTable() {
             />
             {t('pacientes.selectAll')}
           </label>
-          {selectedInFilter > 0 && (
-            <button
-              type='button'
-              onClick={handleBulkDelete}
-              className='inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-error text-white text-sm font-medium hover:bg-error/90 transition-colors'>
-              <Icon icon='solar:trash-bin-trash-line-duotone' height={15} width={15} />
-              {t('pacientes.deleteSelected', { n: String(selectedInFilter) })}
-            </button>
-          )}
+          <button
+            type='button'
+            onClick={handleBulkDelete}
+            disabled={selectedInFilter === 0}
+            className='inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-error text-white text-sm font-medium hover:bg-error/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors'>
+            <Icon icon='solar:trash-bin-trash-line-duotone' height={15} width={15} />
+            {selectedInFilter > 0
+              ? t('pacientes.deleteSelected', { n: String(selectedInFilter) })
+              : t('pacientes.deleteSelectedEmpty')}
+          </button>
         </div>
       </div>
 
