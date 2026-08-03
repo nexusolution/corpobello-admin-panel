@@ -377,6 +377,33 @@ export async function deletePatient(id: string): Promise<string | null> {
   return null
 }
 
+/**
+ * Bulk-delete patients (admin-only, RLS). Chunked `.in()` deletes so a big
+ * selection doesn't exceed URL/statement limits; `.select()` returns the rows
+ * actually removed so we can report the real count (an RLS no-op deletes 0).
+ * Returns the number deleted + the first error, if any.
+ */
+export async function deletePatients(
+  ids: string[],
+): Promise<{ deleted: number; error: string | null }> {
+  if (ids.length === 0) return { deleted: 0, error: null }
+  if (!isSupabaseConfigured()) return { deleted: 0, error: null }
+  const supabase = getSupabase()
+  const CHUNK = 200
+  let deleted = 0
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK)
+    const { data, error } = await supabase
+      .from('patients')
+      .delete()
+      .in('id', chunk)
+      .select('id')
+    if (error) return { deleted, error: error.message }
+    deleted += (data as { id: string }[] | null)?.length ?? 0
+  }
+  return { deleted, error: null }
+}
+
 /** Persist editable contact fields (name + email + DNI) on the patient row. */
 export async function updatePatientContact(
   id: string,

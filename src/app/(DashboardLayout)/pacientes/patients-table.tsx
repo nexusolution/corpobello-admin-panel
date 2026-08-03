@@ -11,7 +11,7 @@ import {
   type PatientStatus,
   type Sucursal,
 } from './mock-data'
-import { fetchPatients, createPatient, updatePatient, deletePatient } from './data'
+import { fetchPatients, createPatient, updatePatient, deletePatient, deletePatients } from './data'
 import { ImportWizard } from '../importar-pacientes/import-wizard'
 import {
   Dialog,
@@ -125,6 +125,37 @@ function showDeleteErrorAlert(t: TFn) {
       popup: '!rounded-lg',
     },
   })
+}
+
+async function confirmBulkDeletePatients(count: number, t: TFn): Promise<boolean> {
+  const isDark = isDarkMode()
+  const result = await Swal.fire({
+    title: t('pacientes.bulkDelete.title'),
+    text: t('pacientes.bulkDelete.body', { n: String(count) }),
+    icon: 'warning',
+    iconColor: '#ef4444',
+    iconHtml:
+      '<span style="font-size:30px;line-height:1;color:#ef4444;font-weight:700;">!</span>',
+    showCancelButton: true,
+    confirmButtonText: t('pacientes.bulkDelete.yes', { n: String(count) }),
+    cancelButtonText: t('pacientes.deleteConfirm.no'),
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: isDark ? '#3f4a5d' : '#e5e7eb',
+    background: isDark ? '#2a3547' : '#ffffff',
+    color: isDark ? '#ffffff' : '#2a3547',
+    width: '380px',
+    padding: '1.5rem 1rem',
+    customClass: {
+      title: '!text-base !font-semibold !pb-0 !mt-3',
+      htmlContainer: '!text-sm !mt-2',
+      icon: '!w-12 !h-12 !mt-2 !mb-2',
+      actions: '!gap-2 !mt-5',
+      confirmButton: '!text-sm !px-4 !py-1.5 !rounded-md',
+      cancelButton: `!text-sm !px-4 !py-1.5 !rounded-md ${isDark ? '!text-white' : '!text-dark'}`,
+      popup: '!rounded-lg',
+    },
+  })
+  return result.isConfirmed
 }
 
 // ---------- Helpers ----------
@@ -622,6 +653,43 @@ export function PatientsTable() {
     })
   }
 
+  // Select-all applies to every row matching the current filters/search (across
+  // pages), not just the visible page.
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((p) => selected.has(p.id))
+  const selectedInFilter = filtered.filter((p) => selected.has(p.id)).length
+
+  function toggleSelectAllFiltered() {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (allFilteredSelected) {
+        filtered.forEach((p) => next.delete(p.id))
+      } else {
+        filtered.forEach((p) => next.add(p.id))
+      }
+      return next
+    })
+  }
+
+  async function handleBulkDelete() {
+    const ids = filtered.filter((p) => selected.has(p.id)).map((p) => p.id)
+    if (ids.length === 0) return
+    const ok = await confirmBulkDeletePatients(ids.length, t)
+    if (!ok) return
+    const { deleted, error } = await deletePatients(ids)
+    if (error || deleted === 0) {
+      showDeleteErrorAlert(t)
+      if (deleted === 0) return
+    }
+    const removed = new Set(ids.slice(0, deleted))
+    setPatients((prev) => prev.filter((x) => !removed.has(x.id)))
+    setSelected((prev) => {
+      const next = new Set(prev)
+      removed.forEach((id) => next.delete(id))
+      return next
+    })
+  }
+
   // Filter tabs config
   const tabs: { value: StatusFilter; labelKey: TranslationKey; count: number; activeClass: string; badgeClass: string }[] = [
     { value: 'all', labelKey: 'pacientes.filter.all', count: counts.all, activeClass: 'bg-lightprimary text-primary', badgeClass: 'bg-lightprimary text-primary' },
@@ -704,6 +772,27 @@ export function PatientsTable() {
           <Icon icon='solar:clock-circle-line-duotone' height={14} width={14} />
           {t('pacientes.filter.lastVisit')}
         </button>
+
+        {/* Bulk actions — select every filtered row (across pages) + delete. */}
+        <div className='flex items-center gap-2 sm:ml-auto'>
+          <label className='inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border dark:border-darkborder text-sm text-dark dark:text-white cursor-pointer select-none hover:border-primary transition-colors'>
+            <Checkbox
+              checked={allFilteredSelected}
+              onCheckedChange={toggleSelectAllFiltered}
+              aria-label={t('pacientes.selectAll')}
+            />
+            {t('pacientes.selectAll')}
+          </label>
+          {selectedInFilter > 0 && (
+            <button
+              type='button'
+              onClick={handleBulkDelete}
+              className='inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-error text-white text-sm font-medium hover:bg-error/90 transition-colors'>
+              <Icon icon='solar:trash-bin-trash-line-duotone' height={15} width={15} />
+              {t('pacientes.deleteSelected', { n: String(selectedInFilter) })}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table */}
