@@ -653,23 +653,7 @@ export function PatientsTable() {
     })
   }
 
-  // Select-all applies to every row matching the current filters/search (across
-  // pages), not just the visible page.
-  const allFilteredSelected =
-    filtered.length > 0 && filtered.every((p) => selected.has(p.id))
   const selectedInFilter = filtered.filter((p) => selected.has(p.id)).length
-
-  function toggleSelectAllFiltered() {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (allFilteredSelected) {
-        filtered.forEach((p) => next.delete(p.id))
-      } else {
-        filtered.forEach((p) => next.add(p.id))
-      }
-      return next
-    })
-  }
 
   async function handleBulkDelete() {
     const ids = filtered.filter((p) => selected.has(p.id)).map((p) => p.id)
@@ -677,17 +661,15 @@ export function PatientsTable() {
     const ok = await confirmBulkDeletePatients(ids.length, t)
     if (!ok) return
     const { deleted, error } = await deletePatients(ids)
-    if (error || deleted === 0) {
+    // Re-sync from the DB so the table always reflects what actually persisted
+    // — never an optimistic "cleared" state that reappears on refresh. If the
+    // delete was rejected (e.g. RLS: the user isn't an admin), the rows come
+    // straight back and we surface the error, instead of faking success.
+    reloadPatients()
+    setSelected(new Set())
+    if (error || deleted < ids.length) {
       showDeleteErrorAlert(t)
-      if (deleted === 0) return
     }
-    const removed = new Set(ids.slice(0, deleted))
-    setPatients((prev) => prev.filter((x) => !removed.has(x.id)))
-    setSelected((prev) => {
-      const next = new Set(prev)
-      removed.forEach((id) => next.delete(id))
-      return next
-    })
   }
 
   // Filter tabs config
@@ -773,16 +755,8 @@ export function PatientsTable() {
           {t('pacientes.filter.lastVisit')}
         </button>
 
-        {/* Bulk actions — select every filtered row (across pages) + delete. */}
+        {/* Bulk delete — acts on the rows selected via the row/header checkboxes. */}
         <div className='flex items-center gap-2 sm:ml-auto'>
-          <label className='inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border dark:border-darkborder text-sm text-dark dark:text-white cursor-pointer select-none hover:border-primary transition-colors'>
-            <Checkbox
-              checked={allFilteredSelected}
-              onCheckedChange={toggleSelectAllFiltered}
-              aria-label={t('pacientes.selectAll')}
-            />
-            {t('pacientes.selectAll')}
-          </label>
           <button
             type='button'
             onClick={handleBulkDelete}
