@@ -30,16 +30,15 @@ export function RoleDashboard() {
   const view = loading ? 'admin' : role
 
   if (view === 'profesional') {
+    // Clinical view only — no clinic-wide economic/admin banner (Andrés' rule:
+    // the Profesional sees no información económica ni administrativa).
     return (
       <div className='grid grid-cols-12 gap-6'>
         <div className='col-span-12'>
           <DashboardGreeting />
         </div>
-        <div className='col-span-12 lg:col-span-8'>
+        <div className='col-span-12'>
           <AgendaDay />
-        </div>
-        <div className='col-span-12 lg:col-span-4'>
-          <WelcomeBanner />
         </div>
         <div className='col-span-12'>
           <TasksAttention />
@@ -63,8 +62,9 @@ export function RoleDashboard() {
         <div className='col-span-12'>
           <TopCards />
         </div>
+        {/* Front-desk view: no facturación (income/charges hidden). */}
         <div className='col-span-12 lg:col-span-8'>
-          <WelcomeBanner />
+          <WelcomeBanner showFinancials={false} />
         </div>
         <div className='col-span-12 lg:col-span-4'>
           <QuickAccess />

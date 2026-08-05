@@ -29,7 +29,14 @@ const TODAYS_LOAD: Record<string, number> = {
   facial: 0,
 }
 
-export function WelcomeBanner() {
+// showFinancials gates the economic KPIs (daily income + pending charges) so
+// non-admin roles never see clinic billing (Andrés' rule: Operador/Profesional
+// must not see facturación). Default true (admin/superset view).
+export function WelcomeBanner({
+  showFinancials = true,
+}: {
+  showFinancials?: boolean
+} = {}) {
   const { t } = useTranslation()
 
   // Only render chips for categories with at least 1 scheduled today.
@@ -63,30 +70,34 @@ export function WelcomeBanner() {
                 {t('welcome.cancellations')}
               </div>
             </div>
-            <div>
-              <div className='flex items-center gap-1.5'>
-                <span className='text-xl sm:text-2xl font-bold text-success'>
-                  $84.500
-                </span>
-                <Icon
-                  icon='tabler:arrow-up-right'
-                  height={16}
-                  width={16}
-                  className='text-success'
-                />
-              </div>
-              <div className='text-xs text-link dark:text-darklink mt-0.5'>
-                {t('welcome.dailyIncome')}
-              </div>
-            </div>
-            <div>
-              <div className='text-xl sm:text-2xl font-bold text-warning'>
-                $31.000
-              </div>
-              <div className='text-xs text-link dark:text-darklink mt-0.5'>
-                {t('welcome.pendingCharges')}
-              </div>
-            </div>
+            {showFinancials && (
+              <>
+                <div>
+                  <div className='flex items-center gap-1.5'>
+                    <span className='text-xl sm:text-2xl font-bold text-success'>
+                      $84.500
+                    </span>
+                    <Icon
+                      icon='tabler:arrow-up-right'
+                      height={16}
+                      width={16}
+                      className='text-success'
+                    />
+                  </div>
+                  <div className='text-xs text-link dark:text-darklink mt-0.5'>
+                    {t('welcome.dailyIncome')}
+                  </div>
+                </div>
+                <div>
+                  <div className='text-xl sm:text-2xl font-bold text-warning'>
+                    $31.000
+                  </div>
+                  <div className='text-xs text-link dark:text-darklink mt-0.5'>
+                    {t('welcome.pendingCharges')}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
