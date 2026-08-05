@@ -31,13 +31,14 @@ interface AppUserRow {
 // avatar on the profile page) propagates to the sidebar + header immediately,
 // with no page refresh. Backed by useSyncExternalStore.
 // ---------------------------------------------------------------------------
-let state: CurrentUser = {
+const EMPTY: CurrentUser = {
   name: '',
   email: '',
   role: 'operador',
   avatar: null,
-  loading: true,
+  loading: false,
 }
+let state: CurrentUser = { ...EMPTY, loading: true }
 let started = false
 const listeners = new Set<() => void>()
 
@@ -60,7 +61,7 @@ function setState(next: CurrentUser) {
 
 async function load() {
   if (!isSupabaseConfigured()) {
-    setState({ name: '', email: '', role: 'operador', avatar: null, loading: false })
+    setState({ ...EMPTY })
     return
   }
   const supabase = getSupabase()
@@ -68,7 +69,7 @@ async function load() {
     data: { user: authUser },
   } = await supabase.auth.getUser()
   if (!authUser) {
-    setState({ name: '', email: '', role: 'operador', avatar: null, loading: false })
+    setState({ ...EMPTY })
     return
   }
   const { data } = await supabase
@@ -92,13 +93,36 @@ export function updateCurrentAvatar(url: string | null) {
   setState({ ...state, avatar: url })
 }
 
+// Start the store once: do the initial load AND subscribe to Supabase auth
+// changes so a logout→login as a DIFFERENT user re-fetches the new identity
+// instead of keeping the previous user's role/name until a page refresh.
+// (Fixes: after logging in as profesional the admin dashboard showed until F5.)
+function ensureStarted() {
+  if (started) return
+  started = true
+  if (!isSupabaseConfigured()) {
+    setState({ ...EMPTY })
+    return
+  }
+  getSupabase().auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_OUT') {
+      setState({ ...EMPTY })
+      return
+    }
+    // SIGNED_IN / USER_UPDATED / TOKEN_REFRESHED / INITIAL_SESSION: clear the
+    // previous identity immediately, then re-fetch the current one.
+    setState({ ...EMPTY, loading: true })
+    void load()
+  })
+  // Fallback initial fetch (covers the already-signed-in refresh case even if
+  // INITIAL_SESSION isn't emitted). Idempotent with the listener.
+  void load()
+}
+
 export function useCurrentUser(): CurrentUser {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
   useEffect(() => {
-    if (!started) {
-      started = true
-      void load()
-    }
+    ensureStarted()
   }, [])
   return snapshot
 }
