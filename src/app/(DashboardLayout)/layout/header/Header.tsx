@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
+import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 
@@ -62,6 +63,11 @@ const showUnderDevelopmentAlert = (itemName: string, t: TFn) => {
 const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
   const { theme, setTheme } = useTheme()
   const { t } = useTranslation()
+  const { role, loading } = useCurrentUser()
+  // Same gate as the sidebar: hide adminOnly items (and sections that become
+  // empty) from non-admins. While the role loads we treat the user as non-admin
+  // so the admin menu never flashes on login/re-login.
+  const canSeeAdmin = !loading && role === 'admin'
   const [isSticky, setIsSticky] = useState(false)
   const [mobileMenu, setMobileMenu] = useState('')
   const [isOpen, setIsOpen] = useState(false)
@@ -150,6 +156,13 @@ const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
               {/* Section dropdowns — mirror the sidebar IA */}
               {SidebarContent.map((section) => {
                 if (!section.headingKey || !section.children) return null
+                // Role-gate: drop adminOnly children, and skip the whole
+                // section if nothing remains (mirrors the sidebar) — so an
+                // Operador/Profesional never sees Reports/Administration here.
+                const visibleChildren = section.children.filter(
+                  (child) => canSeeAdmin || !child.adminOnly,
+                )
+                if (visibleChildren.length === 0) return null
                 const sectionIcon =
                   SECTION_ICONS[section.headingKey] ??
                   'solar:widget-2-line-duotone'
@@ -165,7 +178,7 @@ const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
                     <DropdownMenuContent
                       align='start'
                       className='w-[220px] py-2 rounded-md'>
-                      {section.children.map((child) => {
+                      {visibleChildren.map((child) => {
                         const label = child.nameKey
                           ? t(child.nameKey)
                           : child.name ?? ''
