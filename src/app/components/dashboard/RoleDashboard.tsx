@@ -22,14 +22,29 @@ import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 // The card components are self-contained and still read mock data; this only
 // changes WHICH cards appear and in what order. Wiring the numbers to Supabase
 // is a separate step.
+
+// Neutral placeholder shown while the role resolves. Rendering a role-specific
+// layout here would flash the wrong dashboard on re-login (e.g. the admin
+// layout for a split second before a profesional's view settles).
+function DashboardSkeleton() {
+  return (
+    <div className='grid grid-cols-12 gap-6 animate-pulse'>
+      <div className='col-span-12 h-16 rounded-lg bg-muted/50 dark:bg-darkmuted/40' />
+      <div className='col-span-12 h-24 rounded-lg bg-muted/50 dark:bg-darkmuted/40' />
+      <div className='col-span-12 lg:col-span-8 h-64 rounded-lg bg-muted/50 dark:bg-darkmuted/40' />
+      <div className='col-span-12 lg:col-span-4 h-64 rounded-lg bg-muted/50 dark:bg-darkmuted/40' />
+    </div>
+  )
+}
+
 export function RoleDashboard() {
   const { role, loading } = useCurrentUser()
 
-  // While the role resolves, render the admin (superset) layout so no card
-  // pops in late; once known, non-admin roles settle into their own view.
-  const view = loading ? 'admin' : role
+  // Show a neutral skeleton until the role is known — never a role-specific
+  // layout, so no dashboard flashes for the wrong role on login/re-login.
+  if (loading) return <DashboardSkeleton />
 
-  if (view === 'profesional') {
+  if (role === 'profesional') {
     // Clinical view only — no clinic-wide economic/admin banner (Andrés' rule:
     // the Profesional sees no información económica ni administrativa).
     return (
@@ -47,7 +62,7 @@ export function RoleDashboard() {
     )
   }
 
-  if (view === 'operador') {
+  if (role === 'operador') {
     return (
       <div className='grid grid-cols-12 gap-6'>
         <div className='col-span-12'>
@@ -73,7 +88,7 @@ export function RoleDashboard() {
     )
   }
 
-  // admin (and the loading superset)
+  // admin (default)
   return (
     <div className='grid grid-cols-12 gap-6'>
       <div className='col-span-12'>

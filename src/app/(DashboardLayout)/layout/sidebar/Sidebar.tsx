@@ -177,11 +177,12 @@ const SidebarLayout = ({
   )
 
   // adminOnly entries (Usuarios, Configuración, reports, audit) are visible to
-  // admins only. While the role is still loading we keep them shown, so an admin
-  // never sees their own admin section flash away before the role resolves;
-  // once we know it's a non-admin they're filtered out. This pairs with the
-  // AdminGate route guard — hiding the link isn't enough on its own.
-  const canSeeAdmin = loading || role === 'admin'
+  // admins only. While the role is still loading we HIDE them (treat as
+  // non-admin) so a user re-logging in as a non-admin never flashes the admin
+  // menu before their real role resolves. An admin sees their section appear a
+  // moment after load — a far smaller trade-off than leaking admin nav. Pairs
+  // with the AdminGate route guard — hiding the link isn't enough on its own.
+  const canSeeAdmin = !loading && role === 'admin'
 
   // Sidebar stays dark regardless of theme so menu text reads on the black bg.
   const sidebarMode: 'light' | 'dark' = 'dark'
