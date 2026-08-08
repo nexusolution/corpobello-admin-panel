@@ -31,9 +31,11 @@ export function AutoGestionTabs() {
 
   return (
     <div className='space-y-6'>
-      {/* Tab bar */}
-      <div className='border-b border-border dark:border-darkborder overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
-        <div className='inline-flex'>
+      {/* Tab bar — wraps to a second row instead of scrolling off-screen, so
+          the last tabs (Textos informativos / Preguntas frecuentes) are always
+          visible. The old hidden-scrollbar overflow hid them with no cue. */}
+      <div className='border-b border-border dark:border-darkborder'>
+        <div className='flex flex-wrap'>
           {TABS.map((tb) => {
             const active = tb.key === tab
             return (
