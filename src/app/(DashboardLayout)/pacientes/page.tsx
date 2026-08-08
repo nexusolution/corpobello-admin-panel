@@ -4,6 +4,7 @@ import { Icon } from '@iconify/react'
 
 import { PatientsTable } from './patients-table'
 import { HeroBanner } from '@/app/components/shared/HeroBanner'
+import { RoleGate } from '@/lib/auth/RoleGate'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
@@ -111,14 +112,17 @@ export default function PacientesPage() {
   const { t } = useTranslation()
 
   return (
-    <div className='space-y-6'>
-      <HeroBanner
-        titleKey='pacientes.title'
-        currentKey='pacientes.breadcrumb.current'
-        icon='solar:users-group-rounded-line-duotone'
-      />
-      <KpiRow t={t} />
-      <PatientsTable />
-    </div>
+    // General patient list is not part of the Profesional's clinical view.
+    <RoleGate allow={['admin', 'operador']}>
+      <div className='space-y-6'>
+        <HeroBanner
+          titleKey='pacientes.title'
+          currentKey='pacientes.breadcrumb.current'
+          icon='solar:users-group-rounded-line-duotone'
+        />
+        <KpiRow t={t} />
+        <PatientsTable />
+      </div>
+    </RoleGate>
   )
 }

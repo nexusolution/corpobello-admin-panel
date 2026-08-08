@@ -68,6 +68,8 @@ const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
   // empty) from non-admins. While the role loads we treat the user as non-admin
   // so the admin menu never flashes on login/re-login.
   const canSeeAdmin = !loading && role === 'admin'
+  // Profesional: hide commercial/operational nav (mirrors the sidebar gate).
+  const isProfesional = !loading && role === 'profesional'
   const [isSticky, setIsSticky] = useState(false)
   const [mobileMenu, setMobileMenu] = useState('')
   const [isOpen, setIsOpen] = useState(false)
@@ -160,7 +162,9 @@ const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
                 // section if nothing remains (mirrors the sidebar) — so an
                 // Operador/Profesional never sees Reports/Administration here.
                 const visibleChildren = section.children.filter(
-                  (child) => canSeeAdmin || !child.adminOnly,
+                  (child) =>
+                    (canSeeAdmin || !child.adminOnly) &&
+                    !(isProfesional && child.hideFromProfesional),
                 )
                 if (visibleChildren.length === 0) return null
                 const sectionIcon =

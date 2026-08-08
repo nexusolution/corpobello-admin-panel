@@ -20,6 +20,10 @@ export interface ChildItem {
   underDevelopment?: boolean
   /** Item visible only to admin role (rendered for now; gating wired later). */
   adminOnly?: boolean
+  /** Hidden for the Profesional role — commercial/operational surfaces that are
+   *  not part of the clinical view (general patient list, funnel, inventory).
+   *  Andrés 2026-08-08: el Profesional ve solo lo clínico de SUS pacientes. */
+  hideFromProfesional?: boolean
 }
 
 export interface MenuItem {
@@ -66,6 +70,9 @@ const SidebarContent: MenuItem[] = [
         icon: 'solar:user-heart-rounded-line-duotone',
         id: uniqueId(),
         url: '/pacientes',
+        // Profesional gets its own scoped patient view (Etapa 2/3); the general
+        // list is hidden from them.
+        hideFromProfesional: true,
       },
       {
         name: 'Kanban',
@@ -73,6 +80,8 @@ const SidebarContent: MenuItem[] = [
         icon: 'solar:layers-minimalistic-line-duotone',
         id: uniqueId(),
         url: '/kanban',
+        // Commercial funnel — not the Profesional's job.
+        hideFromProfesional: true,
       },
     ],
   },
@@ -109,6 +118,7 @@ const SidebarContent: MenuItem[] = [
         id: uniqueId(),
         url: '#',
         underDevelopment: true,
+        hideFromProfesional: true,
       },
       {
         name: 'Movimientos',
@@ -117,6 +127,7 @@ const SidebarContent: MenuItem[] = [
         id: uniqueId(),
         url: '#',
         underDevelopment: true,
+        hideFromProfesional: true,
       },
     ],
   },

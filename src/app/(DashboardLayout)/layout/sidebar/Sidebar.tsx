@@ -183,6 +183,10 @@ const SidebarLayout = ({
   // moment after load — a far smaller trade-off than leaking admin nav. Pairs
   // with the AdminGate route guard — hiding the link isn't enough on its own.
   const canSeeAdmin = !loading && role === 'admin'
+  // Profesional sees only the clinical view — hide commercial/operational items
+  // (general patient list, funnel, inventory). Wait for role to settle so we
+  // don't briefly hide items from a still-resolving user.
+  const isProfesional = !loading && role === 'profesional'
 
   // Sidebar stays dark regardless of theme so menu text reads on the black bg.
   const sidebarMode: 'light' | 'dark' = 'dark'
@@ -222,7 +226,9 @@ const SidebarLayout = ({
         <div className={`pb-28 ${isCollapse ? 'px-3 mini-menu' : 'px-6'}`}>
           {SidebarContent.map((section, index) => {
             const visibleChildren = (section.children || []).filter(
-              (child) => canSeeAdmin || !child.adminOnly
+              (child) =>
+                (canSeeAdmin || !child.adminOnly) &&
+                !(isProfesional && child.hideFromProfesional)
             )
             // Drop a whole section (and its heading) once every item in it is
             // admin-only and hidden — no orphan "Administración" heading.
