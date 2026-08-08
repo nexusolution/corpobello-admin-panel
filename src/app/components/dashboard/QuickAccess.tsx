@@ -119,7 +119,9 @@ function showUnderDevelopmentAlert(itemName: string, t: TFn) {
 const QuickAccess = () => {
   const { t } = useTranslation()
   const { role, loading } = useCurrentUser()
-  const canSeeAdmin = loading || role === 'admin'
+  // Hide the admin-only tile while the role loads (never flash it), matching the
+  // sidebar/header gate — see Sidebar.tsx canSeeAdmin.
+  const canSeeAdmin = !loading && role === 'admin'
   const tiles = TILES.filter((tile) => canSeeAdmin || !tile.adminOnly)
 
   return (
@@ -132,7 +134,11 @@ const QuickAccess = () => {
           // in a 2-col grid would leave it alone otherwise).
           const colSpan = tile.key === 'stats' ? 'col-span-2' : ''
           const inner = (
-            <div className='flex items-center gap-3 px-3 py-2.5 rounded-md border border-border dark:border-darkborder hover:border-primary hover:bg-lightprimary/40 dark:hover:bg-lightprimary/20 transition-colors cursor-pointer'>
+            // title = full label so truncated names ("Inventario", "Reportes"…)
+            // reveal on hover (Andrés 2026-08-08, point #4).
+            <div
+              title={label}
+              className='flex items-center gap-3 px-3 py-2.5 rounded-md border border-border dark:border-darkborder hover:border-primary hover:bg-lightprimary/40 dark:hover:bg-lightprimary/20 transition-colors cursor-pointer'>
               <div
                 className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${tile.iconBg} ${tile.iconColor}`}>
                 <Icon icon={tile.icon} height={18} width={18} />

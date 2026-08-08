@@ -20,6 +20,8 @@ type Appointment = {
   professional: string
   sucursal: Sucursal
   status: AppointmentStatus
+  /** A payment/charge is registered for this appointment → shows a "$" mark. */
+  charged?: boolean
 }
 
 const SUCURSAL_LABELS: Record<Sucursal, string> = {
@@ -31,10 +33,10 @@ const SUCURSAL_LABELS: Record<Sucursal, string> = {
 // MOCK STATE: today's appointments. Replace with Supabase query joining
 // turnos + patients + treatments when Etapa 2 agenda module lands.
 const TODAYS_APPOINTMENTS: Appointment[] = [
-  { id: '1', time: '09:00', patientName: 'Camila Rojas', treatmentLabel: 'Láser — Axilas', professional: 'Andrés', sucursal: 'caballito', status: 'atendido' },
-  { id: '2', time: '10:00', patientName: 'Carolina Ruiz', treatmentLabel: 'Láser — Piernas', professional: 'Andrés', sucursal: 'caballito', status: 'atendido' },
+  { id: '1', time: '09:00', patientName: 'Camila Rojas', treatmentLabel: 'Láser — Axilas', professional: 'Andrés', sucursal: 'caballito', status: 'atendido', charged: true },
+  { id: '2', time: '10:00', patientName: 'Carolina Ruiz', treatmentLabel: 'Láser — Piernas', professional: 'Andrés', sucursal: 'caballito', status: 'atendido', charged: true },
   { id: '3', time: '11:30', patientName: 'María González', treatmentLabel: 'Tatuajes — Remoción', professional: 'Lucía', sucursal: 'caballito', status: 'atendido' },
-  { id: '4', time: '13:00', patientName: 'Sofía Martínez', treatmentLabel: 'Endolift', professional: 'Andrés', sucursal: 'caballito', status: 'confirmado' },
+  { id: '4', time: '13:00', patientName: 'Sofía Martínez', treatmentLabel: 'Endolift', professional: 'Andrés', sucursal: 'caballito', status: 'confirmado', charged: true },
   { id: '5', time: '14:30', patientName: 'Valentina Pérez', treatmentLabel: 'Faciales — Limpieza', professional: 'Lucía', sucursal: 'merlo', status: 'confirmado' },
   { id: '6', time: '15:00', patientName: 'Bianca Romero', treatmentLabel: 'Microblading', professional: 'Andrés', sucursal: 'caballito', status: 'pendiente' },
   { id: '7', time: '16:30', patientName: 'Florencia López', treatmentLabel: 'Melasma', professional: 'Lucía', sucursal: 'merlo', status: 'pendiente' },
@@ -205,8 +207,10 @@ const AgendaDay = () => {
         />
       </div>
 
-      {/* Appointment list */}
-      <div className='divide-y divide-border dark:divide-darkborder'>
+      {/* Appointment list — Andrés 2026-08-08 visual scheme, three glanceable
+          signals per row: left bar = TREATMENT, full row background = STATUS,
+          "$" mark = a charge is registered. Replaces the old right-side dot. */}
+      <div className='space-y-2'>
         {TODAYS_APPOINTMENTS.length === 0 ? (
           <p className='text-sm text-link dark:text-darklink italic py-4'>
             {t('agenda.empty')}
@@ -218,12 +222,12 @@ const AgendaDay = () => {
             return (
               <div
                 key={appt.id}
-                className='flex items-stretch gap-3 py-2.5 first:pt-0 last:pb-0'>
-                {/* Left color bar = treatment identity. Per Andrés 2026-06-30:
-                    "barra izquierda = tratamiento". Thin and full-height so it
-                    reads at a glance without a text label. */}
+                className={`flex items-stretch gap-3 rounded-md pr-3 py-2 overflow-hidden ${sStyle.bg}`}
+                title={t(sStyle.labelKey)}>
+                {/* Left color bar = treatment identity ("barra izquierda =
+                    tratamiento"). Full-height, reads at a glance. */}
                 <span
-                  className={`w-1 shrink-0 self-stretch rounded-full ${tColor.dotClass}`}
+                  className={`w-1.5 shrink-0 self-stretch ${tColor.dotClass}`}
                   title={t(tColor.labelKey as TranslationKey)}
                   aria-hidden='true'
                 />
@@ -238,13 +242,13 @@ const AgendaDay = () => {
                   <div className='text-sm font-medium text-dark dark:text-white truncate'>
                     {appt.patientName}
                   </div>
-                  <div className='text-xs text-link dark:text-darklink truncate'>
+                  <div className='text-xs text-dark/70 dark:text-white/70 truncate'>
                     {appt.treatmentLabel}
                   </div>
                 </div>
 
                 {/* Pro + sucursal (hidden on narrow screens) */}
-                <div className='hidden md:block shrink-0 self-center text-xs text-link dark:text-darklink text-right'>
+                <div className='hidden md:block shrink-0 self-center text-xs text-dark/70 dark:text-white/70 text-right'>
                   <div className='truncate max-w-[120px]'>
                     {t('agenda.with')} {appt.professional}
                   </div>
@@ -253,13 +257,22 @@ const AgendaDay = () => {
                   </div>
                 </div>
 
-                {/* Right dot = appointment status. Per Andrés: "punto derecho =
-                    estado", color only, no text, a touch more visible. The
-                    status name shows on hover for accessibility. */}
+                {/* "$" = a charge is registered for this appointment. */}
+                {appt.charged && (
+                  <span
+                    className='shrink-0 self-center h-5 w-5 rounded-full bg-success/20 text-success text-xs font-bold inline-flex items-center justify-center'
+                    title={t('agenda.charged')}
+                    aria-label={t('agenda.charged')}>
+                    $
+                  </span>
+                )}
+
+                {/* Status name (the row background already encodes the status;
+                    this label keeps it explicit + accessible). */}
                 <span
-                  className={`shrink-0 self-center h-2.5 w-2.5 rounded-full ${sStyle.dot}`}
-                  title={t(sStyle.labelKey)}
-                />
+                  className={`shrink-0 self-center text-xs font-semibold ${sStyle.text} hidden sm:inline`}>
+                  {t(sStyle.labelKey)}
+                </span>
               </div>
             )
           })

@@ -63,22 +63,18 @@ export function RoleDashboard() {
   }
 
   if (role === 'operador') {
-    // Andrés 2026-08-08: after the greeting he wants the coloured funnel cards
-    // (nuevos leads / cotización enviada / esperando depósito / seguimiento…)
-    // FIRST, and only then the agenda + attention queue. Facturación stays out.
+    // Andrés 2026-08-08: "primero un panorama general, después el detalle
+    // operativo". So after the greeting comes the visual/summary block —
+    // funnel cards + "Hoy de un vistazo / Carga del día" + accesos rápidos —
+    // and only THEN the agenda del día + attention queue. Facturación stays out.
     return (
       <div className='grid grid-cols-12 gap-6'>
         <div className='col-span-12'>
           <DashboardGreeting />
         </div>
+        {/* Panorama general (visual + resumen) */}
         <div className='col-span-12'>
           <TopCards />
-        </div>
-        <div className='col-span-12 lg:col-span-6'>
-          <AgendaDay />
-        </div>
-        <div className='col-span-12 lg:col-span-6'>
-          <TasksAttention />
         </div>
         {/* Front-desk view: no facturación (income/charges hidden). */}
         <div className='col-span-12 lg:col-span-8'>
@@ -86,6 +82,13 @@ export function RoleDashboard() {
         </div>
         <div className='col-span-12 lg:col-span-4'>
           <QuickAccess />
+        </div>
+        {/* Detalle operativo */}
+        <div className='col-span-12 lg:col-span-6'>
+          <AgendaDay />
+        </div>
+        <div className='col-span-12 lg:col-span-6'>
+          <TasksAttention />
         </div>
       </div>
     )
