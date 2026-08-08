@@ -354,6 +354,10 @@ function ClinicTab({
             subtitle={t('configuracion.clinic.section.schedule.subtitle')}
             tint='success'
           />
+          <p className='flex items-start gap-1.5 text-xs text-link dark:text-darklink mb-3'>
+            <Icon icon='solar:info-circle-line-duotone' height={14} width={14} className='mt-0.5 shrink-0' />
+            {t('configuracion.clinic.schedule.previewNote')}
+          </p>
           <div className='space-y-3 rounded-md border border-border dark:border-darkborder p-4'>
             <ScheduleRow
               label={t('configuracion.clinic.schedule.weekdays')}
