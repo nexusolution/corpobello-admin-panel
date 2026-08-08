@@ -15,6 +15,7 @@ import {
   type TattooRulesConfig,
   type LaserRulesConfig,
 } from '@/lib/data/quoting-config'
+import { applyPercent, type Direction, type Rounding } from '@/lib/data/treatment-prices'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
@@ -412,6 +413,71 @@ function TattooEditor({ t }: { t: TFn }) {
   )
 }
 
+// Bulk percentage bar for the láser zone prices. Mirrors the Precios tab's
+// mass-update UX, but applies to the DRAFT only — the clinic reviews the new
+// per-zone prices and then hits Save (or Reset). No separate DB write path.
+function LaserMassBar({
+  count,
+  onApply,
+  t,
+}: {
+  count: number
+  onApply: (percent: number, direction: Direction, rounding: Rounding) => void
+  t: TFn
+}) {
+  const [direction, setDirection] = useState<Direction>('increase')
+  const [percent, setPercent] = useState('10')
+  const [rounding, setRounding] = useState<Rounding>('up1000')
+
+  const p = Number(percent)
+  const valid = Number.isFinite(p) && p > 0
+
+  const selectCls =
+    'w-full pl-2.5 pr-9 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+
+  return (
+    <div className='rounded-md border border-dashed border-border dark:border-darkborder p-3 mb-3'>
+      <p className='text-[11px] text-link dark:text-darklink mb-2'>{t('autoGestion.cotizadores.laser.massHint')}</p>
+      <div className='flex items-end gap-3 flex-wrap'>
+        <div className='flex flex-col'>
+          <span className='text-[10px] uppercase tracking-wide text-link dark:text-darklink mb-0.5'>{t('autoGestion.mass.direction')}</span>
+          <select value={direction} onChange={(e) => setDirection(e.target.value as Direction)} className={selectCls}>
+            <option value='increase'>{t('autoGestion.mass.increase')}</option>
+            <option value='decrease'>{t('autoGestion.mass.decrease')}</option>
+          </select>
+        </div>
+        <div className='flex flex-col'>
+          <span className='text-[10px] uppercase tracking-wide text-link dark:text-darklink mb-0.5'>{t('autoGestion.mass.percent')}</span>
+          <div className='flex items-center gap-1'>
+            <input
+              type='number'
+              value={percent}
+              onChange={(e) => setPercent(e.target.value)}
+              className='w-20 px-2 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+            />
+            <span className='text-sm text-link dark:text-darklink'>%</span>
+          </div>
+        </div>
+        <div className='flex flex-col'>
+          <span className='text-[10px] uppercase tracking-wide text-link dark:text-darklink mb-0.5'>{t('autoGestion.mass.rounding')}</span>
+          <select value={rounding} onChange={(e) => setRounding(e.target.value as Rounding)} className={selectCls}>
+            <option value='up1000'>{t('autoGestion.mass.round.up1000')}</option>
+            <option value='nearest1000'>{t('autoGestion.mass.round.nearest1000')}</option>
+            <option value='none'>{t('autoGestion.mass.round.none')}</option>
+          </select>
+        </div>
+        <button
+          type='button'
+          disabled={!valid}
+          onClick={() => onApply(p, direction, rounding)}
+          className='px-4 py-1.5 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis disabled:opacity-40 disabled:cursor-not-allowed transition-colors'>
+          {t('autoGestion.cotizadores.laser.massApply', { count: String(count) })}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── Láser editor ────────────────────────────────────────────────────────
 function LaserEditor({ t }: { t: TFn }) {
   const [base, setBase] = useState<LaserRulesConfig>(LASER_DEFAULT)
@@ -445,6 +511,18 @@ function LaserEditor({ t }: { t: TFn }) {
     setDraft((d) => ({
       ...d,
       zones: d.zones.map((z) => (z.key === key ? { ...z, ...p } : z)),
+    }))
+  }
+
+  // Bulk %: applies to ALL zones (not just the filtered/visible ones) so the
+  // outcome is predictable regardless of the active search. Draft-only until Save.
+  function applyMass(percent: number, direction: Direction, rounding: Rounding) {
+    setDraft((d) => ({
+      ...d,
+      zones: d.zones.map((z) => ({
+        ...z,
+        pricePerSession: applyPercent(z.pricePerSession, percent, direction, rounding),
+      })),
     }))
   }
 
@@ -490,6 +568,7 @@ function LaserEditor({ t }: { t: TFn }) {
       </Card>
 
       <Card title={t('autoGestion.cotizadores.laser.zones')}>
+        <LaserMassBar count={draft.zones.length} onApply={applyMass} t={t} />
         <div className='relative mb-3'>
           <Icon icon='solar:magnifer-line-duotone' height={15} width={15} className='absolute left-3 top-1/2 -translate-y-1/2 text-link dark:text-darklink' />
           <input
