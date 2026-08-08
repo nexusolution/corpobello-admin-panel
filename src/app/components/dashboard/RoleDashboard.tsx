@@ -63,19 +63,22 @@ export function RoleDashboard() {
   }
 
   if (role === 'operador') {
+    // Andrés 2026-08-08: after the greeting he wants the coloured funnel cards
+    // (nuevos leads / cotización enviada / esperando depósito / seguimiento…)
+    // FIRST, and only then the agenda + attention queue. Facturación stays out.
     return (
       <div className='grid grid-cols-12 gap-6'>
         <div className='col-span-12'>
           <DashboardGreeting />
+        </div>
+        <div className='col-span-12'>
+          <TopCards />
         </div>
         <div className='col-span-12 lg:col-span-6'>
           <AgendaDay />
         </div>
         <div className='col-span-12 lg:col-span-6'>
           <TasksAttention />
-        </div>
-        <div className='col-span-12'>
-          <TopCards />
         </div>
         {/* Front-desk view: no facturación (income/charges hidden). */}
         <div className='col-span-12 lg:col-span-8'>
