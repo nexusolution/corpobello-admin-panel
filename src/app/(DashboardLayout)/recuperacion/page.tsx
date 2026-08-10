@@ -131,11 +131,25 @@ export default function RecuperacionPage() {
     [leads],
   )
 
+  const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return cold.filter(
+      (l) =>
+        (!statusFilter || l.status === statusFilter) &&
+        (!q ||
+          l.patientName.toLowerCase().includes(q) ||
+          l.phoneFull.replace(/\D/g, '').includes(q.replace(/\D/g, ''))),
+    )
+  }, [cold, query, statusFilter])
+
   const [page, setPage] = useState(1)
-  // Reset to the first page whenever the underlying set changes.
-  useEffect(() => setPage(1), [cold.length])
-  const totalPages = Math.max(1, Math.ceil(cold.length / PAGE_SIZE))
-  const pageItems = cold.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  // Reset to the first page whenever the visible set changes (data or filters).
+  useEffect(() => setPage(1), [filtered.length, query, statusFilter])
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <RoleGate allow={['admin', 'operador']}>
@@ -167,14 +181,45 @@ export default function RecuperacionPage() {
             </div>
           ) : (
             <>
+              {/* Filters: search by name/phone + status */}
+              <div className='flex items-center gap-3 mb-4 flex-wrap'>
+                <div className='relative flex-1 min-w-[200px]'>
+                  <Icon icon='solar:magnifer-line-duotone' height={15} width={15} className='absolute left-3 top-1/2 -translate-y-1/2 text-link dark:text-darklink' />
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={t('recovery.searchPlaceholder')}
+                    className='w-full rounded-md border border-border dark:border-darkborder bg-background pl-9 pr-3 py-2 text-sm text-dark dark:text-white focus:outline-none focus:border-primary'
+                  />
+                </div>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className='pl-2.5 pr-9 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary'>
+                  <option value=''>{t('recovery.allStatuses')}</option>
+                  {IN_FUNNEL.map((s) => {
+                    const k = STATUS_KEY[s]
+                    return (
+                      <option key={s} value={s}>{k ? t(k) : s}</option>
+                    )
+                  })}
+                </select>
+              </div>
+
               <p className='text-sm text-link dark:text-darklink mb-3'>
-                {t('recovery.count', { n: String(cold.length) })}
+                {t('recovery.count', { n: String(filtered.length) })}
               </p>
+              {filtered.length === 0 ? (
+                <p className='text-sm text-link dark:text-darklink italic py-6 text-center'>
+                  {t('recovery.noMatches')}
+                </p>
+              ) : (
               <div>
                 {pageItems.map((lead) => (
                   <Row key={lead.id} lead={lead} t={t} />
                 ))}
               </div>
+              )}
               {totalPages > 1 && (
                 <div className='flex items-center justify-center gap-1.5 pt-5 flex-wrap'>
                   <button
