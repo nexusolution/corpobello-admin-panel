@@ -180,7 +180,7 @@ function DateField({
           <button
             type='button'
             className='mt-1 w-full flex items-center justify-between gap-2 rounded-md border border-border dark:border-darkborder bg-background px-3 py-2 text-sm text-dark dark:text-white hover:border-primary focus:outline-none focus:border-primary transition-colors'>
-            <span>{date ? moment(date).format('DD MMM YYYY') : '—'}</span>
+            <span>{date ? moment(date).format('DD MMM YYYY') : '-'}</span>
             <Icon
               icon='solar:calendar-mark-line-duotone'
               height={16}

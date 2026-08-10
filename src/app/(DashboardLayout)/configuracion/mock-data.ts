@@ -48,7 +48,7 @@ export const CURRENCY_OPTIONS = ['ARS', 'USD', 'MXN', 'CLP', 'COP', 'EUR'] as co
 export type Service = {
   id: string
   name: string
-  /** Treatment-color slug — joins to /lib/treatment-colors */
+  /** Treatment-color slug -joins to /lib/treatment-colors */
   categorySlug: string
   /** Price as a formatted display string (e.g. "$18.000" or "USD 1.200") */
   price: string
@@ -58,17 +58,17 @@ export type Service = {
 }
 
 export const INITIAL_SERVICES: Service[] = [
-  { id: 'svc-1', name: 'Tatuaje pequeño — Remoción', categorySlug: 'tatuaje', price: '$18.000', durationMin: 60, active: true },
-  { id: 'svc-2', name: 'Tatuaje grande — Remoción', categorySlug: 'tatuaje', price: '$45.000', durationMin: 90, active: true },
+  { id: 'svc-1', name: 'Tatuaje pequeño - Remoción', categorySlug: 'tatuaje', price: '$18.000', durationMin: 60, active: true },
+  { id: 'svc-2', name: 'Tatuaje grande - Remoción', categorySlug: 'tatuaje', price: '$45.000', durationMin: 90, active: true },
   { id: 'svc-3', name: 'Microblading', categorySlug: 'microblading', price: '$80.000', durationMin: 90, active: true },
-  { id: 'svc-4', name: 'Microblading — Retoque', categorySlug: 'microblading', price: '$28.000', durationMin: 45, active: false },
+  { id: 'svc-4', name: 'Microblading - Retoque', categorySlug: 'microblading', price: '$28.000', durationMin: 45, active: false },
   { id: 'svc-5', name: 'Endolift facial', categorySlug: 'endolift', price: 'USD 1.200', durationMin: 120, active: true },
   { id: 'svc-6', name: 'Láser axilas (sesión)', categorySlug: 'depilacion', price: '$15.000', durationMin: 30, active: true },
   { id: 'svc-7', name: 'Láser piernas (sesión)', categorySlug: 'depilacion', price: '$45.000', durationMin: 60, active: true },
-  { id: 'svc-8', name: 'Faciales — Limpieza', categorySlug: 'facial', price: '$35.000', durationMin: 60, active: true },
-  { id: 'svc-9', name: 'Faciales — Laserpeel', categorySlug: 'facial', price: '$55.000', durationMin: 75, active: true },
-  { id: 'svc-10', name: 'Melasma — sesión', categorySlug: 'melasma', price: '$45.000', durationMin: 60, active: true },
-  { id: 'svc-11', name: 'Acné — sesión', categorySlug: 'acne', price: '$30.000', durationMin: 45, active: true },
+  { id: 'svc-8', name: 'Faciales - Limpieza', categorySlug: 'facial', price: '$35.000', durationMin: 60, active: true },
+  { id: 'svc-9', name: 'Faciales - Laserpeel', categorySlug: 'facial', price: '$55.000', durationMin: 75, active: true },
+  { id: 'svc-10', name: 'Melasma - sesión', categorySlug: 'melasma', price: '$45.000', durationMin: 60, active: true },
+  { id: 'svc-11', name: 'Acné - sesión', categorySlug: 'acne', price: '$30.000', durationMin: 45, active: true },
   { id: 'svc-12', name: 'Onicomicosis', categorySlug: 'other', price: '$22.000', durationMin: 30, active: false },
 ]
 

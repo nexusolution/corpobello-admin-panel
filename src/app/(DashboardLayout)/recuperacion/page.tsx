@@ -51,7 +51,7 @@ function whatsappHref(phone: string): string | null {
 }
 
 function lastActivity(hours: number | null, t: TFn): string {
-  if (hours == null) return '—'
+  if (hours == null) return '-'
   if (hours >= 24) return t('recovery.daysAgo', { n: String(Math.floor(hours / 24)) })
   return t('recovery.hoursAgo', { n: String(Math.floor(hours)) })
 }

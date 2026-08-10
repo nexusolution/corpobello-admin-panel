@@ -147,7 +147,7 @@ function LeadCardBody({
               {lead.patientName}
             </p>
             <p className='text-xs text-link dark:text-darklink truncate'>
-              ···{lead.phoneLast4} · {lead.sucursal ? SUCURSAL_LABELS[lead.sucursal] : '—'}
+              ···{lead.phoneLast4} · {lead.sucursal ? SUCURSAL_LABELS[lead.sucursal] : '-'}
             </p>
           </div>
         </div>

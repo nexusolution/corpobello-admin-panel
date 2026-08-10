@@ -130,7 +130,7 @@ export function HorariosSection() {
                     onChange={(e) => patchDay(d.weekday, { open: e.target.value })}
                     className='rounded-md border border-border dark:border-darkborder bg-background px-2 py-1.5 text-sm text-dark dark:text-white focus:outline-none focus:border-primary'
                   />
-                  <span className='text-link dark:text-darklink text-sm'>—</span>
+                  <span className='text-link dark:text-darklink text-sm'>a</span>
                   <input
                     type='time'
                     value={d.close}
