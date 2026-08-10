@@ -10,6 +10,9 @@ import {
   type View,
   type SlotInfo,
 } from 'react-big-calendar'
+import withDragAndDrop, {
+  type withDragAndDropProps,
+} from 'react-big-calendar/lib/addons/dragAndDrop'
 import moment from 'moment'
 import 'moment/locale/es'
 import { es } from 'date-fns/locale'
@@ -37,6 +40,7 @@ import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
 import 'react-big-calendar/lib/css/react-big-calendar.css'
+import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
 import './calendar-theme.css'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
@@ -532,6 +536,10 @@ function EventDialog({
   )
 }
 
+// Drag-and-drop enabled calendar (react-big-calendar addon). Created once at
+// module scope so the HOC isn't re-applied on every render.
+const DnDCalendar = withDragAndDrop<CalendarEvent>(Calendar)
+
 // ── Main view ─────────────────────────────────────────────────────────────────
 export function CalendarView() {
   const { t, locale } = useTranslation()
@@ -615,6 +623,43 @@ export function CalendarView() {
     [openAdd],
   )
 
+  // Persist a drag/resize: normalise to all-day bounds, update optimistically,
+  // then write + reload to reconcile.
+  const persistMove = useCallback(
+    async (event: CalendarEvent, start: Date, end: Date) => {
+      const startStr = toDateInput(start)
+      // RBC gives an exclusive end for all-day spans — step back a tick to the
+      // inclusive last day.
+      let endStr = toDateInput(new Date(end.getTime() - 1))
+      if (endStr < startStr) endStr = startStr
+      const s = startOfDay(startStr)
+      const e = endOfDay(endStr)
+      setEvents((prev) => prev.map((ev) => (ev.id === event.id ? { ...ev, start: s, end: e } : ev)))
+      await updateCalendarEvent(event.id, {
+        title: event.title,
+        start: s,
+        end: e,
+        allDay: true,
+        status: event.status,
+        charged: event.charged,
+        patientId: event.patientId,
+        professionalId: event.professionalId,
+        sucursal: event.sucursal,
+        treatmentSlug: event.treatmentSlug,
+      })
+      reload()
+    },
+    [reload],
+  )
+
+  const onEventDrop = useCallback<
+    NonNullable<withDragAndDropProps<CalendarEvent>['onEventDrop']>
+  >(({ event, start, end }) => void persistMove(event, new Date(start), new Date(end)), [persistMove])
+
+  const onEventResize = useCallback<
+    NonNullable<withDragAndDropProps<CalendarEvent>['onEventResize']>
+  >(({ event, start, end }) => void persistMove(event, new Date(start), new Date(end)), [persistMove])
+
   const onSelectEvent = useCallback((ev: CalendarEvent) => {
     setDraft({
       id: ev.id,
@@ -684,7 +729,7 @@ export function CalendarView() {
         )}
       </div>
 
-      <Calendar
+      <DnDCalendar
         localizer={localizer}
         events={visibleEvents}
         startAccessor='start'
@@ -696,6 +741,9 @@ export function CalendarView() {
         views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
         selectable
         popup
+        resizable
+        onEventDrop={onEventDrop}
+        onEventResize={onEventResize}
         onSelectSlot={onSelectSlot}
         onSelectEvent={onSelectEvent}
         messages={messages}
