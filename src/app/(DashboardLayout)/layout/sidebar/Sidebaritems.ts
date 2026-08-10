@@ -82,6 +82,15 @@ const SidebarContent: MenuItem[] = [
         // Commercial funnel — not the Profesional's job.
         hideFromProfesional: true,
       },
+      {
+        name: 'Recuperación',
+        nameKey: 'sidebar.recovery',
+        icon: 'solar:refresh-circle-line-duotone',
+        id: uniqueId(),
+        url: '/recuperacion',
+        // Commercial win-back — not the Profesional's job.
+        hideFromProfesional: true,
+      },
     ],
   },
   {

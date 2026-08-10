@@ -1,0 +1,168 @@
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
+import { Icon } from '@iconify/react'
+
+import { HeroBanner } from '@/app/components/shared/HeroBanner'
+import { RoleGate } from '@/lib/auth/RoleGate'
+import { fetchLeads } from '@/app/(DashboardLayout)/kanban/data'
+import type { Lead, LeadStatus } from '@/app/(DashboardLayout)/kanban/mock-data'
+import { useTranslation } from '@/lib/i18n/context'
+import type { TranslationKey } from '@/lib/i18n/dictionaries'
+
+type TFn = (key: TranslationKey, params?: Record<string, string>) => string
+
+// A lead is "recoverable" when it's still in the early/mid funnel (not booked,
+// not closed) and has gone quiet for at least this long.
+const STALE_HOURS = 48
+const IN_FUNNEL: LeadStatus[] = ['nuevo', 'en_conversacion', 'cotizado', 'sin_respuesta']
+
+const STATUS_KEY: Partial<Record<LeadStatus, TranslationKey>> = {
+  nuevo: 'kanban.col.nuevo',
+  en_conversacion: 'kanban.col.enConversacion',
+  cotizado: 'kanban.col.cotizado',
+  sin_respuesta: 'kanban.col.sinRespuesta',
+}
+
+const SUCURSAL_LABELS: Record<string, string> = {
+  caballito: 'Caballito',
+  merlo: 'Merlo',
+  moreno: 'Moreno',
+}
+
+function whatsappHref(phone: string): string | null {
+  const digits = phone.replace(/\D/g, '')
+  return digits.length >= 8 ? `https://wa.me/${digits}` : null
+}
+
+function lastActivity(hours: number | null, t: TFn): string {
+  if (hours == null) return '—'
+  if (hours >= 24) return t('recovery.daysAgo', { n: String(Math.floor(hours / 24)) })
+  return t('recovery.hoursAgo', { n: String(Math.floor(hours)) })
+}
+
+function Row({ lead, t }: { lead: Lead; t: TFn }) {
+  const href = whatsappHref(lead.phoneFull)
+  const statusKey = STATUS_KEY[lead.status]
+  return (
+    <div className='flex items-center gap-3 py-3 flex-wrap border-b border-border dark:border-darkborder last:border-0'>
+      <div className='min-w-0 flex-1'>
+        <p className='text-sm font-medium text-dark dark:text-white truncate'>{lead.patientName}</p>
+        <p className='text-xs text-link dark:text-darklink'>
+          ···{lead.phoneLast4}
+          {lead.sucursal ? ` · ${SUCURSAL_LABELS[lead.sucursal] ?? lead.sucursal}` : ''}
+        </p>
+      </div>
+      <div className='hidden sm:block text-xs text-link dark:text-darklink w-40 truncate'>
+        {lead.treatmentLabel}
+      </div>
+      <div className='w-32 shrink-0'>
+        {statusKey && (
+          <span className='inline-block text-[11px] font-medium px-2 py-0.5 rounded-full bg-lightprimary text-primary'>
+            {t(statusKey)}
+          </span>
+        )}
+      </div>
+      <div className='w-28 shrink-0 text-xs text-link dark:text-darklink'>
+        {lastActivity(lead.lastActivityHoursAgo, t)}
+      </div>
+      <div className='shrink-0'>
+        {href ? (
+          <a
+            href={href}
+            target='_blank'
+            rel='noopener noreferrer'
+            className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-success text-white text-sm font-medium hover:brightness-95 transition'>
+            <Icon icon='tabler:brand-whatsapp' height={16} width={16} />
+            {t('recovery.contact')}
+          </a>
+        ) : (
+          <span className='text-xs text-link dark:text-darklink italic'>{t('recovery.noPhone')}</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function RecuperacionPage() {
+  const { t } = useTranslation()
+  const [leads, setLeads] = useState<Lead[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    void fetchLeads().then(({ data, error }) => {
+      if (!active) return
+      setLeads(data)
+      setError(error)
+      setLoading(false)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const cold = useMemo(
+    () =>
+      leads
+        .filter(
+          (l) =>
+            IN_FUNNEL.includes(l.status) &&
+            l.lastActivityHoursAgo != null &&
+            l.lastActivityHoursAgo >= STALE_HOURS,
+        )
+        .sort((a, b) => (b.lastActivityHoursAgo ?? 0) - (a.lastActivityHoursAgo ?? 0)),
+    [leads],
+  )
+
+  return (
+    <RoleGate allow={['admin', 'operador']}>
+      <div className='space-y-6'>
+        <HeroBanner
+          titleKey='recovery.title'
+          currentKey='recovery.breadcrumb.current'
+          subtitleKey='recovery.subtitle'
+          icon='solar:refresh-circle-line-duotone'
+        />
+
+        <div className='rounded-lg border border-border dark:border-darkborder bg-card p-5 sm:p-6'>
+          {loading ? (
+            <div className='py-14 flex justify-center'>
+              <Icon icon='tabler:loader-2' height={28} width={28} className='text-primary animate-spin' />
+            </div>
+          ) : error ? (
+            <div className='py-14 flex flex-col items-center gap-2 text-center'>
+              <Icon icon='solar:cloud-cross-line-duotone' height={28} width={28} className='text-error' />
+              <p className='text-sm text-link dark:text-darklink'>{t('recovery.error')}</p>
+            </div>
+          ) : cold.length === 0 ? (
+            <div className='py-14 flex flex-col items-center gap-2 text-center'>
+              <div className='size-14 rounded-full bg-lightsuccess/60 flex items-center justify-center'>
+                <Icon icon='solar:check-circle-line-duotone' height={26} width={26} className='text-success' />
+              </div>
+              <p className='text-base font-semibold text-dark dark:text-white'>{t('recovery.empty.title')}</p>
+              <p className='text-sm text-link dark:text-darklink max-w-[360px]'>{t('recovery.empty.body')}</p>
+            </div>
+          ) : (
+            <>
+              <p className='text-sm text-link dark:text-darklink mb-3'>
+                {t('recovery.count', { n: String(cold.length) })}
+              </p>
+              <div>
+                {cold.map((lead) => (
+                  <Row key={lead.id} lead={lead} t={t} />
+                ))}
+              </div>
+            </>
+          )}
+
+          <p className='text-xs text-link dark:text-darklink mt-5 flex items-start gap-1.5'>
+            <Icon icon='solar:info-circle-line-duotone' height={14} width={14} className='mt-0.5 shrink-0' />
+            {t('recovery.note')}
+          </p>
+        </div>
+      </div>
+    </RoleGate>
+  )
+}
