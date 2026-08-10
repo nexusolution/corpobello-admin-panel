@@ -339,12 +339,61 @@ function EventDialog({
   const [endStr, setEndStr] = useState(draft.endStr)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hours, setHours] = useState<DayHours[] | null>(null)
 
   const isEdit = draft.id !== null
   const valid = !!patientId && !!startStr && !!endStr && endStr >= startStr
 
+  // Load the chosen sucursal's hours to warn about booking on a closed day.
+  useEffect(() => {
+    if (!sucursal) {
+      setHours(null)
+      return
+    }
+    let active = true
+    void fetchSucursalHours(sucursal as Sucursal).then((h) => {
+      if (active) setHours(h)
+    })
+    return () => {
+      active = false
+    }
+  }, [sucursal])
+
+  // Any day in [start, end] the branch is closed → availability warning.
+  const hasClosedDay = useMemo(() => {
+    if (!hours || !startStr || !endStr) return false
+    const end = new Date(`${endStr}T00:00:00`)
+    for (const d = new Date(`${startStr}T00:00:00`); d <= end; d.setDate(d.getDate() + 1)) {
+      const day = hours.find((h) => h.weekday === d.getDay())
+      if (day && !day.isOpen) return true
+    }
+    return false
+  }, [hours, startStr, endStr])
+
   async function save() {
     if (!valid || saving) return
+    // Availability guard: warn (but allow override) if the branch is closed.
+    if (hasClosedDay) {
+      const isDark =
+        typeof document !== 'undefined' &&
+        document.documentElement.classList.contains('dark')
+      const res = await Swal.fire({
+        title: t('turno.closedConfirmTitle'),
+        text: t('turno.closedConfirmBody'),
+        icon: 'warning',
+        iconColor: '#ffae1f',
+        showCancelButton: true,
+        confirmButtonText: t('turno.closedConfirmYes'),
+        cancelButtonText: t('agendaCal.cancel'),
+        confirmButtonColor: '#5d87ff',
+        cancelButtonColor: isDark ? '#3f4a5d' : '#e5e7eb',
+        background: isDark ? '#2a3547' : '#ffffff',
+        color: isDark ? '#ffffff' : '#2a3547',
+        width: '360px',
+        customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
+      })
+      if (!res.isConfirmed) return
+    }
     setSaving(true)
     setError(null)
     const input = {
@@ -499,6 +548,13 @@ function EventDialog({
             />
             <span className='text-sm text-dark dark:text-white'>{t('turno.charged')}</span>
           </label>
+
+          {hasClosedDay && (
+            <p className='flex items-start gap-1.5 text-xs text-warning'>
+              <Icon icon='solar:danger-triangle-line-duotone' height={14} width={14} className='mt-0.5 shrink-0' />
+              {t('turno.closedWarning')}
+            </p>
+          )}
 
           {error && <p className='text-xs text-error'>{t('agendaCal.saveError')}</p>}
         </div>
