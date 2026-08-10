@@ -15,6 +15,7 @@ type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 // A lead is "recoverable" when it's still in the early/mid funnel (not booked,
 // not closed) and has gone quiet for at least this long.
 const STALE_HOURS = 48
+const PAGE_SIZE = 15
 const IN_FUNNEL: LeadStatus[] = ['nuevo', 'en_conversacion', 'cotizado', 'sin_respuesta']
 
 const STATUS_KEY: Partial<Record<LeadStatus, TranslationKey>> = {
@@ -116,6 +117,12 @@ export default function RecuperacionPage() {
     [leads],
   )
 
+  const [page, setPage] = useState(1)
+  // Reset to the first page whenever the underlying set changes.
+  useEffect(() => setPage(1), [cold.length])
+  const totalPages = Math.max(1, Math.ceil(cold.length / PAGE_SIZE))
+  const pageItems = cold.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
   return (
     <RoleGate allow={['admin', 'operador']}>
       <div className='space-y-6'>
@@ -150,10 +157,33 @@ export default function RecuperacionPage() {
                 {t('recovery.count', { n: String(cold.length) })}
               </p>
               <div>
-                {cold.map((lead) => (
+                {pageItems.map((lead) => (
                   <Row key={lead.id} lead={lead} t={t} />
                 ))}
               </div>
+              {totalPages > 1 && (
+                <div className='flex items-center justify-between gap-2 pt-4'>
+                  <span className='text-xs text-link dark:text-darklink'>
+                    {t('recovery.pageOf', { page: String(page), total: String(totalPages) })}
+                  </span>
+                  <div className='flex items-center gap-2'>
+                    <button
+                      type='button'
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className='px-3 py-1.5 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors'>
+                      {t('recovery.prev')}
+                    </button>
+                    <button
+                      type='button'
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                      className='px-3 py-1.5 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors'>
+                      {t('recovery.next')}
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
