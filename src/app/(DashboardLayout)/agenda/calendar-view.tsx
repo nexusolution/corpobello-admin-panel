@@ -171,6 +171,9 @@ function DateField({
             mode='single'
             selected={date}
             defaultMonth={date}
+            captionLayout='dropdown'
+            startMonth={new Date(2020, 0)}
+            endMonth={new Date(2035, 11)}
             disabled={minDate ? { before: minDate } : undefined}
             locale={locale === 'es' ? es : undefined}
             onSelect={(d: Date | undefined) => {
