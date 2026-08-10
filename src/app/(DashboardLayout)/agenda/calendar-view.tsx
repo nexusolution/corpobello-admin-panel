@@ -35,6 +35,7 @@ import {
   type PatientOption,
 } from '@/lib/data/calendar-events'
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
+import { getTreatmentColorBySlug } from '@/lib/treatment-colors'
 import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
 import { fetchSucursalHours, type DayHours, type Sucursal } from '@/lib/data/sucursal-hours'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
@@ -885,10 +886,14 @@ export function CalendarView() {
         messages={messages}
         style={{ height: 720 }}
         eventPropGetter={(event: CalendarEvent) => ({
+          // Full background = STATUS; thin left bar = TREATMENT (Andrés' scheme).
           style: {
             backgroundColor: STATUS_COLORS[event.status],
-            borderColor: STATUS_COLORS[event.status],
             color: '#ffffff',
+            border: 'none',
+            borderLeft: `5px solid ${
+              event.treatmentSlug ? getTreatmentColorBySlug(event.treatmentSlug).hex : 'rgba(255,255,255,0.5)'
+            }`,
           },
         })}
         components={{
@@ -903,10 +908,16 @@ export function CalendarView() {
             />
           ),
           event: ({ event }: { event: CalendarEvent }) => (
-            <span className='truncate'>
-              {isExpiredReserva(event) && <span title={t('agendaCal.expiredMark')}>⏳ </span>}
-              {event.charged && <span className='font-bold'>$ </span>}
-              {event.title}
+            // Title on the left; "$" pushed to the right as an extra charge mark
+            // (does not replace the status, which the full background encodes).
+            <span className='flex items-center justify-between gap-1 w-full'>
+              <span className='truncate'>
+                {isExpiredReserva(event) && <span title={t('agendaCal.expiredMark')}>⏳ </span>}
+                {event.title}
+              </span>
+              {event.charged && (
+                <span className='font-bold shrink-0' title={t('agenda.charged')}>$</span>
+              )}
             </span>
           ),
         }}

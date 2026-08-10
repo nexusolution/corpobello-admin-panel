@@ -22,6 +22,8 @@ export type TreatmentColor = {
   textClass: string
   /** Tailwind bg-* class for a solid dot indicator (no opacity) */
   dotClass: string
+  /** Hex color for inline styles (e.g. the agenda's left treatment bar) */
+  hex: string
   /** Emoji used in compact summary chips */
   emoji: string
   /** Iconify icon name for richer renderings (workload list, agenda chips) */
@@ -35,6 +37,7 @@ const DEFAULT_COLOR: TreatmentColor = {
   bgClass: 'bg-muted/40 dark:bg-darkmuted/40',
   textClass: 'text-link dark:text-darklink',
   dotClass: 'bg-link dark:bg-darklink',
+  hex: '#8a94a6',
   emoji: '⬜',
   icon: 'solar:question-square-line-duotone',
   labelKey: 'treatments.category.other',
@@ -46,6 +49,7 @@ const PALETTE: Record<string, TreatmentColor> = {
     bgClass: 'bg-lightwarning',
     textClass: 'text-warning',
     dotClass: 'bg-warning',
+    hex: '#ffae1f',
     emoji: '🟨',
     icon: 'solar:pen-new-square-line-duotone',
     labelKey: 'treatments.category.tatuaje',
@@ -55,6 +59,7 @@ const PALETTE: Record<string, TreatmentColor> = {
     bgClass: 'bg-pink-500/15',
     textClass: 'text-pink-500',
     dotClass: 'bg-pink-500',
+    hex: '#ec4899',
     emoji: '🩷',
     icon: 'solar:bolt-line-duotone',
     labelKey: 'treatments.category.depilacion',
@@ -64,6 +69,7 @@ const PALETTE: Record<string, TreatmentColor> = {
     bgClass: 'bg-lightsecondary',
     textClass: 'text-secondary',
     dotClass: 'bg-secondary',
+    hex: '#49beff',
     emoji: '🟦',
     icon: 'solar:user-rounded-line-duotone',
     labelKey: 'treatments.category.melasma',
@@ -73,6 +79,7 @@ const PALETTE: Record<string, TreatmentColor> = {
     bgClass: 'bg-lightsuccess',
     textClass: 'text-success',
     dotClass: 'bg-success',
+    hex: '#13deb9',
     emoji: '🟩',
     icon: 'solar:magic-stick-3-line-duotone',
     labelKey: 'treatments.category.endolift',
@@ -82,6 +89,7 @@ const PALETTE: Record<string, TreatmentColor> = {
     bgClass: 'bg-orange-500/15',
     textClass: 'text-orange-500',
     dotClass: 'bg-orange-500',
+    hex: '#f97316',
     emoji: '🟧',
     icon: 'solar:droplet-line-duotone',
     labelKey: 'treatments.category.acne',
@@ -91,6 +99,7 @@ const PALETTE: Record<string, TreatmentColor> = {
     bgClass: 'bg-purple-500/15',
     textClass: 'text-purple-500',
     dotClass: 'bg-purple-500',
+    hex: '#a855f7',
     emoji: '🟪',
     icon: 'solar:pen-2-line-duotone',
     labelKey: 'treatments.category.microblading',
@@ -100,6 +109,7 @@ const PALETTE: Record<string, TreatmentColor> = {
     bgClass: 'bg-lightinfo',
     textClass: 'text-info',
     dotClass: 'bg-info',
+    hex: '#539bff',
     emoji: '🟦',
     icon: 'solar:health-line-duotone',
     labelKey: 'treatments.category.facial',
@@ -109,6 +119,7 @@ const PALETTE: Record<string, TreatmentColor> = {
     bgClass: 'bg-gray-400/15',
     textClass: 'text-gray-500',
     dotClass: 'bg-gray-400',
+    hex: '#9ca3af',
     emoji: '⬜',
     icon: 'solar:close-circle-line-duotone',
     labelKey: 'treatments.category.cancelado',
