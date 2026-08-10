@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Icon } from '@iconify/react'
 
@@ -7,70 +8,44 @@ import CardBox from '../shared/CardBox'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 import { getTreatmentColor } from '@/lib/treatment-colors'
+import { fetchCalendarEvents, getCurrentUserId } from '@/lib/data/calendar-events'
+import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
+import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
+import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 type AppointmentStatus = 'confirmado' | 'pendiente' | 'atendido' | 'cancelado'
-type Sucursal = 'caballito' | 'merlo' | 'moreno'
 
 type Appointment = {
   id: string
-  time: string
   patientName: string
   treatmentLabel: string
   professional: string
-  sucursal: Sucursal
+  sucursal: string | null
   status: AppointmentStatus
-  /** A payment/charge is registered for this appointment → shows a "$" mark. */
-  charged?: boolean
+  charged: boolean
 }
 
-const SUCURSAL_LABELS: Record<Sucursal, string> = {
+const SUCURSAL_LABELS: Record<string, string> = {
   caballito: 'Caballito',
   merlo: 'Merlo',
   moreno: 'Moreno',
 }
 
-// MOCK STATE: today's appointments. Replace with Supabase query joining
-// turnos + patients + treatments when Etapa 2 agenda module lands.
-const TODAYS_APPOINTMENTS: Appointment[] = [
-  { id: '1', time: '09:00', patientName: 'Camila Rojas', treatmentLabel: 'Láser — Axilas', professional: 'Andrés', sucursal: 'caballito', status: 'atendido', charged: true },
-  { id: '2', time: '10:00', patientName: 'Carolina Ruiz', treatmentLabel: 'Láser — Piernas', professional: 'Andrés', sucursal: 'caballito', status: 'atendido', charged: true },
-  { id: '3', time: '11:30', patientName: 'María González', treatmentLabel: 'Tatuajes — Remoción', professional: 'Lucía', sucursal: 'caballito', status: 'atendido' },
-  { id: '4', time: '13:00', patientName: 'Sofía Martínez', treatmentLabel: 'Endolift', professional: 'Andrés', sucursal: 'caballito', status: 'confirmado', charged: true },
-  { id: '5', time: '14:30', patientName: 'Valentina Pérez', treatmentLabel: 'Faciales — Limpieza', professional: 'Lucía', sucursal: 'merlo', status: 'confirmado' },
-  { id: '6', time: '15:00', patientName: 'Bianca Romero', treatmentLabel: 'Microblading', professional: 'Andrés', sucursal: 'caballito', status: 'pendiente' },
-  { id: '7', time: '16:30', patientName: 'Florencia López', treatmentLabel: 'Melasma', professional: 'Lucía', sucursal: 'merlo', status: 'pendiente' },
-  { id: '8', time: '18:00', patientName: 'Pilar Cabrera', treatmentLabel: 'Acné', professional: 'Andrés', sucursal: 'caballito', status: 'cancelado' },
-]
-
 const STATUS_STYLE: Record<
   AppointmentStatus,
-  { bg: string; text: string; labelKey: TranslationKey; dot: string }
+  { bg: string; text: string; labelKey: TranslationKey }
 > = {
-  confirmado: {
-    bg: 'bg-lightsuccess',
-    text: 'text-success',
-    labelKey: 'agenda.status.confirmed',
-    dot: 'bg-success',
-  },
-  pendiente: {
-    bg: 'bg-lightwarning',
-    text: 'text-warning',
-    labelKey: 'agenda.status.pending',
-    dot: 'bg-warning',
-  },
-  atendido: {
-    bg: 'bg-lightprimary',
-    text: 'text-primary',
-    labelKey: 'agenda.status.attended',
-    dot: 'bg-primary',
-  },
-  cancelado: {
-    bg: 'bg-lighterror',
-    text: 'text-error',
-    labelKey: 'agenda.status.cancelled',
-    dot: 'bg-error',
-  },
+  confirmado: { bg: 'bg-lightsuccess', text: 'text-success', labelKey: 'agenda.status.confirmed' },
+  pendiente: { bg: 'bg-lightwarning', text: 'text-warning', labelKey: 'agenda.status.pending' },
+  atendido: { bg: 'bg-lightprimary', text: 'text-primary', labelKey: 'agenda.status.attended' },
+  cancelado: { bg: 'bg-lighterror', text: 'text-error', labelKey: 'agenda.status.cancelled' },
+}
+
+function normalizeStatus(s: string): AppointmentStatus {
+  return s === 'confirmado' || s === 'pendiente' || s === 'atendido' || s === 'cancelado'
+    ? s
+    : 'pendiente'
 }
 
 function StatBlock({
@@ -88,17 +63,12 @@ function StatBlock({
 }) {
   return (
     <div className='flex items-center gap-2.5 rounded-md border border-border dark:border-darkborder px-3 py-2'>
-      <div
-        className={`h-9 w-9 rounded-md flex items-center justify-center shrink-0 ${iconClass}`}>
+      <div className={`h-9 w-9 rounded-md flex items-center justify-center shrink-0 ${iconClass}`}>
         <Icon icon={icon} height={18} width={18} />
       </div>
       <div className='min-w-0'>
-        <div className='text-base font-bold text-dark dark:text-white leading-tight'>
-          {count}
-        </div>
-        <div className='text-xs text-link dark:text-darklink truncate'>
-          {t(labelKey)}
-        </div>
+        <div className='text-base font-bold text-dark dark:text-white leading-tight'>{count}</div>
+        <div className='text-xs text-link dark:text-darklink truncate'>{t(labelKey)}</div>
       </div>
     </div>
   )
@@ -106,22 +76,61 @@ function StatBlock({
 
 const AgendaDay = () => {
   const { t } = useTranslation()
+  const { role } = useCurrentUser()
+  const [appts, setAppts] = useState<Appointment[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let active = true
+    async function load() {
+      const [{ data: events }, { data: prices }, { data: users }, myId] = await Promise.all([
+        fetchCalendarEvents(),
+        fetchTreatmentPrices(),
+        fetchAppUsers(),
+        getCurrentUserId(),
+      ])
+      if (!active) return
+      const treatmentMap = new Map(prices.map((p) => [p.slug, p.displayName]))
+      const proMap = new Map(users.map((u) => [u.id, u.fullName]))
+
+      // Today's turnos: the all-day span covers today.
+      const now = new Date()
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+
+      const rows = events
+        .filter((e) => e.start <= todayEnd && e.end >= todayStart)
+        // Profesional only sees their own turnos on the dashboard too.
+        .filter((e) => role !== 'profesional' || (!!myId && e.professionalId === myId))
+        .map<Appointment>((e) => ({
+          id: e.id,
+          patientName: e.patientName || e.title,
+          treatmentLabel: e.treatmentSlug ? treatmentMap.get(e.treatmentSlug) ?? e.treatmentSlug : '—',
+          professional: e.professionalId ? proMap.get(e.professionalId) ?? '—' : '—',
+          sucursal: e.sucursal,
+          status: normalizeStatus(e.status),
+          charged: e.charged,
+        }))
+      setAppts(rows)
+      setLoading(false)
+    }
+    void load()
+    return () => {
+      active = false
+    }
+  }, [role])
 
   const counts = {
-    total: TODAYS_APPOINTMENTS.length,
-    confirmado: TODAYS_APPOINTMENTS.filter((a) => a.status === 'confirmado').length,
-    pendiente: TODAYS_APPOINTMENTS.filter((a) => a.status === 'pendiente').length,
-    atendido: TODAYS_APPOINTMENTS.filter((a) => a.status === 'atendido').length,
-    cancelado: TODAYS_APPOINTMENTS.filter((a) => a.status === 'cancelado').length,
+    total: appts.length,
+    confirmado: appts.filter((a) => a.status === 'confirmado').length,
+    pendiente: appts.filter((a) => a.status === 'pendiente').length,
+    atendido: appts.filter((a) => a.status === 'atendido').length,
   }
 
+  const workingPros = Array.from(new Set(appts.map((a) => a.professional).filter((p) => p !== '—')))
   const openSucursales = Array.from(
-    new Set(TODAYS_APPOINTMENTS.map((a) => a.sucursal))
-  ).map((s) => SUCURSAL_LABELS[s])
-
-  const workingPros = Array.from(
-    new Set(TODAYS_APPOINTMENTS.map((a) => a.professional))
-  )
+    new Set(appts.map((a) => a.sucursal).filter((s): s is string => !!s)),
+  ).map((s) => SUCURSAL_LABELS[s] ?? s)
 
   return (
     <CardBox className='h-full w-full'>
@@ -129,17 +138,25 @@ const AgendaDay = () => {
       <div className='flex items-start justify-between mb-4 gap-3 flex-wrap'>
         <div className='min-w-0'>
           <h5 className='card-title'>{t('agenda.title')}</h5>
-          <p className='text-xs text-link dark:text-darklink mt-0.5'>
-            <span className='inline-flex items-center gap-1'>
-              <Icon icon='solar:users-group-rounded-line-duotone' height={14} width={14} />
-              {workingPros.join(' · ')}
-            </span>
-            <span className='mx-2 text-link/40'>·</span>
-            <span className='inline-flex items-center gap-1'>
-              <Icon icon='solar:map-point-line-duotone' height={14} width={14} />
-              {openSucursales.join(' · ')}
-            </span>
-          </p>
+          {(workingPros.length > 0 || openSucursales.length > 0) && (
+            <p className='text-xs text-link dark:text-darklink mt-0.5'>
+              {workingPros.length > 0 && (
+                <span className='inline-flex items-center gap-1'>
+                  <Icon icon='solar:users-group-rounded-line-duotone' height={14} width={14} />
+                  {workingPros.join(' · ')}
+                </span>
+              )}
+              {workingPros.length > 0 && openSucursales.length > 0 && (
+                <span className='mx-2 text-link/40'>·</span>
+              )}
+              {openSucursales.length > 0 && (
+                <span className='inline-flex items-center gap-1'>
+                  <Icon icon='solar:map-point-line-duotone' height={14} width={14} />
+                  {openSucursales.join(' · ')}
+                </span>
+              )}
+            </p>
+          )}
         </div>
         <Link
           href='/agenda'
@@ -151,46 +168,23 @@ const AgendaDay = () => {
 
       {/* Summary counts */}
       <div className='grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4'>
-        <StatBlock
-          icon='solar:calendar-mark-line-duotone'
-          count={counts.total}
-          labelKey='agenda.summary.total'
-          iconClass='bg-lightprimary text-primary'
-          t={t}
-        />
-        <StatBlock
-          icon='solar:check-circle-line-duotone'
-          count={counts.confirmado}
-          labelKey='agenda.summary.confirmed'
-          iconClass='bg-lightsuccess text-success'
-          t={t}
-        />
-        <StatBlock
-          icon='solar:clock-circle-line-duotone'
-          count={counts.pendiente}
-          labelKey='agenda.summary.pending'
-          iconClass='bg-lightwarning text-warning'
-          t={t}
-        />
-        <StatBlock
-          icon='solar:check-read-line-duotone'
-          count={counts.atendido}
-          labelKey='agenda.summary.attended'
-          iconClass='bg-lightinfo text-info'
-          t={t}
-        />
+        <StatBlock icon='solar:calendar-mark-line-duotone' count={counts.total} labelKey='agenda.summary.total' iconClass='bg-lightprimary text-primary' t={t} />
+        <StatBlock icon='solar:check-circle-line-duotone' count={counts.confirmado} labelKey='agenda.summary.confirmed' iconClass='bg-lightsuccess text-success' t={t} />
+        <StatBlock icon='solar:clock-circle-line-duotone' count={counts.pendiente} labelKey='agenda.summary.pending' iconClass='bg-lightwarning text-warning' t={t} />
+        <StatBlock icon='solar:check-read-line-duotone' count={counts.atendido} labelKey='agenda.summary.attended' iconClass='bg-lightinfo text-info' t={t} />
       </div>
 
-      {/* Appointment list — Andrés 2026-08-08 visual scheme, three glanceable
-          signals per row: left bar = TREATMENT, full row background = STATUS,
-          "$" mark = a charge is registered. Replaces the old right-side dot. */}
+      {/* Appointment list — left bar = treatment, row background = status,
+          "$" = a charge is registered. */}
       <div className='space-y-2'>
-        {TODAYS_APPOINTMENTS.length === 0 ? (
-          <p className='text-sm text-link dark:text-darklink italic py-4'>
-            {t('agenda.empty')}
-          </p>
+        {loading ? (
+          <div className='py-6 flex justify-center'>
+            <Icon icon='tabler:loader-2' height={22} width={22} className='text-primary animate-spin' />
+          </div>
+        ) : appts.length === 0 ? (
+          <p className='text-sm text-link dark:text-darklink italic py-4'>{t('agenda.empty')}</p>
         ) : (
-          TODAYS_APPOINTMENTS.map((appt) => {
+          appts.map((appt) => {
             const tColor = getTreatmentColor(appt.treatmentLabel)
             const sStyle = STATUS_STYLE[appt.status]
             return (
@@ -198,21 +192,12 @@ const AgendaDay = () => {
                 key={appt.id}
                 className={`flex items-stretch gap-3 rounded-md pr-3 py-2 overflow-hidden ${sStyle.bg}`}
                 title={t(sStyle.labelKey)}>
-                {/* Left color bar = treatment identity ("barra izquierda =
-                    tratamiento"). Full-height, reads at a glance. */}
                 <span
                   className={`w-1.5 shrink-0 self-stretch ${tColor.dotClass}`}
                   title={t(tColor.labelKey as TranslationKey)}
                   aria-hidden='true'
                 />
-
-                {/* Time */}
-                <div className='shrink-0 w-12 self-center text-sm font-semibold text-dark dark:text-white tabular-nums'>
-                  {appt.time}
-                </div>
-
-                {/* Patient + treatment */}
-                <div className='flex-1 min-w-0 self-center'>
+                <div className='flex-1 min-w-0 self-center pl-1'>
                   <div className='text-sm font-medium text-dark dark:text-white truncate'>
                     {appt.patientName}
                   </div>
@@ -220,18 +205,18 @@ const AgendaDay = () => {
                     {appt.treatmentLabel}
                   </div>
                 </div>
-
-                {/* Pro + sucursal (hidden on narrow screens) */}
                 <div className='hidden md:block shrink-0 self-center text-xs text-dark/70 dark:text-white/70 text-right'>
-                  <div className='truncate max-w-[120px]'>
-                    {t('agenda.with')} {appt.professional}
-                  </div>
-                  <div className='truncate max-w-[120px]'>
-                    {SUCURSAL_LABELS[appt.sucursal]}
-                  </div>
+                  {appt.professional !== '—' && (
+                    <div className='truncate max-w-[120px]'>
+                      {t('agenda.with')} {appt.professional}
+                    </div>
+                  )}
+                  {appt.sucursal && (
+                    <div className='truncate max-w-[120px]'>
+                      {SUCURSAL_LABELS[appt.sucursal] ?? appt.sucursal}
+                    </div>
+                  )}
                 </div>
-
-                {/* "$" = a charge is registered for this appointment. */}
                 {appt.charged && (
                   <span
                     className='shrink-0 self-center h-5 w-5 rounded-full bg-success/20 text-success text-xs font-bold inline-flex items-center justify-center'
@@ -240,11 +225,7 @@ const AgendaDay = () => {
                     $
                   </span>
                 )}
-
-                {/* Status name (the row background already encodes the status;
-                    this label keeps it explicit + accessible). */}
-                <span
-                  className={`shrink-0 self-center text-xs font-semibold ${sStyle.text} hidden sm:inline`}>
+                <span className={`shrink-0 self-center text-xs font-semibold ${sStyle.text} hidden sm:inline`}>
                   {t(sStyle.labelKey)}
                 </span>
               </div>
