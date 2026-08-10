@@ -166,6 +166,13 @@ export async function deleteCalendarEvent(id: string): Promise<string | null> {
 
 // ── Lookups for the turno form ────────────────────────────────────────────────
 
+/** The signed-in user's id (== app_users.id == a turno's professional_id). */
+export async function getCurrentUserId(): Promise<string | null> {
+  if (!isSupabaseConfigured()) return null
+  const { data } = await getSupabase().auth.getUser()
+  return data?.user?.id ?? null
+}
+
 export type PatientOption = { id: string; name: string }
 
 /** Search patients by name (ilike). Empty query returns the first 20 by name. */

@@ -22,6 +22,7 @@ import {
   updateCalendarEvent,
   deleteCalendarEvent,
   searchPatients,
+  getCurrentUserId,
   TURNO_STATUSES,
   STATUS_COLORS,
   SUCURSALES,
@@ -31,6 +32,7 @@ import {
 } from '@/lib/data/calendar-events'
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
 import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
+import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
@@ -533,6 +535,8 @@ function EventDialog({
 // ── Main view ─────────────────────────────────────────────────────────────────
 export function CalendarView() {
   const { t, locale } = useTranslation()
+  const { role } = useCurrentUser()
+  const isProfesional = role === 'profesional'
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -541,6 +545,10 @@ export function CalendarView() {
   const [draft, setDraft] = useState<Draft | null>(null)
   const [treatments, setTreatments] = useState<Option[]>([])
   const [professionals, setProfessionals] = useState<Option[]>([])
+  const [myUserId, setMyUserId] = useState<string | null>(null)
+  // Filter by professional. Admin/operador pick from the dropdown ('' = all);
+  // the Profesional role is locked to their own turnos (Andrés' scoped view).
+  const [professionalFilter, setProfessionalFilter] = useState('')
 
   moment.locale(locale)
   const localizer = useMemo(() => momentLocalizer(moment), [locale])
@@ -556,6 +564,7 @@ export function CalendarView() {
 
   useEffect(() => {
     reload()
+    void getCurrentUserId().then(setMyUserId)
     // Lookups for the form (best-effort; empty on RLS/error).
     void fetchTreatmentPrices().then(({ data }) =>
       setTreatments(data.map((p) => ({ value: p.slug, label: p.displayName }))),
@@ -569,6 +578,17 @@ export function CalendarView() {
     )
   }, [reload])
 
+  // Effective professional filter: the Profesional role is always locked to
+  // their own turnos; everyone else uses the dropdown ('' = all).
+  const effectiveProfessional = isProfesional ? myUserId ?? '__none__' : professionalFilter
+  const visibleEvents = useMemo(
+    () =>
+      effectiveProfessional
+        ? events.filter((e) => e.professionalId === effectiveProfessional)
+        : events,
+    [events, effectiveProfessional],
+  )
+
   const openAdd = useCallback((start?: Date, end?: Date) => {
     const s = start ?? new Date()
     const e = end ?? s
@@ -577,14 +597,15 @@ export function CalendarView() {
       patientId: null,
       patientName: null,
       treatmentSlug: '',
-      professionalId: '',
+      // A profesional creating a turno defaults it to themselves.
+      professionalId: isProfesional ? myUserId ?? '' : '',
       sucursal: '',
       status: 'pendiente',
       charged: false,
       startStr: toDateInput(s),
       endStr: toDateInput(e),
     })
-  }, [])
+  }, [isProfesional, myUserId])
 
   const onSelectSlot = useCallback(
     (slot: SlotInfo) => {
@@ -643,9 +664,29 @@ export function CalendarView() {
           {t('agendaCal.loadError')}
         </p>
       )}
+
+      {/* Professional filter. Profesional role is locked to their own agenda. */}
+      <div className='mb-4 flex items-center gap-2'>
+        <Icon icon='solar:user-rounded-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
+        <span className='text-xs font-medium text-link dark:text-darklink'>{t('turno.professional')}:</span>
+        {isProfesional ? (
+          <span className='text-sm font-medium text-primary'>{t('agendaCal.myAgenda')}</span>
+        ) : (
+          <select
+            value={professionalFilter}
+            onChange={(e) => setProfessionalFilter(e.target.value)}
+            className='pl-2.5 pr-9 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
+            <option value=''>{t('agendaCal.allProfessionals')}</option>
+            {professionals.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
       <Calendar
         localizer={localizer}
-        events={events}
+        events={visibleEvents}
         startAccessor='start'
         endAccessor='end'
         view={view}
