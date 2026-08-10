@@ -31,6 +31,20 @@ const SUCURSAL_LABELS: Record<string, string> = {
   moreno: 'Moreno',
 }
 
+// Condensed page list with ellipsis: always first + last, the current page and
+// its neighbours, and '…' for the gaps. e.g. 1 … 4 [5] 6 … 20
+function pageRange(current: number, total: number): (number | '…')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const out: (number | '…')[] = [1]
+  const start = Math.max(2, current - 1)
+  const end = Math.min(total - 1, current + 1)
+  if (start > 2) out.push('…')
+  for (let i = start; i <= end; i++) out.push(i)
+  if (end < total - 1) out.push('…')
+  out.push(total)
+  return out
+}
+
 function whatsappHref(phone: string): string | null {
   const digits = phone.replace(/\D/g, '')
   return digits.length >= 8 ? `https://wa.me/${digits}` : null
@@ -162,26 +176,45 @@ export default function RecuperacionPage() {
                 ))}
               </div>
               {totalPages > 1 && (
-                <div className='flex items-center justify-between gap-2 pt-4'>
-                  <span className='text-xs text-link dark:text-darklink'>
-                    {t('recovery.pageOf', { page: String(page), total: String(totalPages) })}
-                  </span>
-                  <div className='flex items-center gap-2'>
-                    <button
-                      type='button'
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page === 1}
-                      className='px-3 py-1.5 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors'>
-                      {t('recovery.prev')}
-                    </button>
-                    <button
-                      type='button'
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={page === totalPages}
-                      className='px-3 py-1.5 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors'>
-                      {t('recovery.next')}
-                    </button>
-                  </div>
+                <div className='flex items-center justify-center gap-1.5 pt-5 flex-wrap'>
+                  <button
+                    type='button'
+                    aria-label={t('recovery.prev')}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className='h-9 w-9 inline-flex items-center justify-center rounded-md border border-border dark:border-darkborder text-dark dark:text-white hover:bg-muted/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors'>
+                    <Icon icon='tabler:chevron-left' height={16} width={16} />
+                  </button>
+                  {pageRange(page, totalPages).map((p, i) =>
+                    p === '…' ? (
+                      <span
+                        key={`dots-${i}`}
+                        className='h-9 w-9 inline-flex items-center justify-center text-link dark:text-darklink select-none'>
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={p}
+                        type='button'
+                        onClick={() => setPage(p)}
+                        aria-current={p === page ? 'page' : undefined}
+                        className={`h-9 min-w-9 px-2 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors ${
+                          p === page
+                            ? 'bg-primary text-white'
+                            : 'border border-border dark:border-darkborder text-dark dark:text-white hover:bg-muted/40'
+                        }`}>
+                        {p}
+                      </button>
+                    ),
+                  )}
+                  <button
+                    type='button'
+                    aria-label={t('recovery.next')}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className='h-9 w-9 inline-flex items-center justify-center rounded-md border border-border dark:border-darkborder text-dark dark:text-white hover:bg-muted/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors'>
+                    <Icon icon='tabler:chevron-right' height={16} width={16} />
+                  </button>
                 </div>
               )}
             </>
