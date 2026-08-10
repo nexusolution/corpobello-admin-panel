@@ -68,35 +68,37 @@ function Toolbar({
     { key: Views.DAY, label: t('agendaCal.day') },
     { key: Views.AGENDA, label: t('agendaCal.agenda') },
   ]
+  // Pill button groups matching the reference design: fully-rounded outline in
+  // the primary tint, thin dividers, active view filled solid primary.
+  const groupCls =
+    'inline-flex items-center rounded-full border border-primary/40 overflow-hidden text-sm font-medium'
+  const segCls =
+    'px-4 py-1.5 text-dark dark:text-white hover:bg-lightprimary/50 transition-colors'
+
   return (
     <div className='flex items-center justify-between gap-3 flex-wrap mb-4'>
       <div className='flex items-center gap-2'>
-        <div className='inline-flex rounded-lg border border-border dark:border-darkborder overflow-hidden'>
-          <button
-            type='button'
-            onClick={() => onNavigate('TODAY')}
-            className='px-3 py-1.5 text-sm font-medium text-dark dark:text-white hover:bg-lightprimary/50 transition-colors'>
+        <div className={groupCls}>
+          <button type='button' onClick={() => onNavigate('TODAY')} className={segCls}>
             {t('agendaCal.today')}
           </button>
           <button
             type='button'
             onClick={() => onNavigate('PREV')}
-            aria-label={t('agendaCal.back')}
-            className='px-2.5 py-1.5 border-l border-border dark:border-darkborder text-dark dark:text-white hover:bg-lightprimary/50 transition-colors'>
-            <Icon icon='tabler:chevron-left' height={16} width={16} />
+            className={`${segCls} border-l border-primary/30`}>
+            {t('agendaCal.back')}
           </button>
           <button
             type='button'
             onClick={() => onNavigate('NEXT')}
-            aria-label={t('agendaCal.next')}
-            className='px-2.5 py-1.5 border-l border-border dark:border-darkborder text-dark dark:text-white hover:bg-lightprimary/50 transition-colors'>
-            <Icon icon='tabler:chevron-right' height={16} width={16} />
+            className={`${segCls} border-l border-primary/30`}>
+            {t('agendaCal.next')}
           </button>
         </div>
         <button
           type='button'
           onClick={onAdd}
-          className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
+          className='inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
           <Icon icon='tabler:plus' height={16} width={16} />
           {t('agendaCal.new')}
         </button>
@@ -106,13 +108,13 @@ function Toolbar({
         {label}
       </h5>
 
-      <div className='inline-flex rounded-lg border border-border dark:border-darkborder overflow-hidden'>
-        {views.map((v) => (
+      <div className={groupCls}>
+        {views.map((v, i) => (
           <button
             key={v.key}
             type='button'
             onClick={() => onView(v.key)}
-            className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`px-4 py-1.5 transition-colors ${i > 0 ? 'border-l border-primary/30' : ''} ${
               view === v.key
                 ? 'bg-primary text-white'
                 : 'text-dark dark:text-white hover:bg-lightprimary/50'
