@@ -1,6 +1,6 @@
 'use client'
 
-import Swal from 'sweetalert2'
+import Link from 'next/link'
 import { Icon } from '@iconify/react'
 
 import CardBox from '../shared/CardBox'
@@ -73,31 +73,6 @@ const STATUS_STYLE: Record<
   },
 }
 
-function showUnderDevelopmentAlert(t: TFn) {
-  const isDark =
-    typeof document !== 'undefined' &&
-    document.documentElement.classList.contains('dark')
-  Swal.fire({
-    title: t('alerts.underDevelopmentTitle'),
-    text: t('alerts.underDevelopmentBody', { section: t('agenda.title') }),
-    icon: 'info',
-    iconColor: '#5d87ff',
-    confirmButtonText: t('alerts.underDevelopmentButton'),
-    confirmButtonColor: '#5d87ff',
-    background: isDark ? '#2a3547' : '#ffffff',
-    color: isDark ? '#ffffff' : '#2a3547',
-    width: '360px',
-    padding: '1rem',
-    customClass: {
-      title: '!text-base !font-semibold !pb-0',
-      htmlContainer: '!text-sm !mt-2',
-      icon: '!w-12 !h-12 !mt-2 !mb-1 [&_.swal2-icon-content]:!text-2xl',
-      confirmButton: '!text-sm !px-4 !py-1.5',
-      popup: '!rounded-lg',
-    },
-  })
-}
-
 function StatBlock({
   icon,
   count,
@@ -166,13 +141,12 @@ const AgendaDay = () => {
             </span>
           </p>
         </div>
-        <button
-          type='button'
-          onClick={() => showUnderDevelopmentAlert(t)}
+        <Link
+          href='/agenda'
           className='inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline'>
           {t('agenda.viewAll')}
           <Icon icon='tabler:arrow-up-right' height={14} width={14} />
-        </button>
+        </Link>
       </div>
 
       {/* Summary counts */}

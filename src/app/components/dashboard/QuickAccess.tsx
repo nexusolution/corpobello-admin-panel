@@ -39,8 +39,7 @@ const TILES: Tile[] = [
     icon: 'solar:calendar-mark-line-duotone',
     iconBg: 'bg-lightsecondary',
     iconColor: 'text-secondary',
-    url: '#',
-    underDevelopment: true,
+    url: '/agenda',
   },
   {
     key: 'newPatient',

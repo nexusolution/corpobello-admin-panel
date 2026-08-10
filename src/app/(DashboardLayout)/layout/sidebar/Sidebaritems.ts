@@ -61,8 +61,7 @@ const SidebarContent: MenuItem[] = [
         nameKey: 'sidebar.agenda',
         icon: 'solar:calendar-mark-line-duotone',
         id: uniqueId(),
-        url: '#',
-        underDevelopment: true,
+        url: '/agenda',
       },
       {
         name: 'Pacientes',

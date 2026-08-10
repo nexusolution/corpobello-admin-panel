@@ -1,0 +1,137 @@
+/* react-big-calendar theming for the Corpo Bello panel.
+   Matches the panel's tokens (light + dark) and gives events the rounded,
+   modern pill look from the reference design. Dark mode keys off the `dark`
+   class the app puts on <html>. */
+
+.rbc-calendar {
+  font-family: inherit;
+  color: #2a3547;
+}
+.dark .rbc-calendar {
+  color: #eaeff4;
+}
+
+/* Container borders — softer, rounded */
+.rbc-month-view,
+.rbc-time-view,
+.rbc-agenda-view {
+  border-color: #e5eaef;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.dark .rbc-month-view,
+.dark .rbc-time-view,
+.dark .rbc-agenda-view {
+  border-color: #333f55;
+}
+
+.rbc-month-row + .rbc-month-row,
+.rbc-day-bg + .rbc-day-bg,
+.rbc-header + .rbc-header,
+.rbc-time-content > * + * > *,
+.rbc-timeslot-group,
+.rbc-time-header-content,
+.rbc-time-content,
+.rbc-time-header.rbc-overflowing,
+.rbc-agenda-view table.rbc-agenda-table,
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td + td,
+.rbc-agenda-view table.rbc-agenda-table thead > tr > th {
+  border-color: #e5eaef;
+}
+.dark .rbc-month-row + .rbc-month-row,
+.dark .rbc-day-bg + .rbc-day-bg,
+.dark .rbc-header + .rbc-header,
+.dark .rbc-time-content > * + * > *,
+.dark .rbc-timeslot-group,
+.dark .rbc-time-header-content,
+.dark .rbc-time-content,
+.dark .rbc-time-header.rbc-overflowing,
+.dark .rbc-agenda-view table.rbc-agenda-table,
+.dark .rbc-agenda-view table.rbc-agenda-table tbody > tr > td + td,
+.dark .rbc-agenda-view table.rbc-agenda-table thead > tr > th {
+  border-color: #333f55;
+}
+
+/* Weekday header row */
+.rbc-header {
+  padding: 10px 6px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: #5a6a85;
+  border-bottom-color: #e5eaef;
+  text-transform: capitalize;
+}
+.dark .rbc-header {
+  color: #7c8fac;
+  border-bottom-color: #333f55;
+}
+
+/* Date numbers */
+.rbc-date-cell {
+  padding: 6px 8px;
+  font-size: 0.8rem;
+}
+.rbc-button-link {
+  color: inherit;
+}
+
+/* Other-month days */
+.rbc-off-range-bg {
+  background: #f6f9fc;
+}
+.dark .rbc-off-range-bg {
+  background: #263041;
+}
+.rbc-off-range {
+  color: #aeb9c4;
+}
+.dark .rbc-off-range {
+  color: #4b5876;
+}
+
+/* Today highlight */
+.rbc-today {
+  background: #ecf2ff;
+}
+.dark .rbc-today {
+  background: rgba(93, 135, 255, 0.14);
+}
+
+/* Event pills — rounded, modern */
+.rbc-event {
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  border: none;
+  box-shadow: none;
+}
+.rbc-event:focus {
+  outline: 2px solid rgba(93, 135, 255, 0.5);
+}
+.rbc-event.rbc-selected {
+  filter: brightness(0.94);
+}
+.rbc-show-more {
+  color: #5d87ff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: transparent;
+}
+
+/* Time grid + agenda text */
+.rbc-time-view .rbc-label,
+.rbc-agenda-time-cell,
+.rbc-agenda-date-cell {
+  color: #5a6a85;
+  font-size: 0.78rem;
+}
+.dark .rbc-time-view .rbc-label,
+.dark .rbc-agenda-time-cell,
+.dark .rbc-agenda-date-cell {
+  color: #7c8fac;
+}
+
+.rbc-current-time-indicator {
+  background: #fa896b;
+}
