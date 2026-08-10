@@ -6,6 +6,7 @@ import { WelcomeBanner } from './WelcomeBanner'
 import QuickAccess from './QuickAccess'
 import AgendaDay from './AgendaDay'
 import TasksAttention from './TasksAttention'
+import { OperadorDashboard } from './OperadorDashboard'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 
 // Andrés 2026-06-30, point #5: the same dashboard, reprioritised per role.
@@ -63,35 +64,10 @@ export function RoleDashboard() {
   }
 
   if (role === 'operador') {
-    // Andrés 2026-08-08: "primero un panorama general, después el detalle
-    // operativo". So after the greeting comes the visual/summary block —
-    // funnel cards + "Hoy de un vistazo / Carga del día" + accesos rápidos —
-    // and only THEN the agenda del día + attention queue. Facturación stays out.
-    return (
-      <div className='grid grid-cols-12 gap-6'>
-        <div className='col-span-12'>
-          <DashboardGreeting />
-        </div>
-        {/* Panorama general (visual + resumen) */}
-        <div className='col-span-12'>
-          <TopCards />
-        </div>
-        {/* Front-desk view: no facturación (income/charges hidden). */}
-        <div className='col-span-12 lg:col-span-8'>
-          <WelcomeBanner showFinancials={false} />
-        </div>
-        <div className='col-span-12 lg:col-span-4'>
-          <QuickAccess />
-        </div>
-        {/* Detalle operativo */}
-        <div className='col-span-12 lg:col-span-6'>
-          <AgendaDay />
-        </div>
-        <div className='col-span-12 lg:col-span-6'>
-          <TasksAttention />
-        </div>
-      </div>
-    )
+    // Andrés 2026-08-08 wireframe: a purpose-built reception dashboard —
+    // header + summary + actions, embudo operativo, cola de trabajo, jornada
+    // de un vistazo + carga del día, and agenda del día with per-row actions.
+    return <OperadorDashboard />
   }
 
   // admin (default)
