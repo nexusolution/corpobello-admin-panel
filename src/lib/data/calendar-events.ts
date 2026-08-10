@@ -29,6 +29,12 @@ export const STATUS_COLORS: Record<TurnoStatus, string> = {
 export const SUCURSALES = ['caballito', 'merlo', 'moreno'] as const
 export type Sucursal = (typeof SUCURSALES)[number]
 
+// A pre-reserva ('reservado') is considered "vencida" once it has gone this long
+// without being confirmed. v1 only HIGHLIGHTS these (no auto-cancel) — freeing
+// the slot automatically is a deliberate follow-up once the clinic sets the
+// policy. Measured from the turno's created_at.
+export const PRE_RESERVA_TTL_HOURS = 48
+
 // Shape react-big-calendar consumes directly (start/end are Date objects). The
 // extra turno fields ride along for rendering + edit-form repopulation.
 export type CalendarEvent = {
@@ -44,6 +50,7 @@ export type CalendarEvent = {
   professionalId: string | null
   sucursal: string | null
   treatmentSlug: string | null
+  createdAt: Date
 }
 
 type Row = {
@@ -58,6 +65,7 @@ type Row = {
   professional_id: string | null
   sucursal: string | null
   treatment_slug: string | null
+  created_at: string
   patient: { full_name: string | null } | { full_name: string | null }[] | null
 }
 
@@ -84,11 +92,18 @@ function rowToEvent(r: Row): CalendarEvent {
     professionalId: r.professional_id,
     sucursal: r.sucursal,
     treatmentSlug: r.treatment_slug,
+    createdAt: new Date(r.created_at),
   }
 }
 
+// A 'reservado' turno past the TTL (measured from creation) = vencida.
+export function isExpiredReserva(e: CalendarEvent, now: Date = new Date()): boolean {
+  if (e.status !== 'reservado') return false
+  return now.getTime() - e.createdAt.getTime() > PRE_RESERVA_TTL_HOURS * 3600_000
+}
+
 const SELECT =
-  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, patient:patient_id (full_name)'
+  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, created_at, patient:patient_id (full_name)'
 
 export async function fetchCalendarEvents(): Promise<{
   data: CalendarEvent[]

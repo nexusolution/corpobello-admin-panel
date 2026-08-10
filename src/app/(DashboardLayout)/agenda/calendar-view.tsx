@@ -26,6 +26,7 @@ import {
   deleteCalendarEvent,
   searchPatients,
   getCurrentUserId,
+  isExpiredReserva,
   TURNO_STATUSES,
   STATUS_COLORS,
   SUCURSALES,
@@ -662,6 +663,12 @@ export function CalendarView() {
     [events, effectiveProfessional, sucursalFilter],
   )
 
+  // Pre-reservas past the TTL (highlight only — no auto-cancel in v1).
+  const expiredCount = useMemo(
+    () => visibleEvents.filter((e) => isExpiredReserva(e)).length,
+    [visibleEvents],
+  )
+
   // Load the selected sucursal's weekly hours (for closed-day/slot shading).
   useEffect(() => {
     if (!sucursalFilter) {
@@ -812,6 +819,15 @@ export function CalendarView() {
         </p>
       )}
 
+      {expiredCount > 0 && (
+        <div className='mb-3 flex items-start gap-2 rounded-md border border-warning/30 bg-lightwarning/50 dark:bg-lightwarning/20 px-3 py-2'>
+          <Icon icon='solar:hourglass-line-duotone' height={16} width={16} className='text-warning shrink-0 mt-0.5' />
+          <p className='text-xs text-dark dark:text-white'>
+            {t('agendaCal.expiredReservas', { count: String(expiredCount) })}
+          </p>
+        </div>
+      )}
+
       {/* Filters: professional (Profesional role locked to own) + sucursal (also
           drives the closed-day/hour shading). */}
       <div className='mb-4 flex items-center gap-x-5 gap-y-2 flex-wrap'>
@@ -888,6 +904,7 @@ export function CalendarView() {
           ),
           event: ({ event }: { event: CalendarEvent }) => (
             <span className='truncate'>
+              {isExpiredReserva(event) && <span title={t('agendaCal.expiredMark')}>⏳ </span>}
               {event.charged && <span className='font-bold'>$ </span>}
               {event.title}
             </span>
