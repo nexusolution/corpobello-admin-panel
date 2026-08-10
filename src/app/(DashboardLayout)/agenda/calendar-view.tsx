@@ -275,7 +275,7 @@ function PatientPicker({
           </div>
           <div className='max-h-60 overflow-y-auto py-1'>
             {loading ? (
-              <div className='px-3 py-2 text-xs text-link dark:text-darklink'>…</div>
+              <div className='px-3 py-2 text-xs text-link dark:text-darklink'>{t('turno.loading')}</div>
             ) : results.length === 0 ? (
               <div className='px-3 py-2 text-xs text-link dark:text-darklink'>{t('turno.noPatients')}</div>
             ) : (
