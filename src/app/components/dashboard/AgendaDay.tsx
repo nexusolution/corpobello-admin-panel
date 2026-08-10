@@ -120,8 +120,8 @@ const AgendaDay = () => {
         .map<Appointment>((e) => ({
           id: e.id,
           patientName: e.patientName || e.title,
-          treatmentLabel: e.treatmentSlug ? treatmentMap.get(e.treatmentSlug) ?? e.treatmentSlug : '—',
-          professional: e.professionalId ? proMap.get(e.professionalId) ?? '—' : '—',
+          treatmentLabel: e.treatmentSlug ? treatmentMap.get(e.treatmentSlug) ?? e.treatmentSlug : '',
+          professional: e.professionalId ? proMap.get(e.professionalId) ?? '' : '',
           sucursal: e.sucursal,
           status: normalizeStatus(e.status),
           charged: e.charged,
@@ -142,7 +142,7 @@ const AgendaDay = () => {
     atendido: appts.filter((a) => a.status === 'atendido').length,
   }
 
-  const workingPros = Array.from(new Set(appts.map((a) => a.professional).filter((p) => p !== '—')))
+  const workingPros = Array.from(new Set(appts.map((a) => a.professional).filter((p) => p !== '')))
   const openSucursales = Array.from(
     new Set(appts.map((a) => a.sucursal).filter((s): s is string => !!s)),
   ).map((s) => SUCURSAL_LABELS[s] ?? s)
@@ -221,7 +221,7 @@ const AgendaDay = () => {
                   </div>
                 </div>
                 <div className='hidden md:block shrink-0 self-center text-xs text-dark/70 dark:text-white/70 text-right'>
-                  {appt.professional !== '—' && (
+                  {appt.professional !== '' && (
                     <div className='truncate max-w-[120px]'>
                       {t('agenda.with')} {appt.professional}
                     </div>

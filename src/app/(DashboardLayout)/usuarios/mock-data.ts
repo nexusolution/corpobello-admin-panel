@@ -212,7 +212,7 @@ export const MOCK_USERS: AppUser[] = [
       shiftsSlot: 'Sin turnos asignados',
     },
     activity: [
-      { id: 'a6-1', date: '2026-05-15T18:00:00Z', primary: 'Última sesión', secondary: '—', tertiary: 'Cierre de turno', status: 'completed' },
+      { id: 'a6-1', date: '2026-05-15T18:00:00Z', primary: 'Última sesión', secondary: '', tertiary: 'Cierre de turno', status: 'completed' },
     ],
   },
   {

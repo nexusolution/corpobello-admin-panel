@@ -203,7 +203,7 @@ export function LeadDetailDialog({
                   <span className='hidden sm:inline text-link/40'>·</span>
                   <span className='inline-flex items-center gap-1'>
                     <Icon icon='solar:map-point-line-duotone' height={14} width={14} />
-                    {lead.sucursal ? SUCURSAL_LABELS[lead.sucursal] : '-'}
+                    {lead.sucursal ? SUCURSAL_LABELS[lead.sucursal] : t('users.sucursal.none')}
                   </span>
                 </div>
 

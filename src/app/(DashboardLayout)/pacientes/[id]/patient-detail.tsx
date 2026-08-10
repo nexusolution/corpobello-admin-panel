@@ -59,7 +59,7 @@ function statusStyle(raw: string) {
     bg: 'bg-muted/60 dark:bg-darkmuted/40',
     text: 'text-link dark:text-darklink',
     dot: 'bg-link dark:bg-darklink',
-    label: raw || '—',
+    label: raw || '',
   }
 }
 
@@ -79,9 +79,9 @@ function formatMoney(amount: number, currency: string): string {
 }
 
 function formatDateTime(iso: string, locale: string): string {
-  if (!iso) return '—'
+  if (!iso) return ''
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return ''
   return new Intl.DateTimeFormat(locale === 'es' ? 'es-AR' : 'en-US', {
     day: '2-digit',
     month: 'short',
@@ -92,9 +92,9 @@ function formatDateTime(iso: string, locale: string): string {
 }
 
 function formatDate(iso: string, locale: string): string {
-  if (!iso) return '—'
+  if (!iso) return ''
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return ''
   return new Intl.DateTimeFormat(locale === 'es' ? 'es-AR' : 'en-US', {
     day: '2-digit',
     month: 'short',
@@ -154,9 +154,9 @@ function ContactTab({
   }
 
   const rows: { label: string; value: string; editable?: boolean }[] = [
-    { label: t('patientDetail.contact.phone'), value: c.phone || '—' },
+    { label: t('patientDetail.contact.phone'), value: c.phone || '' },
     { label: t('patientDetail.contact.treatment'), value: c.treatment },
-    { label: t('patientDetail.contact.sucursal'), value: c.sucursal ? SUCURSAL_LABELS[c.sucursal as keyof typeof SUCURSAL_LABELS] : '—' },
+    { label: t('patientDetail.contact.sucursal'), value: c.sucursal ? SUCURSAL_LABELS[c.sucursal as keyof typeof SUCURSAL_LABELS] : '' },
     { label: t('patientDetail.contact.joined'), value: formatDate(c.createdAt, locale) },
   ]
 
@@ -215,7 +215,7 @@ function ContactTab({
               className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
             />
           ) : (
-            <p className='text-dark dark:text-white'>{c.email || '—'}</p>
+            <p className='text-dark dark:text-white'>{c.email || ''}</p>
           )}
         </div>
         <div>
@@ -228,7 +228,7 @@ function ContactTab({
               className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
             />
           ) : (
-            <p className='text-dark dark:text-white'>{c.dni || '—'}</p>
+            <p className='text-dark dark:text-white'>{c.dni || ''}</p>
           )}
         </div>
         {rows.map((r) => (

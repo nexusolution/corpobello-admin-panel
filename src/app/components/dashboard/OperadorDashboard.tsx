@@ -17,7 +17,6 @@ import {
   type CalendarEvent,
   type TurnoStatus,
 } from '@/lib/data/calendar-events'
-import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
 import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
 import { getTreatmentColorBySlug } from '@/lib/treatment-colors'
 
@@ -78,7 +77,7 @@ const QUEUE: QueueItem[] = [
   { id: 'q2', priority: '#fa896b', dot: '#fa896b', labelKey: 'opDash.task.confirmAttendance', params: { time: '15:00' }, when: 'hoy', actionKey: 'opDash.action.confirm' },
   { id: 'q3', priority: '#ffae1f', dot: '#539bff', labelKey: 'opDash.task.replyWhatsapp', when: '1 h 40', actionKey: 'opDash.action.reply' },
   { id: 'q4', priority: '#ffae1f', dot: '#13deb9', labelKey: 'opDash.task.registerCharge', params: { amount: '$ 18.000' }, when: '13:00', actionKey: 'opDash.action.register' },
-  { id: 'q5', priority: '#8a94a6', dot: '#ffae1f', labelKey: 'opDash.task.signConsent', when: '-', actionKey: 'opDash.action.sign' },
+  { id: 'q5', priority: '#8a94a6', dot: '#ffae1f', labelKey: 'opDash.task.signConsent', when: '', actionKey: 'opDash.action.sign' },
 ]
 
 // Small building blocks -------------------------------------------------------
@@ -108,7 +107,6 @@ export function OperadorDashboard() {
   const [funnel, setFunnel] = useState<FunnelCounts | null>(null)
   const [turnos, setTurnos] = useState<CalendarEvent[]>([])
   const [proMap, setProMap] = useState<Map<string, string>>(new Map())
-  const [treatMap, setTreatMap] = useState<Map<string, string>>(new Map())
   const [sucursal, setSucursal] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -117,16 +115,14 @@ export function OperadorDashboard() {
   useEffect(() => {
     let active = true
     async function load() {
-      const [funnelRes, { data: events }, { data: prices }, { data: users }, myId] = await Promise.all([
+      const [funnelRes, { data: events }, { data: users }, myId] = await Promise.all([
         fetchFunnelCounts(),
         fetchCalendarEvents(),
-        fetchTreatmentPrices(),
         fetchAppUsers(),
         getCurrentUserId(),
       ])
       if (!active) return
       setFunnel(funnelRes.counts)
-      setTreatMap(new Map(prices.map((p) => [p.slug, p.displayName])))
       setProMap(new Map(users.map((u) => [u.id, u.fullName])))
       setSucursal(users.find((u) => u.id === myId)?.sucursal ?? null)
 
@@ -214,7 +210,7 @@ export function OperadorDashboard() {
       {/* 2 · Embudo operativo ------------------------------------------------- */}
       <CardBox>
         <div className='flex items-center justify-between mb-3'>
-          <SectionTitle n={2}>{t('opDash.funnelTitle')}{suc ? ` — ${suc}` : ''}</SectionTitle>
+          <SectionTitle n={2}>{t('opDash.funnelTitle')}{suc ? ` · ${suc}` : ''}</SectionTitle>
           <span className='text-xs text-link dark:text-darklink'>{t('opDash.scrollable')} →</span>
         </div>
         <div className='flex gap-3 overflow-x-auto pb-1'>
@@ -309,7 +305,7 @@ export function OperadorDashboard() {
       <CardBox>
         <div className='flex items-start justify-between mb-3 gap-3 flex-wrap'>
           <div>
-            <SectionTitle n={5}>{t('opDash.agendaSection')}{suc ? ` — ${suc}` : ''}</SectionTitle>
+            <SectionTitle n={5}>{t('opDash.agendaSection')}{suc ? ` · ${suc}` : ''}</SectionTitle>
             <p className='text-xs text-link dark:text-darklink'>{t('opDash.agendaSub', { n: String(glance.total) })}</p>
           </div>
           <Link href='/agenda' className='inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline'>

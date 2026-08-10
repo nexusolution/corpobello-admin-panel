@@ -168,7 +168,7 @@ function DateField({
   min?: string
   onChange: (v: string) => void
 }) {
-  const { locale } = useTranslation()
+  const { t, locale } = useTranslation()
   const [open, setOpen] = useState(false)
   const date = value ? new Date(`${value}T00:00:00`) : undefined
   const minDate = min ? new Date(`${min}T00:00:00`) : undefined
@@ -181,7 +181,7 @@ function DateField({
           <button
             type='button'
             className='mt-1 w-full flex items-center justify-between gap-2 rounded-md border border-border dark:border-darkborder bg-background px-3 py-2 text-sm text-dark dark:text-white hover:border-primary focus:outline-none focus:border-primary transition-colors'>
-            <span>{date ? moment(date).format('DD MMM YYYY') : '-'}</span>
+            <span>{date ? moment(date).format('DD MMM YYYY') : t('turno.chooseDate')}</span>
             <Icon
               icon='solar:calendar-mark-line-duotone'
               height={16}

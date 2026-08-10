@@ -189,7 +189,7 @@ const TasksAttention = () => {
                 {row.count !== null
                   ? row.count
                   : row.priority === 'disabled'
-                    ? '—'
+                    ? ''
                     : '…'}
               </span>
 

@@ -875,7 +875,7 @@ export function PatientsTable() {
                       ···{patient.phoneLast4}
                     </td>
                     <td className='py-3 px-3 text-link dark:text-darklink'>
-                      {patient.sucursal ? SUCURSAL_LABELS[patient.sucursal] : '-'}
+                      {patient.sucursal ? SUCURSAL_LABELS[patient.sucursal] : t('users.sucursal.none')}
                     </td>
                     <td className='py-3 px-3'>
                       <span className='inline-flex items-center gap-1.5 text-link dark:text-darklink'>

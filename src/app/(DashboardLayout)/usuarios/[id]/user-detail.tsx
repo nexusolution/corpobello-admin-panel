@@ -364,7 +364,7 @@ function IdentityCard({
               icon='solar:phone-bold-duotone'
               tint='success'
               label={t('userDetail.identity.contactPhone')}
-              value={user.phone ?? '—'}
+              value={user.phone ?? ''}
               rawValue={user.phone ?? ''}
               onSave={(v) => onUpdate?.({ phone: v })}
               t={t}
@@ -380,7 +380,7 @@ function IdentityCard({
               icon='solar:map-point-bold-duotone'
               tint='warning'
               label={t('userDetail.identity.contactLocation')}
-              value={user.location ?? '—'}
+              value={user.location ?? ''}
               rawValue={user.location ?? ''}
               onSave={(v) => onUpdate?.({ location: v })}
               t={t}
@@ -987,10 +987,10 @@ function ActivityRow({
         <p className='text-xs text-link dark:text-darklink'>{time}</p>
       </td>
       <td className='py-3 px-3'>
-        <p className='text-sm text-dark dark:text-white'>{entry.secondary ?? '—'}</p>
+        <p className='text-sm text-dark dark:text-white'>{entry.secondary ?? ''}</p>
       </td>
       <td className='py-3 px-3 text-dark dark:text-white'>{entry.primary}</td>
-      <td className='py-3 px-3 text-link dark:text-darklink'>{entry.tertiary ?? '—'}</td>
+      <td className='py-3 px-3 text-link dark:text-darklink'>{entry.tertiary ?? ''}</td>
       <td className='py-3 px-3'>{entry.status && <StatusPill status={entry.status} t={t} />}</td>
       <td className='py-3 px-3 text-right'>
         <div className='inline-flex items-center gap-2'>

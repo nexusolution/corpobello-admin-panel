@@ -44,7 +44,7 @@ function mapStatus(raw: string | null): PatientStatus {
 // widen it to an array — accept both shapes.
 function treatmentLabel(rel: PatientRow['treatments']): string {
   const row = Array.isArray(rel) ? rel[0] : rel
-  return row?.display_name?.trim() || '-'
+  return row?.display_name?.trim() || 'Sin tratamiento'
 }
 
 export type PatientsResult = {
@@ -110,7 +110,7 @@ export async function createPatient(fields: {
       phoneLast4: phoneLast4(row.whatsapp_phone),
       phoneFull: row.whatsapp_phone ?? '',
       sucursal: normalizeSucursal(row.sucursal),
-      mainTreatmentLabel: '-',
+      mainTreatmentLabel: 'Sin tratamiento',
       status: mapStatus(row.status),
       createdAtDays: daysSince(row.created_at) ?? 0,
       lastVisitDays: null,
@@ -269,7 +269,7 @@ export async function fetchPatientDetail(
       }))
       quotes = ((quoteRes.data as any[]) ?? []).map((q) => ({
         id: q.id,
-        treatment: embedded<{ display_name: string | null }>(q.treatments)?.display_name?.trim() || '-',
+        treatment: embedded<{ display_name: string | null }>(q.treatments)?.display_name?.trim() || 'Sin tratamiento',
         amount: Number(q.total_amount) || 0,
         currency: q.currency ?? 'ARS',
         createdAt: q.created_at,
