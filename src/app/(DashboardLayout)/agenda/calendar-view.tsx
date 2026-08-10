@@ -12,7 +12,10 @@ import {
 } from 'react-big-calendar'
 import moment from 'moment'
 import 'moment/locale/es'
+import { es } from 'date-fns/locale'
 
+import { Calendar as DatePickerCalendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   fetchCalendarEvents,
   createCalendarEvent,
@@ -123,6 +126,61 @@ function Toolbar({
           </button>
         ))}
       </div>
+    </div>
+  )
+}
+
+// A modern date field: a styled trigger + a shadcn/react-day-picker calendar in
+// a popover, replacing the browser's native (and ugly) <input type="date">.
+// Value is a 'YYYY-MM-DD' string; the popover selects/returns the same.
+function DateField({
+  label,
+  value,
+  min,
+  onChange,
+}: {
+  label: string
+  value: string
+  min?: string
+  onChange: (v: string) => void
+}) {
+  const { locale } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const date = value ? new Date(`${value}T00:00:00`) : undefined
+  const minDate = min ? new Date(`${min}T00:00:00`) : undefined
+
+  return (
+    <div className='block'>
+      <span className='text-xs font-medium text-dark dark:text-white'>{label}</span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type='button'
+            className='mt-1 w-full flex items-center justify-between gap-2 rounded-md border border-border dark:border-darkborder bg-background px-3 py-2 text-sm text-dark dark:text-white hover:border-primary focus:outline-none focus:border-primary transition-colors'>
+            <span>{date ? moment(date).format('DD MMM YYYY') : '—'}</span>
+            <Icon
+              icon='solar:calendar-mark-line-duotone'
+              height={16}
+              width={16}
+              className='text-link dark:text-darklink shrink-0'
+            />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className='w-auto p-0' align='start'>
+          <DatePickerCalendar
+            mode='single'
+            selected={date}
+            defaultMonth={date}
+            disabled={minDate ? { before: minDate } : undefined}
+            locale={locale === 'es' ? es : undefined}
+            onSelect={(d: Date | undefined) => {
+              if (!d) return
+              onChange(toDateInput(d))
+              setOpen(false)
+            }}
+          />
+        </PopoverContent>
+      </Popover>
     </div>
   )
 }
@@ -244,28 +302,20 @@ function EventDialog({
           </label>
 
           <div className='grid grid-cols-2 gap-3'>
-            <label className='block'>
-              <span className='text-xs font-medium text-dark dark:text-white'>{t('agendaCal.fieldStart')}</span>
-              <input
-                type='date'
-                value={startStr}
-                onChange={(e) => {
-                  setStartStr(e.target.value)
-                  if (endStr < e.target.value) setEndStr(e.target.value)
-                }}
-                className='mt-1 w-full rounded-md border border-border dark:border-darkborder bg-background px-3 py-2 text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
-              />
-            </label>
-            <label className='block'>
-              <span className='text-xs font-medium text-dark dark:text-white'>{t('agendaCal.fieldEnd')}</span>
-              <input
-                type='date'
-                value={endStr}
-                min={startStr}
-                onChange={(e) => setEndStr(e.target.value)}
-                className='mt-1 w-full rounded-md border border-border dark:border-darkborder bg-background px-3 py-2 text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
-              />
-            </label>
+            <DateField
+              label={t('agendaCal.fieldStart')}
+              value={startStr}
+              onChange={(v) => {
+                setStartStr(v)
+                if (endStr < v) setEndStr(v)
+              }}
+            />
+            <DateField
+              label={t('agendaCal.fieldEnd')}
+              value={endStr}
+              min={startStr}
+              onChange={setEndStr}
+            />
           </div>
 
           <div>
