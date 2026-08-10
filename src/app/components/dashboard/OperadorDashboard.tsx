@@ -209,24 +209,23 @@ export function OperadorDashboard() {
 
       {/* 2 · Embudo operativo ------------------------------------------------- */}
       <CardBox>
-        <div className='flex items-center justify-between mb-3'>
-          <SectionTitle n={2}>{t('opDash.funnelTitle')}{suc ? ` · ${suc}` : ''}</SectionTitle>
-          <span className='text-xs text-link dark:text-darklink'>{t('opDash.scrollable')} →</span>
-        </div>
-        <div className='flex gap-3 overflow-x-auto pb-1'>
+        <SectionTitle n={2}>{t('opDash.funnelTitle')}{suc ? ` · ${suc}` : ''}</SectionTitle>
+        <div className='grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3'>
           {FUNNEL_STAGES.map((s) => (
             <Link
               key={s.key}
               href={`/kanban?stage=${s.key}`}
-              className='shrink-0 w-[150px] rounded-lg border border-border dark:border-darkborder p-3 text-center hover:border-primary transition-colors'
+              className='rounded-xl p-4 hover:brightness-[0.97] transition'
               style={{ backgroundColor: `${s.color}14` }}>
-              <div className='flex justify-center mb-1.5'>
-                <div className='h-9 w-9 rounded-full flex items-center justify-center' style={{ backgroundColor: `${s.color}26`, color: s.color }}>
-                  <Icon icon={s.icon} height={20} width={20} />
+              <div className='flex items-start justify-between gap-2'>
+                <div className='text-2xl font-bold text-dark dark:text-white leading-none'>
+                  {loading ? '…' : funnelCount(s.key)}
+                </div>
+                <div className='h-8 w-8 rounded-full flex items-center justify-center shrink-0' style={{ backgroundColor: `${s.color}26`, color: s.color }}>
+                  <Icon icon={s.icon} height={16} width={16} />
                 </div>
               </div>
-              <p className='text-xs font-medium text-dark dark:text-white'>{t(s.labelKey)}</p>
-              <p className='text-lg font-bold' style={{ color: s.color }}>{loading ? '…' : funnelCount(s.key)}</p>
+              <div className='text-sm text-link dark:text-darklink mt-2'>{t(s.labelKey)}</div>
             </Link>
           ))}
         </div>
