@@ -7,6 +7,7 @@ import QuickAccess from './QuickAccess'
 import AgendaDay from './AgendaDay'
 import TasksAttention from './TasksAttention'
 import { OperadorDashboard } from './OperadorDashboard'
+import { ProfesionalDashboard } from './ProfesionalDashboard'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 
 // Andrés 2026-06-30, point #5: the same dashboard, reprioritised per role.
@@ -46,21 +47,9 @@ export function RoleDashboard() {
   if (loading) return <DashboardSkeleton />
 
   if (role === 'profesional') {
-    // Clinical view only — no clinic-wide economic/admin banner (Andrés' rule:
-    // the Profesional sees no información económica ni administrativa).
-    return (
-      <div className='grid grid-cols-12 gap-6'>
-        <div className='col-span-12'>
-          <DashboardGreeting />
-        </div>
-        <div className='col-span-12'>
-          <AgendaDay />
-        </div>
-        <div className='col-span-12'>
-          <TasksAttention />
-        </div>
-      </div>
-    )
+    // Andrés 2026-08-11 wireframe: purpose-built clinical dashboard — no
+    // commercial funnel, no money, only their own patients/turnos.
+    return <ProfesionalDashboard />
   }
 
   if (role === 'operador') {
