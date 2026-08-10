@@ -35,6 +35,7 @@ import {
 } from '@/lib/data/calendar-events'
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
 import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
+import { fetchSucursalHours, type DayHours, type Sucursal } from '@/lib/data/sucursal-hours'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
@@ -557,6 +558,10 @@ export function CalendarView() {
   // Filter by professional. Admin/operador pick from the dropdown ('' = all);
   // the Profesional role is locked to their own turnos (Andrés' scoped view).
   const [professionalFilter, setProfessionalFilter] = useState('')
+  // Filter by sucursal ('' = all). When a sucursal is picked we also shade its
+  // closed days/hours (availability) from sucursal_hours.
+  const [sucursalFilter, setSucursalFilter] = useState('')
+  const [hours, setHours] = useState<DayHours[] | null>(null)
 
   moment.locale(locale)
   const localizer = useMemo(() => momentLocalizer(moment), [locale])
@@ -591,10 +596,49 @@ export function CalendarView() {
   const effectiveProfessional = isProfesional ? myUserId ?? '__none__' : professionalFilter
   const visibleEvents = useMemo(
     () =>
-      effectiveProfessional
-        ? events.filter((e) => e.professionalId === effectiveProfessional)
-        : events,
-    [events, effectiveProfessional],
+      events.filter(
+        (e) =>
+          (!effectiveProfessional || e.professionalId === effectiveProfessional) &&
+          (!sucursalFilter || e.sucursal === sucursalFilter),
+      ),
+    [events, effectiveProfessional, sucursalFilter],
+  )
+
+  // Load the selected sucursal's weekly hours (for closed-day/slot shading).
+  useEffect(() => {
+    if (!sucursalFilter) {
+      setHours(null)
+      return
+    }
+    let active = true
+    void fetchSucursalHours(sucursalFilter as Sucursal).then((h) => {
+      if (active) setHours(h)
+    })
+    return () => {
+      active = false
+    }
+  }, [sucursalFilter])
+
+  // Shade whole days the branch is closed (month view).
+  const dayPropGetter = useCallback(
+    (d: Date) => {
+      if (!hours) return {}
+      const day = hours.find((h) => h.weekday === d.getDay())
+      return day && !day.isOpen ? { className: 'rbc-closed-day' } : {}
+    },
+    [hours],
+  )
+
+  // Shade time slots outside opening hours (week/day views).
+  const slotPropGetter = useCallback(
+    (d: Date) => {
+      if (!hours) return {}
+      const day = hours.find((h) => h.weekday === d.getDay())
+      if (!day || !day.isOpen) return { className: 'rbc-closed-slot' }
+      const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+      return hhmm < day.open || hhmm >= day.close ? { className: 'rbc-closed-slot' } : {}
+    },
+    [hours],
   )
 
   const openAdd = useCallback((start?: Date, end?: Date) => {
@@ -710,23 +754,39 @@ export function CalendarView() {
         </p>
       )}
 
-      {/* Professional filter. Profesional role is locked to their own agenda. */}
-      <div className='mb-4 flex items-center gap-2'>
-        <Icon icon='solar:user-rounded-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
-        <span className='text-xs font-medium text-link dark:text-darklink'>{t('turno.professional')}:</span>
-        {isProfesional ? (
-          <span className='text-sm font-medium text-primary'>{t('agendaCal.myAgenda')}</span>
-        ) : (
+      {/* Filters: professional (Profesional role locked to own) + sucursal (also
+          drives the closed-day/hour shading). */}
+      <div className='mb-4 flex items-center gap-x-5 gap-y-2 flex-wrap'>
+        <div className='flex items-center gap-2'>
+          <Icon icon='solar:user-rounded-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
+          <span className='text-xs font-medium text-link dark:text-darklink'>{t('turno.professional')}:</span>
+          {isProfesional ? (
+            <span className='text-sm font-medium text-primary'>{t('agendaCal.myAgenda')}</span>
+          ) : (
+            <select
+              value={professionalFilter}
+              onChange={(e) => setProfessionalFilter(e.target.value)}
+              className='pl-2.5 pr-9 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
+              <option value=''>{t('agendaCal.allProfessionals')}</option>
+              {professionals.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          )}
+        </div>
+        <div className='flex items-center gap-2'>
+          <Icon icon='solar:map-point-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
+          <span className='text-xs font-medium text-link dark:text-darklink'>{t('turno.sucursal')}:</span>
           <select
-            value={professionalFilter}
-            onChange={(e) => setProfessionalFilter(e.target.value)}
+            value={sucursalFilter}
+            onChange={(e) => setSucursalFilter(e.target.value)}
             className='pl-2.5 pr-9 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
-            <option value=''>{t('agendaCal.allProfessionals')}</option>
-            {professionals.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+            <option value=''>{t('agendaCal.allSucursales')}</option>
+            {SUCURSALES.map((s) => (
+              <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
             ))}
           </select>
-        )}
+        </div>
       </div>
 
       <DnDCalendar
@@ -746,6 +806,8 @@ export function CalendarView() {
         onEventResize={onEventResize}
         onSelectSlot={onSelectSlot}
         onSelectEvent={onSelectEvent}
+        dayPropGetter={dayPropGetter}
+        slotPropGetter={slotPropGetter}
         messages={messages}
         style={{ height: 720 }}
         eventPropGetter={(event: CalendarEvent) => ({

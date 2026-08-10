@@ -135,3 +135,29 @@
 .rbc-current-time-indicator {
   background: #fa896b;
 }
+
+/* Closed days / out-of-hours slots (branch availability shading) */
+.rbc-day-bg.rbc-closed-day {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(148, 163, 184, 0.10),
+    rgba(148, 163, 184, 0.10) 6px,
+    rgba(148, 163, 184, 0.18) 6px,
+    rgba(148, 163, 184, 0.18) 12px
+  );
+}
+.rbc-closed-slot {
+  background: rgba(148, 163, 184, 0.12);
+}
+.dark .rbc-day-bg.rbc-closed-day {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(100, 116, 139, 0.14),
+    rgba(100, 116, 139, 0.14) 6px,
+    rgba(100, 116, 139, 0.24) 6px,
+    rgba(100, 116, 139, 0.24) 12px
+  );
+}
+.dark .rbc-closed-slot {
+  background: rgba(100, 116, 139, 0.16);
+}
