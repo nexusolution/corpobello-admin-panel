@@ -136,6 +136,14 @@
   background: #fa896b;
 }
 
+/* Hide the drag-and-drop resize handle icons (the "||" marks shown on hover).
+   Resizing still works by dragging the event edge; this only removes the
+   visual clutter inside the event. */
+.rbc-addons-dnd-resize-ns-icon,
+.rbc-addons-dnd-resize-ew-icon {
+  display: none;
+}
+
 /* Closed days / out-of-hours slots (branch availability shading) */
 .rbc-day-bg.rbc-closed-day {
   background: repeating-linear-gradient(
