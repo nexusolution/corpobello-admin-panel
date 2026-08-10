@@ -21,10 +21,16 @@ import {
   createCalendarEvent,
   updateCalendarEvent,
   deleteCalendarEvent,
-  EVENT_COLORS,
-  DEFAULT_EVENT_COLOR,
+  searchPatients,
+  TURNO_STATUSES,
+  STATUS_COLORS,
+  SUCURSALES,
   type CalendarEvent,
+  type TurnoStatus,
+  type PatientOption,
 } from '@/lib/data/calendar-events'
+import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
+import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
@@ -32,6 +38,19 @@ import 'react-big-calendar/lib/css/react-big-calendar.css'
 import './calendar-theme.css'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
+type Option = { value: string; label: string }
+
+// Map a turno status to its shared translation key (reuse the agenda.status.*).
+const STATUS_KEY: Record<TurnoStatus, TranslationKey> = {
+  pendiente: 'agenda.status.pending',
+  confirmado: 'agenda.status.confirmed',
+  atendido: 'agenda.status.attended',
+  cancelado: 'agenda.status.cancelled',
+}
+
+function sucursalLabel(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
 
 // ── date <-> <input type="date"> helpers (local, never UTC — avoids day shift) ─
 function toDateInput(d: Date): string {
@@ -40,8 +59,6 @@ function toDateInput(d: Date): string {
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
 }
-// All-day span: start at 00:00, end at 23:59:59.999 of the chosen last day so
-// react-big-calendar renders the event through that day inclusively.
 function startOfDay(dateStr: string): Date {
   return new Date(`${dateStr}T00:00:00`)
 }
@@ -71,13 +88,10 @@ function Toolbar({
     { key: Views.DAY, label: t('agendaCal.day') },
     { key: Views.AGENDA, label: t('agendaCal.agenda') },
   ]
-  // Pill button groups matching the reference design: fully-rounded outline in
-  // the primary tint, thin dividers, active view filled solid primary.
   const groupCls =
     'inline-flex items-center rounded-full border border-primary/40 overflow-hidden text-sm font-medium'
   const segCls =
     'px-4 py-1.5 text-dark dark:text-white hover:bg-lightprimary/50 transition-colors'
-
   return (
     <div className='flex items-center justify-between gap-3 flex-wrap mb-4'>
       <div className='flex items-center gap-2'>
@@ -130,9 +144,8 @@ function Toolbar({
   )
 }
 
-// A modern date field: a styled trigger + a shadcn/react-day-picker calendar in
-// a popover, replacing the browser's native (and ugly) <input type="date">.
-// Value is a 'YYYY-MM-DD' string; the popover selects/returns the same.
+// A modern date field: styled trigger + shadcn/react-day-picker calendar in a
+// popover, replacing the browser's native <input type="date">.
 function DateField({
   label,
   value,
@@ -188,46 +201,156 @@ function DateField({
   )
 }
 
-// ── Add / edit modal ─────────────────────────────────────────────────────────
+// Searchable patient picker (async ilike search against patients).
+function PatientPicker({
+  valueName,
+  onChange,
+  t,
+}: {
+  valueName: string | null
+  onChange: (id: string, name: string) => void
+  t: TFn
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<PatientOption[]>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    let active = true
+    setLoading(true)
+    const h = setTimeout(() => {
+      void searchPatients(query).then((r) => {
+        if (active) {
+          setResults(r)
+          setLoading(false)
+        }
+      })
+    }, 250)
+    return () => {
+      active = false
+      clearTimeout(h)
+    }
+  }, [query, open])
+
+  return (
+    <div className='block'>
+      <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.patient')}</span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type='button'
+            className='mt-1 w-full flex items-center justify-between gap-2 rounded-md border border-border dark:border-darkborder bg-background px-3 py-2 text-sm hover:border-primary focus:outline-none focus:border-primary transition-colors'>
+            <span className={valueName ? 'text-dark dark:text-white' : 'text-link dark:text-darklink'}>
+              {valueName || t('turno.patientPlaceholder')}
+            </span>
+            <Icon
+              icon='tabler:chevron-down'
+              height={15}
+              width={15}
+              className='text-link dark:text-darklink shrink-0'
+            />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className='w-[280px] p-0' align='start'>
+          <div className='p-2 border-b border-border dark:border-darkborder'>
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('turno.searchPatient')}
+              className='w-full rounded-md border border-border dark:border-darkborder bg-background px-2.5 py-1.5 text-sm text-dark dark:text-white focus:outline-none focus:border-primary'
+            />
+          </div>
+          <div className='max-h-60 overflow-y-auto py-1'>
+            {loading ? (
+              <div className='px-3 py-2 text-xs text-link dark:text-darklink'>…</div>
+            ) : results.length === 0 ? (
+              <div className='px-3 py-2 text-xs text-link dark:text-darklink'>{t('turno.noPatients')}</div>
+            ) : (
+              results.map((p) => (
+                <button
+                  key={p.id}
+                  type='button'
+                  onClick={() => {
+                    onChange(p.id, p.name)
+                    setOpen(false)
+                  }}
+                  className='w-full text-left px-3 py-2 text-sm text-dark dark:text-white hover:bg-lightprimary/50 transition-colors'>
+                  {p.name}
+                </button>
+              ))
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  )
+}
+
+// ── Add / edit turno modal ─────────────────────────────────────────────────────
 type Draft = {
   id: string | null
-  title: string
+  patientId: string | null
+  patientName: string | null
+  treatmentSlug: string
+  professionalId: string
+  sucursal: string
+  status: TurnoStatus
+  charged: boolean
   startStr: string
   endStr: string
-  color: string
 }
+
+const SELECT_CLS =
+  'mt-1 w-full pl-2.5 pr-9 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
 
 function EventDialog({
   draft,
+  treatments,
+  professionals,
   onClose,
   onSaved,
   t,
 }: {
   draft: Draft
+  treatments: Option[]
+  professionals: Option[]
   onClose: () => void
   onSaved: () => void
   t: TFn
 }) {
-  const [title, setTitle] = useState(draft.title)
+  const [patientId, setPatientId] = useState(draft.patientId)
+  const [patientName, setPatientName] = useState(draft.patientName)
+  const [treatmentSlug, setTreatmentSlug] = useState(draft.treatmentSlug)
+  const [professionalId, setProfessionalId] = useState(draft.professionalId)
+  const [sucursal, setSucursal] = useState(draft.sucursal)
+  const [status, setStatus] = useState<TurnoStatus>(draft.status)
+  const [charged, setCharged] = useState(draft.charged)
   const [startStr, setStartStr] = useState(draft.startStr)
   const [endStr, setEndStr] = useState(draft.endStr)
-  const [color, setColor] = useState(draft.color)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const isEdit = draft.id !== null
-  const valid = title.trim().length > 0 && !!startStr && !!endStr && endStr >= startStr
+  const valid = !!patientId && !!startStr && !!endStr && endStr >= startStr
 
   async function save() {
     if (!valid || saving) return
     setSaving(true)
     setError(null)
     const input = {
-      title: title.trim(),
+      title: patientName ?? 'Turno',
       start: startOfDay(startStr),
       end: endOfDay(endStr),
       allDay: true,
-      color,
+      status,
+      charged,
+      patientId,
+      professionalId: professionalId || null,
+      sucursal: sucursal || null,
+      treatmentSlug: treatmentSlug || null,
     }
     const err = isEdit
       ? await updateCalendarEvent(draft.id as string, input)
@@ -273,14 +396,14 @@ function EventDialog({
 
   return (
     <div
-      className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50'
+      className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto'
       onClick={onClose}>
       <div
-        className='w-full max-w-md rounded-xl bg-card p-6 shadow-xl'
+        className='w-full max-w-md rounded-xl bg-card p-6 shadow-xl my-8'
         onClick={(e) => e.stopPropagation()}>
         <div className='flex items-start justify-between mb-1'>
           <h3 className='text-lg font-semibold text-dark dark:text-white'>
-            {isEdit ? t('agendaCal.editTitle') : t('agendaCal.addTitle')}
+            {isEdit ? t('turno.editTitle') : t('turno.addTitle')}
           </h3>
           <button
             type='button'
@@ -290,19 +413,58 @@ function EventDialog({
             <Icon icon='tabler:x' height={20} width={20} />
           </button>
         </div>
-        <p className='text-xs text-link dark:text-darklink mb-4'>{t('agendaCal.addSubtitle')}</p>
+        <p className='text-xs text-link dark:text-darklink mb-4'>{t('turno.subtitle')}</p>
 
         <div className='space-y-4'>
-          <label className='block'>
-            <span className='text-xs font-medium text-dark dark:text-white'>{t('agendaCal.fieldTitle')}</span>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={t('agendaCal.fieldTitlePlaceholder')}
-              autoFocus
-              className='mt-1 w-full rounded-md border border-border dark:border-darkborder bg-background px-3 py-2 text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
-            />
-          </label>
+          <PatientPicker
+            valueName={patientName}
+            onChange={(id, name) => {
+              setPatientId(id)
+              setPatientName(name)
+            }}
+            t={t}
+          />
+
+          <div className='grid grid-cols-2 gap-3'>
+            <label className='block'>
+              <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.treatment')}</span>
+              <select value={treatmentSlug} onChange={(e) => setTreatmentSlug(e.target.value)} className={SELECT_CLS}>
+                <option value=''>{t('turno.none')}</option>
+                {treatments.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className='block'>
+              <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.professional')}</span>
+              <select value={professionalId} onChange={(e) => setProfessionalId(e.target.value)} className={SELECT_CLS}>
+                <option value=''>{t('turno.none')}</option>
+                {professionals.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className='block'>
+              <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.sucursal')}</span>
+              <select value={sucursal} onChange={(e) => setSucursal(e.target.value)} className={SELECT_CLS}>
+                <option value=''>{t('turno.none')}</option>
+                {SUCURSALES.map((s) => (
+                  <option key={s} value={s}>{sucursalLabel(s)}</option>
+                ))}
+              </select>
+            </label>
+            <label className='block'>
+              <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.status')}</span>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as TurnoStatus)}
+                className={SELECT_CLS}>
+                {TURNO_STATUSES.map((s) => (
+                  <option key={s} value={s}>{t(STATUS_KEY[s])}</option>
+                ))}
+              </select>
+            </label>
+          </div>
 
           <div className='grid grid-cols-2 gap-3'>
             <DateField
@@ -321,24 +483,15 @@ function EventDialog({
             />
           </div>
 
-          <div>
-            <span className='text-xs font-medium text-dark dark:text-white'>{t('agendaCal.fieldColor')}</span>
-            <div className='mt-2 flex items-center gap-2.5'>
-              {EVENT_COLORS.map((c) => (
-                <button
-                  key={c.key}
-                  type='button'
-                  onClick={() => setColor(c.hex)}
-                  aria-label={c.key}
-                  className={`h-7 w-7 rounded-full flex items-center justify-center transition-transform ${
-                    color === c.hex ? 'ring-2 ring-offset-2 ring-offset-card scale-110' : ''
-                  }`}
-                  style={{ backgroundColor: c.hex, boxShadow: color === c.hex ? `0 0 0 2px ${c.hex}` : undefined }}>
-                  {color === c.hex && <Icon icon='tabler:check' height={15} width={15} className='text-white' />}
-                </button>
-              ))}
-            </div>
-          </div>
+          <label className='flex items-center gap-2 cursor-pointer select-none'>
+            <input
+              type='checkbox'
+              checked={charged}
+              onChange={(e) => setCharged(e.target.checked)}
+              className='h-4 w-4 rounded border-border dark:border-darkborder accent-success'
+            />
+            <span className='text-sm text-dark dark:text-white'>{t('turno.charged')}</span>
+          </label>
 
           {error && <p className='text-xs text-error'>{t('agendaCal.saveError')}</p>}
         </div>
@@ -386,8 +539,9 @@ export function CalendarView() {
   const [view, setView] = useState<View>(Views.MONTH)
   const [date, setDate] = useState<Date>(() => new Date())
   const [draft, setDraft] = useState<Draft | null>(null)
+  const [treatments, setTreatments] = useState<Option[]>([])
+  const [professionals, setProfessionals] = useState<Option[]>([])
 
-  // moment drives the localizer + the toolbar label locale.
   moment.locale(locale)
   const localizer = useMemo(() => momentLocalizer(moment), [locale])
 
@@ -402,6 +556,17 @@ export function CalendarView() {
 
   useEffect(() => {
     reload()
+    // Lookups for the form (best-effort; empty on RLS/error).
+    void fetchTreatmentPrices().then(({ data }) =>
+      setTreatments(data.map((p) => ({ value: p.slug, label: p.displayName }))),
+    )
+    void fetchAppUsers().then(({ data }) =>
+      setProfessionals(
+        data
+          .filter((u) => u.status === 'active')
+          .map((u) => ({ value: u.id, label: u.fullName })),
+      ),
+    )
   }, [reload])
 
   const openAdd = useCallback((start?: Date, end?: Date) => {
@@ -409,17 +574,20 @@ export function CalendarView() {
     const e = end ?? s
     setDraft({
       id: null,
-      title: '',
+      patientId: null,
+      patientName: null,
+      treatmentSlug: '',
+      professionalId: '',
+      sucursal: '',
+      status: 'pendiente',
+      charged: false,
       startStr: toDateInput(s),
       endStr: toDateInput(e),
-      color: DEFAULT_EVENT_COLOR,
     })
   }, [])
 
   const onSelectSlot = useCallback(
     (slot: SlotInfo) => {
-      // Month single-day select gives end = next day 00:00 → step back a day for
-      // the inclusive end date shown in the modal.
       const end = new Date(slot.end.getTime() - 1)
       openAdd(slot.start, end < slot.start ? slot.start : end)
     },
@@ -429,10 +597,15 @@ export function CalendarView() {
   const onSelectEvent = useCallback((ev: CalendarEvent) => {
     setDraft({
       id: ev.id,
-      title: ev.title,
+      patientId: ev.patientId,
+      patientName: ev.patientName ?? ev.title,
+      treatmentSlug: ev.treatmentSlug ?? '',
+      professionalId: ev.professionalId ?? '',
+      sucursal: ev.sucursal ?? '',
+      status: ev.status,
+      charged: ev.charged,
       startStr: toDateInput(ev.start),
       endStr: toDateInput(ev.end),
-      color: ev.color,
     })
   }, [])
 
@@ -488,8 +661,8 @@ export function CalendarView() {
         style={{ height: 720 }}
         eventPropGetter={(event: CalendarEvent) => ({
           style: {
-            backgroundColor: event.color,
-            borderColor: event.color,
+            backgroundColor: STATUS_COLORS[event.status],
+            borderColor: STATUS_COLORS[event.status],
             color: '#ffffff',
           },
         })}
@@ -504,12 +677,20 @@ export function CalendarView() {
               t={t}
             />
           ),
+          event: ({ event }: { event: CalendarEvent }) => (
+            <span className='truncate'>
+              {event.charged && <span className='font-bold'>$ </span>}
+              {event.title}
+            </span>
+          ),
         }}
       />
 
       {draft && (
         <EventDialog
           draft={draft}
+          treatments={treatments}
+          professionals={professionals}
           onClose={() => setDraft(null)}
           onSaved={() => {
             setDraft(null)
