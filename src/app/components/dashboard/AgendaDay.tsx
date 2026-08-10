@@ -14,7 +14,13 @@ import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
-type AppointmentStatus = 'confirmado' | 'pendiente' | 'atendido' | 'cancelado'
+type AppointmentStatus =
+  | 'reservado'
+  | 'pendiente'
+  | 'confirmado'
+  | 'atendido'
+  | 'ausente'
+  | 'cancelado'
 
 type Appointment = {
   id: string
@@ -36,16 +42,25 @@ const STATUS_STYLE: Record<
   AppointmentStatus,
   { bg: string; text: string; labelKey: TranslationKey }
 > = {
-  confirmado: { bg: 'bg-lightsuccess', text: 'text-success', labelKey: 'agenda.status.confirmed' },
+  reservado: { bg: 'bg-lightsecondary', text: 'text-secondary', labelKey: 'agenda.status.reserved' },
   pendiente: { bg: 'bg-lightwarning', text: 'text-warning', labelKey: 'agenda.status.pending' },
+  confirmado: { bg: 'bg-lightsuccess', text: 'text-success', labelKey: 'agenda.status.confirmed' },
   atendido: { bg: 'bg-lightprimary', text: 'text-primary', labelKey: 'agenda.status.attended' },
+  ausente: { bg: 'bg-muted/60 dark:bg-darkmuted/50', text: 'text-link dark:text-darklink', labelKey: 'agenda.status.absent' },
   cancelado: { bg: 'bg-lighterror', text: 'text-error', labelKey: 'agenda.status.cancelled' },
 }
 
+const VALID_STATUSES: AppointmentStatus[] = [
+  'reservado',
+  'pendiente',
+  'confirmado',
+  'atendido',
+  'ausente',
+  'cancelado',
+]
+
 function normalizeStatus(s: string): AppointmentStatus {
-  return s === 'confirmado' || s === 'pendiente' || s === 'atendido' || s === 'cancelado'
-    ? s
-    : 'pendiente'
+  return (VALID_STATUSES as string[]).includes(s) ? (s as AppointmentStatus) : 'pendiente'
 }
 
 function StatBlock({

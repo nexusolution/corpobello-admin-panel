@@ -8,17 +8,21 @@ import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 // Turno states (v1 — the 4 the dashboard already renders). Colour follows the
 // status: full event background = estado, per Andrés' agenda scheme.
 export const TURNO_STATUSES = [
+  'reservado',
   'pendiente',
   'confirmado',
   'atendido',
+  'ausente',
   'cancelado',
 ] as const
 export type TurnoStatus = (typeof TURNO_STATUSES)[number]
 
 export const STATUS_COLORS: Record<TurnoStatus, string> = {
+  reservado: '#7c4dff', // violet — pre-reserva / seña
   pendiente: '#ffae1f', // warning
   confirmado: '#13deb9', // success
   atendido: '#5d87ff', // primary
+  ausente: '#8a94a6', // grey — no-show
   cancelado: '#fa896b', // error
 }
 

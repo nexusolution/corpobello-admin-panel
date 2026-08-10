@@ -49,9 +49,11 @@ type Option = { value: string; label: string }
 
 // Map a turno status to its shared translation key (reuse the agenda.status.*).
 const STATUS_KEY: Record<TurnoStatus, TranslationKey> = {
+  reservado: 'agenda.status.reserved',
   pendiente: 'agenda.status.pending',
   confirmado: 'agenda.status.confirmed',
   atendido: 'agenda.status.attended',
+  ausente: 'agenda.status.absent',
   cancelado: 'agenda.status.cancelled',
 }
 
