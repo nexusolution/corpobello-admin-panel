@@ -69,6 +69,12 @@ function startOfDay(dateStr: string): Date {
 function endOfDay(dateStr: string): Date {
   return new Date(`${dateStr}T23:59:59.999`)
 }
+function toTimeInput(d: Date): string {
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+function dateTime(dateStr: string, timeStr: string): Date {
+  return new Date(`${dateStr}T${timeStr}:00`)
+}
 
 // ── Custom toolbar — mirrors the sample: Today/Back/Next pill · title · views ──
 function Toolbar({
@@ -303,8 +309,11 @@ type Draft = {
   sucursal: string
   status: TurnoStatus
   charged: boolean
+  allDay: boolean
   startStr: string
   endStr: string
+  startTime: string
+  endTime: string
 }
 
 const SELECT_CLS =
@@ -332,14 +341,25 @@ function EventDialog({
   const [sucursal, setSucursal] = useState(draft.sucursal)
   const [status, setStatus] = useState<TurnoStatus>(draft.status)
   const [charged, setCharged] = useState(draft.charged)
+  const [allDay, setAllDay] = useState(draft.allDay)
   const [startStr, setStartStr] = useState(draft.startStr)
   const [endStr, setEndStr] = useState(draft.endStr)
+  const [startTime, setStartTime] = useState(draft.startTime)
+  const [endTime, setEndTime] = useState(draft.endTime)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hours, setHours] = useState<DayHours[] | null>(null)
 
   const isEdit = draft.id !== null
-  const valid = !!patientId && !!startStr && !!endStr && endStr >= startStr
+  const valid =
+    !!patientId &&
+    !!startStr &&
+    !!endStr &&
+    (allDay
+      ? endStr >= startStr
+      : !!startTime &&
+        !!endTime &&
+        dateTime(endStr, endTime).getTime() > dateTime(startStr, startTime).getTime())
 
   // Load the chosen sucursal's hours to warn about booking on a closed day.
   useEffect(() => {
@@ -395,9 +415,9 @@ function EventDialog({
     setError(null)
     const input = {
       title: patientName ?? 'Turno',
-      start: startOfDay(startStr),
-      end: endOfDay(endStr),
-      allDay: true,
+      start: allDay ? startOfDay(startStr) : dateTime(startStr, startTime),
+      end: allDay ? endOfDay(endStr) : dateTime(endStr, endTime),
+      allDay,
       status,
       charged,
       patientId,
@@ -519,6 +539,16 @@ function EventDialog({
             </label>
           </div>
 
+          <label className='flex items-center gap-2 cursor-pointer select-none'>
+            <input
+              type='checkbox'
+              checked={allDay}
+              onChange={(e) => setAllDay(e.target.checked)}
+              className='h-4 w-4 rounded border-border dark:border-darkborder accent-primary'
+            />
+            <span className='text-sm text-dark dark:text-white'>{t('turno.allDay')}</span>
+          </label>
+
           <div className='grid grid-cols-2 gap-3'>
             <DateField
               label={t('agendaCal.fieldStart')}
@@ -535,6 +565,29 @@ function EventDialog({
               onChange={setEndStr}
             />
           </div>
+
+          {!allDay && (
+            <div className='grid grid-cols-2 gap-3'>
+              <label className='block'>
+                <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.startTime')}</span>
+                <input
+                  type='time'
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className='mt-1 w-full rounded-md border border-border dark:border-darkborder bg-background px-3 py-2 text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+                />
+              </label>
+              <label className='block'>
+                <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.endTime')}</span>
+                <input
+                  type='time'
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className='mt-1 w-full rounded-md border border-border dark:border-darkborder bg-background px-3 py-2 text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+                />
+              </label>
+            </div>
+          )}
 
           <label className='flex items-center gap-2 cursor-pointer select-none'>
             <input
@@ -720,49 +773,69 @@ export function CalendarView() {
     [hours],
   )
 
-  const openAdd = useCallback((start?: Date, end?: Date) => {
-    const s = start ?? new Date()
-    const e = end ?? s
-    setDraft({
-      id: null,
-      patientId: null,
-      patientName: null,
-      treatmentSlug: '',
-      // A profesional creating a turno defaults it to themselves.
-      professionalId: isProfesional ? myUserId ?? '' : '',
-      sucursal: '',
-      status: 'pendiente',
-      charged: false,
-      startStr: toDateInput(s),
-      endStr: toDateInput(e),
-    })
-  }, [isProfesional, myUserId])
+  const openAdd = useCallback(
+    (start?: Date, end?: Date, allDay = false) => {
+      const now = new Date()
+      // Default new turno: a 1-hour slot at the next full hour.
+      const s = start ?? new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.min(now.getHours() + 1, 23), 0, 0)
+      const e = end ?? new Date(s.getTime() + 60 * 60 * 1000)
+      setDraft({
+        id: null,
+        patientId: null,
+        patientName: null,
+        treatmentSlug: '',
+        // A profesional creating a turno defaults it to themselves.
+        professionalId: isProfesional ? myUserId ?? '' : '',
+        sucursal: '',
+        status: 'pendiente',
+        charged: false,
+        allDay,
+        startStr: toDateInput(s),
+        endStr: toDateInput(e),
+        startTime: toTimeInput(s),
+        endTime: toTimeInput(e),
+      })
+    },
+    [isProfesional, myUserId],
+  )
 
   const onSelectSlot = useCallback(
     (slot: SlotInfo) => {
-      const end = new Date(slot.end.getTime() - 1)
-      openAdd(slot.start, end < slot.start ? slot.start : end)
+      // Month select → all-day; week/day time select → timed slot.
+      if (view === Views.MONTH) {
+        const end = new Date(slot.end.getTime() - 1)
+        openAdd(slot.start, end < slot.start ? slot.start : end, true)
+      } else {
+        openAdd(slot.start, slot.end, false)
+      }
     },
-    [openAdd],
+    [openAdd, view],
   )
 
-  // Persist a drag/resize: normalise to all-day bounds, update optimistically,
-  // then write + reload to reconcile.
+  // Persist a drag/resize. Timed turnos keep their exact times; all-day ones
+  // normalise to day bounds. Optimistic update, then write + reload.
   const persistMove = useCallback(
-    async (event: CalendarEvent, start: Date, end: Date) => {
-      const startStr = toDateInput(start)
-      // RBC gives an exclusive end for all-day spans — step back a tick to the
-      // inclusive last day.
-      let endStr = toDateInput(new Date(end.getTime() - 1))
-      if (endStr < startStr) endStr = startStr
-      const s = startOfDay(startStr)
-      const e = endOfDay(endStr)
-      setEvents((prev) => prev.map((ev) => (ev.id === event.id ? { ...ev, start: s, end: e } : ev)))
+    async (event: CalendarEvent, start: Date, end: Date, allDay: boolean) => {
+      let s: Date
+      let e: Date
+      if (allDay) {
+        const startStr = toDateInput(start)
+        // RBC gives an exclusive end for all-day spans — step back to the
+        // inclusive last day.
+        let endStr = toDateInput(new Date(end.getTime() - 1))
+        if (endStr < startStr) endStr = startStr
+        s = startOfDay(startStr)
+        e = endOfDay(endStr)
+      } else {
+        s = start
+        e = end
+      }
+      setEvents((prev) => prev.map((ev) => (ev.id === event.id ? { ...ev, start: s, end: e, allDay } : ev)))
       await updateCalendarEvent(event.id, {
         title: event.title,
         start: s,
         end: e,
-        allDay: true,
+        allDay,
         status: event.status,
         charged: event.charged,
         patientId: event.patientId,
@@ -777,11 +850,11 @@ export function CalendarView() {
 
   const onEventDrop = useCallback<
     NonNullable<withDragAndDropProps<CalendarEvent>['onEventDrop']>
-  >(({ event, start, end }) => void persistMove(event, new Date(start), new Date(end)), [persistMove])
+  >(({ event, start, end, isAllDay }) => void persistMove(event, new Date(start), new Date(end), !!isAllDay), [persistMove])
 
   const onEventResize = useCallback<
     NonNullable<withDragAndDropProps<CalendarEvent>['onEventResize']>
-  >(({ event, start, end }) => void persistMove(event, new Date(start), new Date(end)), [persistMove])
+  >(({ event, start, end }) => void persistMove(event, new Date(start), new Date(end), event.allDay), [persistMove])
 
   const onSelectEvent = useCallback((ev: CalendarEvent) => {
     setDraft({
@@ -793,8 +866,11 @@ export function CalendarView() {
       sucursal: ev.sucursal ?? '',
       status: ev.status,
       charged: ev.charged,
+      allDay: ev.allDay,
       startStr: toDateInput(ev.start),
       endStr: toDateInput(ev.end),
+      startTime: toTimeInput(ev.start),
+      endTime: toTimeInput(ev.end),
     })
   }, [])
 
