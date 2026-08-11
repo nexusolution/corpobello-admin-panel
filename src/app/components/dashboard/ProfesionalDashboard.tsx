@@ -13,6 +13,7 @@ import {
   fetchCalendarEvents,
   getCurrentUserId,
   STATUS_COLORS,
+  STATUS_LABEL_KEY,
   type CalendarEvent,
   type TurnoStatus,
 } from '@/lib/data/calendar-events'
@@ -30,17 +31,6 @@ function greetingKey(hour: number | null): TranslationKey {
   if (hour < 12) return 'greeting.morning'
   if (hour < 20) return 'greeting.afternoon'
   return 'greeting.evening'
-}
-function statusLabelKey(s: TurnoStatus): TranslationKey {
-  const map: Record<TurnoStatus, TranslationKey> = {
-    reservado: 'agenda.status.reserved',
-    pendiente: 'agenda.status.pending',
-    confirmado: 'agenda.status.confirmed',
-    atendido: 'agenda.status.attended',
-    ausente: 'agenda.status.absent',
-    cancelado: 'agenda.status.cancelled',
-  }
-  return map[s]
 }
 function underDev(name: string, t: TFn) {
   const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
@@ -325,7 +315,7 @@ export function ProfesionalDashboard() {
                 <div key={x.id} className='flex items-center gap-3 rounded-md overflow-hidden pr-3 py-2' style={{ backgroundColor: `${bg}1f` }}>
                   <span className='w-1.5 self-stretch shrink-0' style={{ backgroundColor: col.hex }} />
                   <span className='flex-1 min-w-0 text-sm font-medium text-dark dark:text-white truncate pl-1'>{x.patientName || x.title}</span>
-                  <span className='shrink-0 text-xs font-medium' style={{ color: bg }}>{t(statusLabelKey(x.status))}</span>
+                  <span className='shrink-0 text-xs font-medium' style={{ color: bg }}>{t(STATUS_LABEL_KEY[x.status])}</span>
                   <button
                     type='button'
                     onClick={() => underDev(t('proDash.action.ficha'), t)}

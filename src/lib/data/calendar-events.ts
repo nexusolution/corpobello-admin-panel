@@ -4,13 +4,18 @@
 // status (+ a "charged" flag). Colour is derived from the status.
 
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
+import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
-// Turno states (v1 — the 4 the dashboard already renders). Colour follows the
+// The full 10-state turno machine (signed Etapa-2 scope). Colour follows the
 // status: full event background = estado, per Andrés' agenda scheme.
 export const TURNO_STATUSES = [
   'reservado',
+  'sena_parcial',
   'pendiente',
   'confirmado',
+  'reprogramado',
+  'en_sala',
+  'en_atencion',
   'atendido',
   'ausente',
   'cancelado',
@@ -19,11 +24,30 @@ export type TurnoStatus = (typeof TURNO_STATUSES)[number]
 
 export const STATUS_COLORS: Record<TurnoStatus, string> = {
   reservado: '#7c4dff', // violet — pre-reserva / seña
-  pendiente: '#ffae1f', // warning
-  confirmado: '#13deb9', // success
-  atendido: '#5d87ff', // primary
+  sena_parcial: '#ec4899', // pink — seña parcial (falta completar depósito)
+  pendiente: '#ffae1f', // amber — a confirmar
+  confirmado: '#13deb9', // teal — confirmado
+  reprogramado: '#06b6d4', // cyan — reprogramado
+  en_sala: '#a855f7', // purple — en sala de espera
+  en_atencion: '#5d87ff', // blue — en atención
+  atendido: '#22c55e', // green — atendido
   ausente: '#8a94a6', // grey — no-show
-  cancelado: '#fa896b', // error
+  cancelado: '#fa896b', // salmon — cancelado
+}
+
+// One place mapping each status to its i18n label key (reused by the agenda +
+// both dashboards, so all 10 states are covered everywhere).
+export const STATUS_LABEL_KEY: Record<TurnoStatus, TranslationKey> = {
+  reservado: 'agenda.status.reserved',
+  sena_parcial: 'agenda.status.partialDeposit',
+  pendiente: 'agenda.status.pending',
+  confirmado: 'agenda.status.confirmed',
+  reprogramado: 'agenda.status.rescheduled',
+  en_sala: 'agenda.status.inRoom',
+  en_atencion: 'agenda.status.inSession',
+  atendido: 'agenda.status.attended',
+  ausente: 'agenda.status.absent',
+  cancelado: 'agenda.status.cancelled',
 }
 
 export const SUCURSALES = ['caballito', 'merlo', 'moreno'] as const
@@ -100,6 +124,31 @@ function rowToEvent(r: Row): CalendarEvent {
 export function isExpiredReserva(e: CalendarEvent, now: Date = new Date()): boolean {
   if (e.status !== 'reservado') return false
   return now.getTime() - e.createdAt.getTime() > PRE_RESERVA_TTL_HOURS * 3600_000
+}
+
+/**
+ * Auto-cancel pre-reservas that sat in 'reservado' past the TTL (frees the
+ * slot). One batch UPDATE, scoped by RLS (admin/operador → all; profesional →
+ * their own). Returns how many were cancelled. Called lazily on agenda load.
+ */
+export async function autoCancelExpiredReservas(): Promise<{
+  cancelled: number
+  error: string | null
+}> {
+  if (!isSupabaseConfigured()) return { cancelled: 0, error: null }
+  const cutoff = new Date(Date.now() - PRE_RESERVA_TTL_HOURS * 3600_000).toISOString()
+  const { data, error } = await getSupabase()
+    .from('calendar_events')
+    .update({
+      status: 'cancelado',
+      color: STATUS_COLORS.cancelado,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('status', 'reservado')
+    .lt('created_at', cutoff)
+    .select('id')
+  if (error) return { cancelled: 0, error: error.message }
+  return { cancelled: (data as { id: string }[] | null)?.length ?? 0, error: null }
 }
 
 const SELECT =

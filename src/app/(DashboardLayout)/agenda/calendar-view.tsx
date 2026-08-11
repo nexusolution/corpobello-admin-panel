@@ -27,8 +27,10 @@ import {
   searchPatients,
   getCurrentUserId,
   isExpiredReserva,
+  autoCancelExpiredReservas,
   TURNO_STATUSES,
   STATUS_COLORS,
+  STATUS_LABEL_KEY,
   SUCURSALES,
   type CalendarEvent,
   type TurnoStatus,
@@ -49,15 +51,6 @@ import './calendar-theme.css'
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 type Option = { value: string; label: string }
 
-// Map a turno status to its shared translation key (reuse the agenda.status.*).
-const STATUS_KEY: Record<TurnoStatus, TranslationKey> = {
-  reservado: 'agenda.status.reserved',
-  pendiente: 'agenda.status.pending',
-  confirmado: 'agenda.status.confirmed',
-  atendido: 'agenda.status.attended',
-  ausente: 'agenda.status.absent',
-  cancelado: 'agenda.status.cancelled',
-}
 
 function sucursalLabel(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
@@ -520,7 +513,7 @@ function EventDialog({
                 onChange={(e) => setStatus(e.target.value as TurnoStatus)}
                 className={SELECT_CLS}>
                 {TURNO_STATUSES.map((s) => (
-                  <option key={s} value={s}>{t(STATUS_KEY[s])}</option>
+                  <option key={s} value={s}>{t(STATUS_LABEL_KEY[s])}</option>
                 ))}
               </select>
             </label>
@@ -638,6 +631,26 @@ export function CalendarView() {
   useEffect(() => {
     reload()
     void getCurrentUserId().then(setMyUserId)
+    // Pre-reserva TTL: auto-cancel expired 'reservado' turnos (48h) on load,
+    // then refresh + toast how many were freed.
+    void autoCancelExpiredReservas().then(({ cancelled }) => {
+      if (cancelled <= 0) return
+      const isDark =
+        typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+      Swal.fire({
+        title: t('agendaCal.autoCancelled', { count: String(cancelled) }),
+        icon: 'info',
+        iconColor: '#5d87ff',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3500,
+        background: isDark ? '#2a3547' : '#ffffff',
+        color: isDark ? '#ffffff' : '#2a3547',
+        customClass: { popup: '!rounded-lg', title: '!text-sm' },
+      })
+      reload()
+    })
     // Lookups for the form (best-effort; empty on RLS/error).
     void fetchTreatmentPrices().then(({ data }) =>
       setTreatments(data.map((p) => ({ value: p.slug, label: p.displayName }))),
@@ -649,7 +662,7 @@ export function CalendarView() {
           .map((u) => ({ value: u.id, label: u.fullName })),
       ),
     )
-  }, [reload])
+  }, [reload, t])
 
   // Effective professional filter: the Profesional role is always locked to
   // their own turnos; everyone else uses the dropdown ('' = all).

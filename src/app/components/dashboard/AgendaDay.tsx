@@ -8,19 +8,19 @@ import CardBox from '../shared/CardBox'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 import { getTreatmentColor } from '@/lib/treatment-colors'
-import { fetchCalendarEvents, getCurrentUserId } from '@/lib/data/calendar-events'
+import {
+  fetchCalendarEvents,
+  getCurrentUserId,
+  STATUS_COLORS,
+  STATUS_LABEL_KEY,
+  TURNO_STATUSES,
+  type TurnoStatus,
+} from '@/lib/data/calendar-events'
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
 import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
-type AppointmentStatus =
-  | 'reservado'
-  | 'pendiente'
-  | 'confirmado'
-  | 'atendido'
-  | 'ausente'
-  | 'cancelado'
 
 type Appointment = {
   id: string
@@ -28,7 +28,7 @@ type Appointment = {
   treatmentLabel: string
   professional: string
   sucursal: string | null
-  status: AppointmentStatus
+  status: TurnoStatus
   charged: boolean
 }
 
@@ -38,29 +38,8 @@ const SUCURSAL_LABELS: Record<string, string> = {
   moreno: 'Moreno',
 }
 
-const STATUS_STYLE: Record<
-  AppointmentStatus,
-  { bg: string; text: string; labelKey: TranslationKey }
-> = {
-  reservado: { bg: 'bg-lightsecondary', text: 'text-secondary', labelKey: 'agenda.status.reserved' },
-  pendiente: { bg: 'bg-lightwarning', text: 'text-warning', labelKey: 'agenda.status.pending' },
-  confirmado: { bg: 'bg-lightsuccess', text: 'text-success', labelKey: 'agenda.status.confirmed' },
-  atendido: { bg: 'bg-lightprimary', text: 'text-primary', labelKey: 'agenda.status.attended' },
-  ausente: { bg: 'bg-muted/60 dark:bg-darkmuted/50', text: 'text-link dark:text-darklink', labelKey: 'agenda.status.absent' },
-  cancelado: { bg: 'bg-lighterror', text: 'text-error', labelKey: 'agenda.status.cancelled' },
-}
-
-const VALID_STATUSES: AppointmentStatus[] = [
-  'reservado',
-  'pendiente',
-  'confirmado',
-  'atendido',
-  'ausente',
-  'cancelado',
-]
-
-function normalizeStatus(s: string): AppointmentStatus {
-  return (VALID_STATUSES as string[]).includes(s) ? (s as AppointmentStatus) : 'pendiente'
+function normalizeStatus(s: string): TurnoStatus {
+  return (TURNO_STATUSES as readonly string[]).includes(s) ? (s as TurnoStatus) : 'pendiente'
 }
 
 function StatBlock({
@@ -201,12 +180,14 @@ const AgendaDay = () => {
         ) : (
           appts.map((appt) => {
             const tColor = getTreatmentColor(appt.treatmentLabel)
-            const sStyle = STATUS_STYLE[appt.status]
+            const statusColor = STATUS_COLORS[appt.status]
+            const statusLabel = t(STATUS_LABEL_KEY[appt.status])
             return (
               <div
                 key={appt.id}
-                className={`flex items-stretch gap-3 rounded-md pr-3 py-2 overflow-hidden ${sStyle.bg}`}
-                title={t(sStyle.labelKey)}>
+                className='flex items-stretch gap-3 rounded-md pr-3 py-2 overflow-hidden'
+                style={{ backgroundColor: `${statusColor}1f` }}
+                title={statusLabel}>
                 <span
                   className={`w-1.5 shrink-0 self-stretch ${tColor.dotClass}`}
                   title={t(tColor.labelKey as TranslationKey)}
@@ -240,8 +221,10 @@ const AgendaDay = () => {
                     $
                   </span>
                 )}
-                <span className={`shrink-0 self-center text-xs font-semibold ${sStyle.text} hidden sm:inline`}>
-                  {t(sStyle.labelKey)}
+                <span
+                  className='shrink-0 self-center text-xs font-semibold hidden sm:inline'
+                  style={{ color: statusColor }}>
+                  {statusLabel}
                 </span>
               </div>
             )

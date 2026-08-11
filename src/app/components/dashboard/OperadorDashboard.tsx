@@ -14,6 +14,7 @@ import {
   fetchCalendarEvents,
   getCurrentUserId,
   STATUS_COLORS,
+  STATUS_LABEL_KEY,
   type CalendarEvent,
   type TurnoStatus,
 } from '@/lib/data/calendar-events'
@@ -361,7 +362,7 @@ function AgendaRowAction({ status, charged, t }: { status: TurnoStatus; charged:
   if (!label) {
     return (
       <span className='shrink-0 text-xs font-medium' style={{ color: STATUS_COLORS[status] }}>
-        {t(`agenda.status.${status === 'confirmado' ? 'confirmed' : status === 'atendido' ? 'attended' : status === 'cancelado' ? 'cancelled' : status === 'ausente' ? 'absent' : status === 'reservado' ? 'reserved' : 'pending'}` as TranslationKey)}
+        {t(STATUS_LABEL_KEY[status])}
       </span>
     )
   }
