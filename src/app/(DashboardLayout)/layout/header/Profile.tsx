@@ -19,7 +19,7 @@ import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 
 const Profile = () => {
   const router = useRouter()
-  const { avatar } = useCurrentUser()
+  const { avatar, loading } = useCurrentUser()
 
   async function handleLogout() {
     if (isSupabaseConfigured()) {
@@ -33,7 +33,9 @@ const Profile = () => {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <span className='hover:text-primary hover:bg-lightprimary rounded-full flex justify-center items-center cursor-pointer group-hover/menu:bg-lightprimary group-hover/menu:text-primary'>
-            {avatar ? (
+            {loading ? (
+              <span className='h-[35px] w-[35px] rounded-full bg-muted/70 dark:bg-darkmuted/60 animate-pulse' />
+            ) : avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={avatar} alt='Perfil' className='h-[35px] w-[35px] rounded-full object-cover' />
             ) : (

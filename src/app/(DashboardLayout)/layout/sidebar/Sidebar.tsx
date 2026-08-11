@@ -271,7 +271,9 @@ const SidebarLayout = ({
                 href='/auth/login'
                 aria-label='Logout'
                 className='flex justify-center bg-lightprimary rounded-lg p-2'>
-                {avatar ? (
+                {loading ? (
+                  <span className='h-9 w-9 rounded-full bg-white/60 animate-pulse' />
+                ) : avatar ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={avatar} alt='Perfil' className='h-9 w-9 rounded-full object-cover' />
                 ) : (
@@ -290,7 +292,9 @@ const SidebarLayout = ({
         ) : (
           <div className='flex items-center justify-between gap-2 bg-lightprimary rounded-lg p-4'>
             <div className='flex items-center gap-3 overflow-hidden'>
-              {avatar ? (
+              {loading ? (
+                <span className='h-10 w-10 rounded-full bg-white/60 animate-pulse shrink-0' />
+              ) : avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={avatar} alt='Perfil' className='h-10 w-10 rounded-full object-cover shrink-0' />
               ) : (
@@ -302,14 +306,19 @@ const SidebarLayout = ({
                   className='h-10 w-10 rounded-full object-cover shrink-0'
                 />
               )}
-              <div className='overflow-hidden'>
-                <h5 className='text-sm font-semibold text-charcoal dark:text-white truncate'>
-                  {loading ? '…' : name || roleLabel}
-                </h5>
-                <span className='text-xs text-link dark:text-darklink'>
-                  {loading ? '' : roleLabel}
-                </span>
-              </div>
+              {loading ? (
+                <div className='overflow-hidden space-y-1.5'>
+                  <span className='block h-3 w-24 rounded bg-white/60 animate-pulse' />
+                  <span className='block h-2.5 w-16 rounded bg-white/40 animate-pulse' />
+                </div>
+              ) : (
+                <div className='overflow-hidden'>
+                  <h5 className='text-sm font-semibold text-charcoal dark:text-white truncate'>
+                    {name || roleLabel}
+                  </h5>
+                  <span className='text-xs text-link dark:text-darklink'>{roleLabel}</span>
+                </div>
+              )}
             </div>
             <Tooltip>
               <TooltipTrigger asChild>
