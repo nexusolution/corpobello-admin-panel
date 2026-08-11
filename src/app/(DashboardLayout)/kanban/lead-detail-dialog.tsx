@@ -13,6 +13,7 @@ import {
 } from './mock-data'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
+import { fetchLeadTranscript, type ChatMessage } from '@/lib/data/messages'
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,19 @@ function relativeTime(hoursAgo: number, t: TFn): string {
 function formatMoney(amount: number, currency: 'ARS' | 'USD'): string {
   if (currency === 'USD') return `USD ${amount.toLocaleString('en-US')}`
   return `$${amount.toLocaleString('es-AR')}`
+}
+
+// Compact day + time for a transcript bubble (messages can span several days).
+function formatMsgTimestamp(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 }
 
 const STATUS_COLORS: Record<LeadStatus, string> = {
@@ -110,12 +124,42 @@ export function LeadDetailDialog({
   const { t } = useTranslation()
   const [noteDraft, setNoteDraft] = useState('')
   const [copied, setCopied] = useState(false)
+  const [transcript, setTranscript] = useState<ChatMessage[]>([])
+  const [transcriptLoading, setTranscriptLoading] = useState(false)
+  const [transcriptError, setTranscriptError] = useState<string | null>(null)
 
   // Reset transient UI state every time the dialog opens for a new lead.
   useEffect(() => {
     if (open) {
       setNoteDraft('')
       setCopied(false)
+    }
+  }, [open, lead?.id])
+
+  // Load the real bot transcript (lead → conversations → messages) when the
+  // dialog opens. This is the same data the patient 360° view reads, surfaced
+  // here for leads that have not been promoted to patients yet.
+  useEffect(() => {
+    if (!open || !lead?.id) return
+    let cancelled = false
+    setTranscript([])
+    setTranscriptError(null)
+    setTranscriptLoading(true)
+    fetchLeadTranscript(lead.id)
+      .then((res) => {
+        if (cancelled) return
+        setTranscript(res.data)
+        setTranscriptError(res.error)
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        setTranscriptError(err instanceof Error ? err.message : String(err))
+      })
+      .finally(() => {
+        if (!cancelled) setTranscriptLoading(false)
+      })
+    return () => {
+      cancelled = true
     }
   }, [open, lead?.id])
 
@@ -301,46 +345,50 @@ export function LeadDetailDialog({
             )}
           </section>
 
-          {/* ---------- 4. Conversation summary ---------- */}
+          {/* ---------- 4. Real bot conversation transcript ---------- */}
           <section>
             <SectionTitle icon='solar:chat-round-line-duotone'>{t('kanban.detail.section.conversation')}</SectionTitle>
-            {lead.conversation ? (
-              <div className='rounded-md border border-border dark:border-darkborder p-4 space-y-2 text-sm'>
-                <div>
-                  <span className='text-link dark:text-darklink'>
-                    {t('kanban.detail.conversation.stage')}:
-                  </span>{' '}
-                  <span className='text-dark dark:text-white font-medium'>
-                    {lead.conversation.lastStage}
+            {transcriptLoading ? (
+              <p className='text-sm text-link dark:text-darklink italic'>
+                {t('kanban.detail.conversation.loading')}
+              </p>
+            ) : transcriptError ? (
+              <p className='text-sm text-error italic'>
+                {t('kanban.detail.conversation.error')}
+              </p>
+            ) : transcript.length > 0 ? (
+              <div className='rounded-md border border-border dark:border-darkborder'>
+                <div className='px-3 py-2 border-b border-border dark:border-darkborder text-xs text-link dark:text-darklink'>
+                  {t('kanban.detail.conversation.exchanges')}:{' '}
+                  <span className='font-medium text-dark dark:text-white'>
+                    {transcript.length}
                   </span>
                 </div>
-                <div>
-                  <span className='text-link dark:text-darklink'>
-                    {t('kanban.detail.conversation.exchanges')}:
-                  </span>{' '}
-                  <span className='text-dark dark:text-white font-medium'>
-                    {lead.conversation.exchangeCount}
-                  </span>
-                </div>
-                <div>
-                  <span className='text-link dark:text-darklink'>
-                    {t('kanban.detail.conversation.faqTopics')}:
-                  </span>{' '}
-                  {lead.conversation.faqTopics.length > 0 ? (
-                    <span className='inline-flex flex-wrap gap-1 align-middle'>
-                      {lead.conversation.faqTopics.map((topic) => (
-                        <span
-                          key={topic}
-                          className='inline-block px-2 py-0.5 rounded-full text-xs bg-muted/60 dark:bg-darkmuted/40 text-dark dark:text-white'>
-                          {topic}
+                <div className='max-h-80 overflow-y-auto p-3 space-y-2'>
+                  {transcript.map((m) => (
+                    <div
+                      key={m.id}
+                      className={`flex ${m.direction === 'out' ? 'justify-end' : 'justify-start'}`}>
+                      <div
+                        className={`max-w-[80%] rounded-lg px-3 py-2 ${
+                          m.direction === 'out'
+                            ? 'bg-lightprimary text-dark dark:bg-primary/20 dark:text-white'
+                            : 'bg-muted/60 dark:bg-darkmuted/40 text-dark dark:text-white'
+                        }`}>
+                        <span className='block text-[10px] font-medium uppercase tracking-wide text-link dark:text-darklink'>
+                          {m.direction === 'out'
+                            ? t('kanban.detail.conversation.bot')
+                            : t('kanban.detail.conversation.patient')}
                         </span>
-                      ))}
-                    </span>
-                  ) : (
-                    <span className='text-link dark:text-darklink italic'>
-                      {t('kanban.detail.conversation.faqEmpty')}
-                    </span>
-                  )}
+                        <p className='text-sm whitespace-pre-wrap break-words'>
+                          {m.text}
+                        </p>
+                        <span className='block mt-1 text-[10px] text-link dark:text-darklink'>
+                          {formatMsgTimestamp(m.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : (

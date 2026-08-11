@@ -8,6 +8,7 @@ import {
   normalizeSucursal,
   phoneLast4,
 } from '@/lib/data/helpers'
+import { messageContentToText } from '@/lib/data/messages'
 import type { Patient, PatientStatus } from './mock-data'
 
 type PatientRow = {
@@ -178,34 +179,6 @@ function embedded<T>(rel: T | T[] | null): T | null {
   return Array.isArray(rel) ? (rel[0] ?? null) : rel
 }
 
-// Turn a messages.content jsonb blob into display text. Outbound rows store the
-// router effect object ({type:'send_text', body}); inbound rows store the raw
-// Meta message ({type:'text', text:{body}} or an interactive reply).
-function messageText(direction: 'in' | 'out', content: unknown): string {
-  const c = (content ?? {}) as Record<string, any>
-  if (direction === 'out') {
-    if (typeof c.body === 'string') return c.body
-    const map: Record<string, string> = {
-      send_image: '📷 [imagen]',
-      send_buttons: '[botones]',
-      send_list: '[lista de opciones]',
-      send_more_photos: '📷 [pedido de más fotos]',
-    }
-    return map[c.type as string] ?? '[mensaje]'
-  }
-  if (typeof c?.text?.body === 'string') return c.text.body
-  const ir = c?.interactive
-  if (ir?.button_reply?.title) return ir.button_reply.title
-  if (ir?.list_reply?.title) return ir.list_reply.title
-  const map: Record<string, string> = {
-    image: '📷 [imagen recibida]',
-    audio: '🎤 [audio]',
-    video: '🎥 [video]',
-    document: '📄 [documento]',
-  }
-  return map[c?.type as string] ?? '[mensaje recibido]'
-}
-
 export async function fetchPatientDetail(
   id: string,
 ): Promise<{ data: PatientDetail | null; error: string | null }> {
@@ -264,7 +237,7 @@ export async function fetchPatientDetail(
       messages = ((msgRes.data as any[]) ?? []).map((m) => ({
         id: m.id,
         direction: m.direction,
-        text: messageText(m.direction, m.content),
+        text: messageContentToText(m.direction, m.content),
         createdAt: m.created_at,
       }))
       quotes = ((quoteRes.data as any[]) ?? []).map((q) => ({
