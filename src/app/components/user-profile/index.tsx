@@ -142,13 +142,11 @@ const UserProfile = () => {
         </div>
       ) : (
         <div className='rounded-xl border border-border dark:border-darkborder bg-card overflow-hidden'>
-          {/* Banner — background image (profile_bg.webp) */}
-          <div
-            className='relative px-6 py-6 bg-cover bg-center'
-            style={{ backgroundImage: 'url(/profile_bg.webp)' }}>
+          {/* Banner — theme-colour gradient (adapts to light/dark) */}
+          <div className='relative px-6 py-6 bg-gradient-to-r from-primary/25 via-secondary/15 to-primary/10'>
             <div className='flex items-center gap-5 flex-wrap'>
               <div className='relative shrink-0'>
-                <div className='h-20 w-20 rounded-full overflow-hidden bg-white/70 text-primary flex items-center justify-center text-2xl font-bold ring-4 ring-white/60'>
+                <div className='h-20 w-20 rounded-full overflow-hidden bg-lightprimary text-primary flex items-center justify-center text-2xl font-bold ring-4 ring-card'>
                   {avatar ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={avatar} alt={displayName} className='h-full w-full object-cover' />
@@ -161,14 +159,14 @@ const UserProfile = () => {
                   onClick={() => fileRef.current?.click()}
                   disabled={uploading}
                   aria-label={t('profile.avatar.change')}
-                  className='absolute -bottom-1 -right-1 h-8 w-8 inline-flex items-center justify-center rounded-full bg-primary text-white ring-2 ring-white hover:bg-primaryemphasis disabled:opacity-60 transition-colors'>
+                  className='absolute -bottom-1 -right-1 h-8 w-8 inline-flex items-center justify-center rounded-full bg-primary text-white ring-2 ring-card hover:bg-primaryemphasis disabled:opacity-60 transition-colors'>
                   <Icon icon={uploading ? 'tabler:loader-2' : 'solar:camera-line-duotone'} height={15} width={15} className={uploading ? 'animate-spin' : ''} />
                 </button>
               </div>
               <div className='min-w-0'>
-                <h2 className='text-xl font-bold text-dark'>{displayName}</h2>
-                <p className='text-sm font-medium text-dark/70'>{roleLabel}</p>
-                <div className='flex items-center gap-4 flex-wrap mt-1 text-xs text-dark/70'>
+                <h2 className='text-xl font-bold text-dark dark:text-white'>{displayName}</h2>
+                <p className='text-sm font-medium text-dark/70 dark:text-white/70'>{roleLabel}</p>
+                <div className='flex items-center gap-4 flex-wrap mt-1 text-xs text-dark/70 dark:text-white/70'>
                   {email && (
                     <span className='inline-flex items-center gap-1.5'>
                       <Icon icon='solar:letter-line-duotone' height={14} width={14} />
