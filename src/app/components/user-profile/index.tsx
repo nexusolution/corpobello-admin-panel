@@ -142,8 +142,10 @@ const UserProfile = () => {
         </div>
       ) : (
         <div className='rounded-xl border border-border dark:border-darkborder bg-card overflow-hidden'>
-          {/* Gradient banner */}
-          <div className='relative bg-gradient-to-r from-violet-200 via-pink-200 to-blue-200 dark:from-violet-500/20 dark:via-pink-500/20 dark:to-blue-500/20 px-6 py-6'>
+          {/* Banner — background image (profile_bg.webp) */}
+          <div
+            className='relative px-6 py-6 bg-cover bg-center'
+            style={{ backgroundImage: 'url(/profile_bg.webp)' }}>
             <div className='flex items-center gap-5 flex-wrap'>
               <div className='relative shrink-0'>
                 <div className='h-20 w-20 rounded-full overflow-hidden bg-white/70 text-primary flex items-center justify-center text-2xl font-bold ring-4 ring-white/60'>
