@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Swal from 'sweetalert2'
 import { Icon } from '@iconify/react/dist/iconify.js'
 
 import { useTranslation } from '@/lib/i18n/context'
@@ -98,6 +99,23 @@ const UserProfile = () => {
     }
   }
 
+  function openEditInfo() {
+    const dark =
+      typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+    Swal.fire({
+      title: t('profile.edit'),
+      text: t('profile.editInfo'),
+      icon: 'info',
+      iconColor: '#5d87ff',
+      confirmButtonText: t('alerts.underDevelopmentButton'),
+      confirmButtonColor: '#5d87ff',
+      background: dark ? '#2a3547' : '#ffffff',
+      color: dark ? '#ffffff' : '#2a3547',
+      width: '380px',
+      customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
+    })
+  }
+
   const displayName = name || email.split('@')[0] || t('profile.heading')
   const roleLabel = t(ROLE_LABEL_KEY[role])
   const joined = extra?.createdAt
@@ -121,10 +139,10 @@ const UserProfile = () => {
         </div>
         <button
           type='button'
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading || loading}
-          className='inline-flex items-center gap-2 px-4 py-2 rounded-md bg-dark dark:bg-white text-white dark:text-dark text-sm font-medium hover:opacity-90 disabled:opacity-60 transition'>
-          <Icon icon={uploading ? 'tabler:loader-2' : 'solar:pen-2-line-duotone'} height={16} width={16} className={uploading ? 'animate-spin' : ''} />
+          onClick={openEditInfo}
+          disabled={loading}
+          className='inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis disabled:opacity-60 transition-colors'>
+          <Icon icon='solar:pen-2-line-duotone' height={16} width={16} />
           {t('profile.edit')}
         </button>
         <input
