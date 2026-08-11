@@ -5,11 +5,18 @@
 
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 
+// Storage bucket for inbound patient photos (bot migration 0026). Private —
+// images are shown via short-lived signed URLs, never public links.
+const PATIENT_MEDIA_BUCKET = 'patient-media'
+const SIGNED_URL_TTL_SECONDS = 60 * 60 // 1h, long enough to view a transcript
+
 export type ChatMessage = {
   id: string
   direction: 'in' | 'out'
   text: string
   createdAt: string
+  // Signed URL for an attached photo (inbound patient media), when present.
+  imageUrl?: string
 }
 
 // Turn a messages.content jsonb blob into display text. Outbound rows store the
@@ -67,11 +74,60 @@ export async function fetchLeadTranscript(
     .order('created_at', { ascending: true })
   if (msgRes.error) return { data: [], error: msgRes.error.message }
 
-  const data: ChatMessage[] = ((msgRes.data as any[]) ?? []).map((m) => ({
+  const rows = (msgRes.data as any[]) ?? []
+  const data: ChatMessage[] = rows.map((m) => ({
     id: m.id,
     direction: m.direction,
     text: messageContentToText(m.direction, m.content),
     createdAt: m.created_at,
   }))
+
+  // Attach signed URLs for any stored patient photos (bot migration 0026).
+  // Best-effort: if the media lookup or signing fails, the transcript still
+  // renders (the message keeps its text placeholder).
+  await attachMediaUrls(supabase, data)
+
   return { data, error: null }
+}
+
+// Resolve stored patient photos for the given messages and set `imageUrl` on the
+// ones that have media. Mutates `messages` in place. Never throws.
+async function attachMediaUrls(
+  supabase: ReturnType<typeof getSupabase>,
+  messages: ChatMessage[],
+): Promise<void> {
+  const ids = messages.map((m) => m.id)
+  if (ids.length === 0) return
+  try {
+    const mediaRes = await supabase
+      .from('media')
+      .select('message_id, storage_path')
+      .in('message_id', ids)
+    const mediaRows = (mediaRes.data as { message_id: string; storage_path: string }[]) ?? []
+    if (mediaRows.length === 0) return
+
+    // One signed URL per distinct storage path.
+    const paths = [...new Set(mediaRows.map((r) => r.storage_path))]
+    const signedRes = await supabase.storage
+      .from(PATIENT_MEDIA_BUCKET)
+      .createSignedUrls(paths, SIGNED_URL_TTL_SECONDS)
+    const urlByPath = new Map<string, string>()
+    for (const s of signedRes.data ?? []) {
+      if (s.signedUrl && s.path) urlByPath.set(s.path, s.signedUrl)
+    }
+
+    const urlByMessage = new Map<string, string>()
+    for (const r of mediaRows) {
+      const url = urlByPath.get(r.storage_path)
+      if (url && !urlByMessage.has(r.message_id)) {
+        urlByMessage.set(r.message_id, url)
+      }
+    }
+    for (const m of messages) {
+      const url = urlByMessage.get(m.id)
+      if (url) m.imageUrl = url
+    }
+  } catch {
+    // Non-fatal — leave the transcript text-only.
+  }
 }

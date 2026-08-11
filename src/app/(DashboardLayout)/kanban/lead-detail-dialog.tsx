@@ -380,9 +380,24 @@ export function LeadDetailDialog({
                             ? t('kanban.detail.conversation.bot')
                             : t('kanban.detail.conversation.patient')}
                         </span>
-                        <p className='text-sm whitespace-pre-wrap break-words'>
-                          {m.text}
-                        </p>
+                        {m.imageUrl ? (
+                          <a
+                            href={m.imageUrl}
+                            target='_blank'
+                            rel='noopener noreferrer'
+                            className='mt-1 block'>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={m.imageUrl}
+                              alt={m.text}
+                              className='max-h-48 rounded-md border border-border dark:border-darkborder object-cover'
+                            />
+                          </a>
+                        ) : (
+                          <p className='text-sm whitespace-pre-wrap break-words'>
+                            {m.text}
+                          </p>
+                        )}
                         <span className='block mt-1 text-[10px] text-link dark:text-darklink'>
                           {formatMsgTimestamp(m.createdAt)}
                         </span>
