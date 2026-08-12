@@ -19,6 +19,8 @@ import {
   type Evolucion,
 } from '@/lib/data/evoluciones'
 import { EvolucionForm } from './evolucion-form'
+import { fetchPatientConsents, type Consent } from '@/lib/data/consents'
+import { ConsentForm } from './consent-form'
 import { PageSkeleton } from '@/app/components/shared/PageSkeleton'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
@@ -37,7 +39,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
-type TabKey = 'contact' | 'conversation' | 'quotes' | 'reservations' | 'ficha' | 'notes'
+type TabKey = 'contact' | 'conversation' | 'quotes' | 'reservations' | 'ficha' | 'consents' | 'notes'
 
 const TABS: { key: TabKey; labelKey: TranslationKey; icon: string }[] = [
   { key: 'contact', labelKey: 'patientDetail.tab.contact', icon: 'solar:user-circle-line-duotone' },
@@ -45,6 +47,7 @@ const TABS: { key: TabKey; labelKey: TranslationKey; icon: string }[] = [
   { key: 'quotes', labelKey: 'patientDetail.tab.quotes', icon: 'solar:bill-list-line-duotone' },
   { key: 'reservations', labelKey: 'patientDetail.tab.reservations', icon: 'solar:calendar-mark-line-duotone' },
   { key: 'ficha', labelKey: 'patientDetail.tab.ficha', icon: 'solar:notebook-line-duotone' },
+  { key: 'consents', labelKey: 'patientDetail.tab.consents', icon: 'solar:document-add-line-duotone' },
   { key: 'notes', labelKey: 'patientDetail.tab.notes', icon: 'solar:notes-line-duotone' },
 ]
 
@@ -510,6 +513,106 @@ function FichaTab({
   )
 }
 
+// ---------- Consentimientos tab (Etapa 4) ----------
+
+function ConsentsTab({
+  patientId,
+  t,
+  locale,
+}: {
+  patientId: string
+  t: TFn
+  locale: string
+}) {
+  const [rows, setRows] = useState<Consent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
+
+  const reload = useCallback(() => {
+    setLoading(true)
+    return fetchPatientConsents(patientId).then(({ data, error }) => {
+      setRows(data)
+      setError(error)
+      setLoading(false)
+    })
+  }, [patientId])
+
+  useEffect(() => {
+    let active = true
+    void fetchPatientConsents(patientId).then(({ data, error }) => {
+      if (!active) return
+      setRows(data)
+      setError(error)
+      setLoading(false)
+    })
+    return () => {
+      active = false
+    }
+  }, [patientId])
+
+  return (
+    <div className='space-y-3'>
+      <div className='flex items-center justify-end'>
+        <button
+          type='button'
+          onClick={() => setFormOpen(true)}
+          className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-primary text-white hover:bg-primary/90 transition-colors'>
+          <Icon icon='tabler:plus' height={15} width={15} />
+          {t('consent.new')}
+        </button>
+      </div>
+
+      {loading ? (
+        <p className='text-sm text-link dark:text-darklink italic'>{t('consent.loading')}</p>
+      ) : error ? (
+        <p className='text-sm text-error italic'>{t('consent.error')}</p>
+      ) : rows.length === 0 ? (
+        <EmptyBlock icon='solar:document-add-line-duotone' text={t('consent.empty')} />
+      ) : (
+        rows.map((c) => {
+          const signed = c.status === 'firmado'
+          return (
+            <div key={c.id} className='rounded-md border border-border dark:border-darkborder p-4'>
+              <div className='flex items-center justify-between gap-2 mb-1'>
+                <p className='text-sm font-medium text-dark dark:text-white truncate'>{c.title}</p>
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
+                    signed ? 'bg-lightsuccess text-success' : 'bg-lightwarning text-warning'
+                  }`}>
+                  {signed ? t('consent.status.signed') : t('consent.status.pending')}
+                </span>
+              </div>
+              <p className='text-xs text-link dark:text-darklink'>
+                {formatDateTime(c.createdAt, locale)}
+                {c.professionalName ? ` · ${c.professionalName}` : ''}
+                {signed && c.signerName ? ` · ${t('consent.signedBy', { name: c.signerName })}` : ''}
+              </p>
+              {c.pdfUrl && (
+                <a
+                  href={c.pdfUrl}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline'>
+                  <Icon icon='solar:file-text-line-duotone' height={14} width={14} />
+                  {t('consent.viewPdf')}
+                </a>
+              )}
+            </div>
+          )
+        })
+      )}
+
+      <ConsentForm
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        onSaved={() => void reload()}
+        patientId={patientId}
+      />
+    </div>
+  )
+}
+
 // ---------- Notes tab ----------
 
 function NotesTab({
@@ -805,6 +908,7 @@ export function PatientDetail({ id }: { id: string }) {
           {tab === 'quotes' && <QuotesTab detail={detail} t={t} locale={locale} />}
           {tab === 'reservations' && <ReservationsTab detail={detail} t={t} locale={locale} />}
           {tab === 'ficha' && <FichaTab patientId={c.id} t={t} locale={locale} />}
+          {tab === 'consents' && <ConsentsTab patientId={c.id} t={t} locale={locale} />}
           {tab === 'notes' && (
             <NotesTab patientId={c.id} notes={detail.notes} onAdded={handleNoteAdded} t={t} locale={locale} />
           )}
