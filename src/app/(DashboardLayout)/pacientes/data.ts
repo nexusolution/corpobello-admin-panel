@@ -206,10 +206,17 @@ export async function fetchPatientDetail(
   if (!p) return { data: null, error: null }
 
   // Linked leads → conversations → messages + quotes.
-  const leadsRes = await supabase
+  // Match by the patient_id FK OR the WhatsApp phone: older leads created before
+  // the bot started stamping patient_id stay unlinked, so the phone fallback is
+  // what surfaces their conversation on the patient 360.
+  const phone = (p.whatsapp_phone ?? '').trim()
+  let leadsQuery = supabase
     .from('leads')
     .select('id, status, created_at, last_message_at')
-    .eq('patient_id', id)
+  leadsQuery = phone
+    ? leadsQuery.or(`patient_id.eq.${id},whatsapp_phone.eq.${phone}`)
+    : leadsQuery.eq('patient_id', id)
+  const leadsRes = await leadsQuery
   const leads = (leadsRes.data as any[]) ?? []
   const leadIds = leads.map((l) => l.id)
 
