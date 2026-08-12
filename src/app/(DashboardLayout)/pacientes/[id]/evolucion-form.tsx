@@ -48,6 +48,12 @@ function dateInputToIso(dateStr: string): string | undefined {
 function todayInput(): string {
   return isoToDateInput(new Date().toISOString())
 }
+// Base date (the session date, or today) plus N months → date input value.
+function addMonthsToInput(baseDate: string, n: number): string {
+  const base = baseDate ? new Date(`${baseDate}T00:00:00`) : new Date()
+  base.setMonth(base.getMonth() + n)
+  return isoToDateInput(base.toISOString())
+}
 
 // Create a draft evolution or edit an existing one, then optionally sign+close.
 export function EvolucionForm({
@@ -337,6 +343,25 @@ export function EvolucionForm({
             <label className='block text-xs font-medium text-dark dark:text-white mb-1'>
               {t('ficha.form.followup')}
             </label>
+            <div className='flex items-center gap-2 mb-2'>
+              {[3, 6, 12].map((m) => (
+                <button
+                  key={m}
+                  type='button'
+                  onClick={() => setNextFollowup(addMonthsToInput(sessionDate, m))}
+                  className='px-2.5 py-1 rounded-md border border-border dark:border-darkborder text-xs font-medium text-dark dark:text-white hover:border-primary hover:text-primary transition-colors'>
+                  {t('ficha.form.months', { n: String(m) })}
+                </button>
+              ))}
+              {nextFollowup && (
+                <button
+                  type='button'
+                  onClick={() => setNextFollowup('')}
+                  className='text-xs text-link dark:text-darklink hover:text-error'>
+                  {t('ficha.form.clear')}
+                </button>
+              )}
+            </div>
             <input
               type='date'
               value={nextFollowup}

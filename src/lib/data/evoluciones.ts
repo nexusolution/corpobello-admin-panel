@@ -81,6 +81,22 @@ function mapRow(row: any): Evolucion {
   }
 }
 
+export type FollowupState = 'vencido' | 'proximo' | 'programado'
+
+// Classify a follow-up date relative to today: overdue, within ~2 weeks, or
+// further out. Returns null when there's no date. Pure.
+export function followupState(dateStr: string | null): FollowupState | null {
+  if (!dateStr) return null
+  const d = new Date(`${dateStr}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const diffDays = Math.round((d.getTime() - today.getTime()) / 86_400_000)
+  if (diffDays < 0) return 'vencido'
+  if (diffDays <= 14) return 'proximo'
+  return 'programado'
+}
+
 type Result<T> = { data: T; error: string | null }
 
 /** A patient's clinical history, newest session first (for the ficha tab). */

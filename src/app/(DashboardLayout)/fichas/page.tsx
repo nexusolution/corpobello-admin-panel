@@ -6,7 +6,7 @@ import { Icon } from '@iconify/react'
 
 import { HeroBanner } from '@/app/components/shared/HeroBanner'
 import { RoleGate } from '@/lib/auth/RoleGate'
-import { fetchEvoluciones, type Evolucion } from '@/lib/data/evoluciones'
+import { fetchEvoluciones, followupState, type Evolucion } from '@/lib/data/evoluciones'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
@@ -78,6 +78,29 @@ function Row({ ev, t, locale }: { ev: Evolucion; t: TFn; locale: string }) {
         </p>
       </div>
       <div className='flex items-center gap-3 shrink-0'>
+        {(() => {
+          const fs = followupState(ev.nextFollowup)
+          if (!fs) return null
+          const cls =
+            fs === 'vencido'
+              ? 'bg-lighterror text-error'
+              : fs === 'proximo'
+                ? 'bg-lightwarning text-warning'
+                : 'bg-lightprimary text-primary'
+          const key =
+            fs === 'vencido'
+              ? 'ficha.followup.overdue'
+              : fs === 'proximo'
+                ? 'ficha.followup.soon'
+                : 'ficha.followup.scheduled'
+          return (
+            <span
+              className={`hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
+              <Icon icon='solar:calendar-line-duotone' height={12} width={12} />
+              {t(key as TranslationKey)}
+            </span>
+          )
+        })()}
         <span
           className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
             closed ? 'bg-lightsuccess text-success' : 'bg-lightwarning text-warning'

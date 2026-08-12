@@ -15,6 +15,7 @@ import {
 import { SUCURSAL_LABELS } from '../mock-data'
 import {
   fetchPatientEvoluciones,
+  followupState,
   type Evolucion,
 } from '@/lib/data/evoluciones'
 import { EvolucionForm } from './evolucion-form'
@@ -344,6 +345,23 @@ function prettySlug(slug: string | null): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
 
+function FollowupChip({ dateStr, t, locale }: { dateStr: string; t: TFn; locale: string }) {
+  const st = followupState(dateStr)
+  if (!st) return null
+  const map = {
+    vencido: { cls: 'bg-lighterror text-error', key: 'ficha.followup.overdue' as TranslationKey },
+    proximo: { cls: 'bg-lightwarning text-warning', key: 'ficha.followup.soon' as TranslationKey },
+    programado: { cls: 'bg-lightprimary text-primary', key: 'ficha.followup.scheduled' as TranslationKey },
+  }
+  const m = map[st]
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${m.cls}`}>
+      <Icon icon='solar:calendar-line-duotone' height={12} width={12} />
+      {t(m.key)} · {formatDate(`${dateStr}T00:00:00`, locale)}
+    </span>
+  )
+}
+
 function FichaTab({
   patientId,
   t,
@@ -461,16 +479,21 @@ function FichaTab({
                   ))}
                 </div>
               )}
-              {ev.pdfUrl && (
-                <a
-                  href={ev.pdfUrl}
-                  target='_blank'
-                  rel='noopener noreferrer'
-                  className='mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline'>
-                  <Icon icon='solar:file-text-line-duotone' height={14} width={14} />
-                  {t('ficha.viewComprobante')}
-                </a>
-              )}
+              <div className='mt-2 flex flex-wrap items-center gap-2'>
+                {ev.nextFollowup && (
+                  <FollowupChip dateStr={ev.nextFollowup} t={t} locale={locale} />
+                )}
+                {ev.pdfUrl && (
+                  <a
+                    href={ev.pdfUrl}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline'>
+                    <Icon icon='solar:file-text-line-duotone' height={14} width={14} />
+                    {t('ficha.viewComprobante')}
+                  </a>
+                )}
+              </div>
             </div>
           )
         })
