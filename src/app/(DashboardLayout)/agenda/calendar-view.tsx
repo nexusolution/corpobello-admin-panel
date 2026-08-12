@@ -56,6 +56,9 @@ function sucursalLabel(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
+// Resource id for turnos with no sucursal set, in the "columns by branch" view.
+const NONE_RESOURCE = '__sin__'
+
 // ── date <-> <input type="date"> helpers (local, never UTC — avoids day shift) ─
 function toDateInput(d: Date): string {
   const y = d.getFullYear()
@@ -667,6 +670,10 @@ export function CalendarView() {
   // Filter by sucursal ('' = all). When a sucursal is picked we also shade its
   // closed days/hours (availability) from sucursal_hours.
   const [sucursalFilter, setSucursalFilter] = useState('')
+  // "Columns by branch" mode: render one column per sucursal (react-big-calendar
+  // resources) so staff can drag a turno between branches to reassign it. Only
+  // meaningful in the Day view, so turning it on forces Day.
+  const [resourceMode, setResourceMode] = useState(false)
   const [hours, setHours] = useState<DayHours[] | null>(null)
 
   moment.locale(locale)
@@ -730,6 +737,24 @@ export function CalendarView() {
     [events, effectiveProfessional, sucursalFilter],
   )
 
+  // "Columns by branch" resources: one column per sucursal + a "Sin asignar"
+  // bucket for turnos with none. Events carry a `resourceId` so RBC places them
+  // in the right column; dragging to another column changes that sucursal.
+  const sucursalResources = useMemo(
+    () => [
+      ...SUCURSALES.map((s) => ({ resourceId: s, resourceTitle: sucursalLabel(s) })),
+      { resourceId: NONE_RESOURCE, resourceTitle: t('agenda.noSucursal') },
+    ],
+    [t],
+  )
+  const calendarEvents = useMemo(
+    () =>
+      resourceMode
+        ? visibleEvents.map((e) => ({ ...e, resourceId: e.sucursal || NONE_RESOURCE }))
+        : visibleEvents,
+    [resourceMode, visibleEvents],
+  )
+
   // Pre-reservas past the TTL (highlight only — no auto-cancel in v1).
   const expiredCount = useMemo(
     () => visibleEvents.filter((e) => isExpiredReserva(e)).length,
@@ -774,7 +799,7 @@ export function CalendarView() {
   )
 
   const openAdd = useCallback(
-    (start?: Date, end?: Date, allDay = false) => {
+    (start?: Date, end?: Date, allDay = false, sucursalDefault?: string) => {
       const now = new Date()
       // Default new turno: a 1-hour slot at the next full hour.
       const s = start ?? new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.min(now.getHours() + 1, 23), 0, 0)
@@ -786,7 +811,7 @@ export function CalendarView() {
         treatmentSlug: '',
         // A profesional creating a turno defaults it to themselves.
         professionalId: isProfesional ? myUserId ?? '' : '',
-        sucursal: '',
+        sucursal: sucursalDefault ?? '',
         status: 'pendiente',
         charged: false,
         allDay,
@@ -801,21 +826,33 @@ export function CalendarView() {
 
   const onSelectSlot = useCallback(
     (slot: SlotInfo) => {
+      // In branch-columns mode, clicking a column pre-fills that sucursal.
+      const rid = (slot as { resourceId?: unknown }).resourceId
+      const sucursalDefault =
+        resourceMode && rid != null && rid !== NONE_RESOURCE ? String(rid) : undefined
       // Month select → all-day; week/day time select → timed slot.
       if (view === Views.MONTH) {
         const end = new Date(slot.end.getTime() - 1)
-        openAdd(slot.start, end < slot.start ? slot.start : end, true)
+        openAdd(slot.start, end < slot.start ? slot.start : end, true, sucursalDefault)
       } else {
-        openAdd(slot.start, slot.end, false)
+        openAdd(slot.start, slot.end, false, sucursalDefault)
       }
     },
-    [openAdd, view],
+    [openAdd, view, resourceMode],
   )
 
   // Persist a drag/resize. Timed turnos keep their exact times; all-day ones
   // normalise to day bounds. Optimistic update, then write + reload.
   const persistMove = useCallback(
-    async (event: CalendarEvent, start: Date, end: Date, allDay: boolean) => {
+    async (
+      event: CalendarEvent,
+      start: Date,
+      end: Date,
+      allDay: boolean,
+      // undefined = keep the event's sucursal; a string/null reassigns it
+      // (used when dragging between branch columns).
+      newSucursal?: string | null,
+    ) => {
       let s: Date
       let e: Date
       if (allDay) {
@@ -830,7 +867,10 @@ export function CalendarView() {
         s = start
         e = end
       }
-      setEvents((prev) => prev.map((ev) => (ev.id === event.id ? { ...ev, start: s, end: e, allDay } : ev)))
+      const sucursal = newSucursal !== undefined ? newSucursal : event.sucursal
+      setEvents((prev) =>
+        prev.map((ev) => (ev.id === event.id ? { ...ev, start: s, end: e, allDay, sucursal } : ev)),
+      )
       await updateCalendarEvent(event.id, {
         title: event.title,
         start: s,
@@ -840,7 +880,7 @@ export function CalendarView() {
         charged: event.charged,
         patientId: event.patientId,
         professionalId: event.professionalId,
-        sucursal: event.sucursal,
+        sucursal,
         treatmentSlug: event.treatmentSlug,
       })
       reload()
@@ -850,7 +890,19 @@ export function CalendarView() {
 
   const onEventDrop = useCallback<
     NonNullable<withDragAndDropProps<CalendarEvent>['onEventDrop']>
-  >(({ event, start, end, isAllDay }) => void persistMove(event, new Date(start), new Date(end), !!isAllDay), [persistMove])
+  >(
+    ({ event, start, end, isAllDay, resourceId }) => {
+      // In branch-columns mode the drop target's resourceId is the new sucursal.
+      const newSucursal =
+        resourceMode && resourceId != null
+          ? resourceId === NONE_RESOURCE
+            ? null
+            : String(resourceId)
+          : undefined
+      void persistMove(event, new Date(start), new Date(end), !!isAllDay, newSucursal)
+    },
+    [persistMove, resourceMode],
+  )
 
   const onEventResize = useCallback<
     NonNullable<withDragAndDropProps<CalendarEvent>['onEventResize']>
@@ -951,18 +1003,37 @@ export function CalendarView() {
             ))}
           </select>
         </div>
+        {/* Columns-by-branch toggle: switches the Day view into one column per
+            sucursal so a turno can be dragged between branches to reassign it. */}
+        <label className='flex items-center gap-2 cursor-pointer select-none'>
+          <input
+            type='checkbox'
+            checked={resourceMode}
+            onChange={(e) => setResourceMode(e.target.checked)}
+            className='h-4 w-4 rounded border-border dark:border-darkborder text-primary focus:ring-primary'
+          />
+          <Icon icon='solar:layers-minimalistic-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
+          <span className='text-xs font-medium text-link dark:text-darklink'>{t('agenda.bySucursal')}</span>
+        </label>
       </div>
 
       <DnDCalendar
         localizer={localizer}
-        events={visibleEvents}
+        events={calendarEvents}
         startAccessor='start'
         endAccessor='end'
-        view={view}
+        view={resourceMode ? Views.DAY : view}
         onView={setView}
         date={date}
         onNavigate={setDate}
         views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
+        {...(resourceMode && {
+          resources: sucursalResources,
+          resourceIdAccessor: (item: object) =>
+            (item as { resourceId?: string }).resourceId ?? NONE_RESOURCE,
+          resourceTitleAccessor: (item: object) =>
+            (item as { resourceTitle?: string }).resourceTitle ?? '',
+        })}
         selectable
         popup
         resizable
