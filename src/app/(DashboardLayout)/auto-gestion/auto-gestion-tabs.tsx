@@ -11,6 +11,7 @@ import { FaqSection } from './faq-section'
 import { CotizadoresSection } from './cotizadores-section'
 import { PromocionesSection } from './promociones-section'
 import { HorariosSection } from './horarios-section'
+import { ConsentimientosSection } from './consentimientos-section'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
@@ -23,6 +24,7 @@ type TabKey =
   | 'cotizadores'
   | 'promos'
   | 'horarios'
+  | 'consents'
 
 const TABS: { key: TabKey; labelKey: TranslationKey; icon: string }[] = [
   { key: 'treatments', labelKey: 'autoGestion.treatments.heading', icon: 'solar:widget-line-duotone' },
@@ -33,6 +35,7 @@ const TABS: { key: TabKey; labelKey: TranslationKey; icon: string }[] = [
   { key: 'texts', labelKey: 'autoGestion.texts.heading', icon: 'solar:document-text-line-duotone' },
   { key: 'intros', labelKey: 'autoGestion.intros.heading', icon: 'solar:chat-square-like-line-duotone' },
   { key: 'faq', labelKey: 'autoGestion.faq.heading', icon: 'solar:question-circle-line-duotone' },
+  { key: 'consents', labelKey: 'autoGestion.consents.heading', icon: 'solar:document-add-line-duotone' },
 ]
 
 export function AutoGestionTabs() {
@@ -74,6 +77,7 @@ export function AutoGestionTabs() {
       {tab === 'texts' && <TextsSection />}
       {tab === 'intros' && <IntrosSection />}
       {tab === 'faq' && <FaqSection />}
+      {tab === 'consents' && <ConsentimientosSection />}
     </div>
   )
 }
