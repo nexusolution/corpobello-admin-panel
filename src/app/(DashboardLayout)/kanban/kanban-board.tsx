@@ -295,6 +295,9 @@ function SortableLeadCard({
   )
 }
 
+// localStorage key for the per-column colour overrides (persist across refresh).
+const COLUMN_COLORS_KEY = 'kanban.columnColors'
+
 // Color picker palette for column dots. Tailwind classes so they pick up the
 // project's theme tokens (info / warning / etc.) plus a few generic hues.
 const COLUMN_COLOR_OPTIONS: readonly string[] = [
@@ -651,6 +654,8 @@ export function KanbanBoard() {
   const [search, setSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   // Per-column dot color overrides. Falls back to the menu default when unset.
+  // Persisted per-browser in localStorage so a chosen colour survives a refresh
+  // (loaded in an effect after mount to avoid an SSR/hydration mismatch).
   const [columnColors, setColumnColors] = useState<
     Partial<Record<LeadStatus, string>>
   >({})
@@ -675,8 +680,26 @@ export function KanbanBoard() {
     }
   }, [])
 
+  // Restore saved column colours from localStorage (client-only, after mount).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COLUMN_COLORS_KEY)
+      if (raw) setColumnColors(JSON.parse(raw) as Partial<Record<LeadStatus, string>>)
+    } catch {
+      // Corrupt/blocked storage — fall back to defaults, no-op.
+    }
+  }, [])
+
   function handleChangeColor(columnId: LeadStatus, color: string) {
-    setColumnColors((prev) => ({ ...prev, [columnId]: color }))
+    setColumnColors((prev) => {
+      const next = { ...prev, [columnId]: color }
+      try {
+        localStorage.setItem(COLUMN_COLORS_KEY, JSON.stringify(next))
+      } catch {
+        // Storage blocked/full — the colour still applies for this session.
+      }
+      return next
+    })
   }
   function handleOpenDetail(lead: Lead) {
     setDetailLeadId(lead.id)
