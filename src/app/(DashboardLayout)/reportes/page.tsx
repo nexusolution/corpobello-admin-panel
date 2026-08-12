@@ -5,7 +5,13 @@ import { Icon } from '@iconify/react'
 
 import { HeroBanner } from '@/app/components/shared/HeroBanner'
 import { RoleGate } from '@/lib/auth/RoleGate'
-import { fetchProfessionalHours, type ProfessionalHours } from '@/lib/data/reportes'
+import {
+  fetchProfessionalHours,
+  fetchPacientesExport,
+  fetchTurnosExport,
+  fetchLeadsExport,
+  type ProfessionalHours,
+} from '@/lib/data/reportes'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
@@ -64,6 +70,23 @@ export default function ReportesPage() {
 
   const totalTurnos = rows.reduce((s, r) => s + r.turnos, 0)
   const totalHours = rows.reduce((s, r) => s + r.hours, 0)
+
+  const [busy, setBusy] = useState<string | null>(null)
+  async function exportDataset(kind: 'pacientes' | 'turnos' | 'leads') {
+    setBusy(kind)
+    const fromIso = new Date(`${from}T00:00:00`).toISOString()
+    const toIso = new Date(`${to}T23:59:59.999`).toISOString()
+    const res =
+      kind === 'pacientes'
+        ? await fetchPacientesExport()
+        : kind === 'turnos'
+          ? await fetchTurnosExport(fromIso, toIso)
+          : await fetchLeadsExport()
+    setBusy(null)
+    if (res.error || res.data.rows.length === 0) return
+    const suffix = kind === 'turnos' ? `_${from}_${to}` : ''
+    downloadCsv(`${kind}${suffix}.csv`, res.data.headers, res.data.rows)
+  }
 
   function exportCsv() {
     downloadCsv(
@@ -144,6 +167,32 @@ export default function ReportesPage() {
               </table>
             </div>
           )}
+        </div>
+
+        <div className='rounded-lg border border-border dark:border-darkborder bg-card p-5 sm:p-6'>
+          <h3 className='text-sm font-semibold text-dark dark:text-white uppercase tracking-wide mb-1'>
+            {t('reportes.export.heading')}
+          </h3>
+          <p className='text-sm text-link dark:text-darklink mb-4'>{t('reportes.export.subtitle')}</p>
+          <div className='flex flex-wrap gap-2'>
+            {(['pacientes', 'turnos', 'leads'] as const).map((kind) => (
+              <button
+                key={kind}
+                type='button'
+                onClick={() => void exportDataset(kind)}
+                disabled={busy !== null}
+                className='inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:border-primary hover:text-primary disabled:opacity-50 transition-colors'>
+                <Icon
+                  icon={busy === kind ? 'tabler:loader-2' : 'solar:download-minimalistic-line-duotone'}
+                  height={16}
+                  width={16}
+                  className={busy === kind ? 'animate-spin' : ''}
+                />
+                {t(`reportes.export.${kind}` as TranslationKey)}
+              </button>
+            ))}
+          </div>
+          <p className='mt-3 text-xs text-link dark:text-darklink'>{t('reportes.export.turnosNote')}</p>
         </div>
       </div>
     </RoleGate>
