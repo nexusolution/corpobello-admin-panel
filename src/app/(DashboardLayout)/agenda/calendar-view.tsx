@@ -40,6 +40,7 @@ import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
 import { getTreatmentColorBySlug } from '@/lib/treatment-colors'
 import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
 import { fetchSucursalHours, type DayHours, type Sucursal } from '@/lib/data/sucursal-hours'
+import { EvolucionForm } from '@/app/(DashboardLayout)/pacientes/[id]/evolucion-form'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
@@ -328,6 +329,7 @@ function EventDialog({
   professionals,
   onClose,
   onSaved,
+  onCloseSession,
   t,
 }: {
   draft: Draft
@@ -335,6 +337,14 @@ function EventDialog({
   professionals: Option[]
   onClose: () => void
   onSaved: () => void
+  // Open the clinical evolution form pre-linked to this turno ("Cerrar sesión").
+  onCloseSession: (prefill: {
+    patientId: string
+    treatmentSlug?: string
+    professionalId?: string
+    calendarEventId: string
+    sessionDate: string
+  }) => void
   t: TFn
 }) {
   const [patientId, setPatientId] = useState(draft.patientId)
@@ -626,6 +636,25 @@ function EventDialog({
             <span />
           )}
           <div className='flex items-center gap-2'>
+            {isEdit && patientId && (
+              <button
+                type='button'
+                onClick={() =>
+                  onCloseSession({
+                    patientId,
+                    ...(treatmentSlug && { treatmentSlug }),
+                    ...(professionalId && { professionalId }),
+                    calendarEventId: draft.id!,
+                    sessionDate: allDay
+                      ? new Date(`${startStr}T12:00:00`).toISOString()
+                      : dateTime(startStr, startTime).toISOString(),
+                  })
+                }
+                className='inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium text-primary hover:bg-lightprimary transition-colors'>
+                <Icon icon='solar:clipboard-heart-line-duotone' height={16} width={16} />
+                {t('turno.closeSession')}
+              </button>
+            )}
             <button
               type='button'
               onClick={onClose}
@@ -661,6 +690,15 @@ export function CalendarView() {
   const [view, setView] = useState<View>(Views.MONTH)
   const [date, setDate] = useState<Date>(() => new Date())
   const [draft, setDraft] = useState<Draft | null>(null)
+  // When set, the clinical evolution form opens pre-linked to a turno ("Cerrar
+  // sesión"). Reuses the ficha's EvolucionForm (agenda ↔ ficha integration).
+  const [evolucionPrefill, setEvolucionPrefill] = useState<{
+    patientId: string
+    treatmentSlug?: string
+    professionalId?: string
+    calendarEventId: string
+    sessionDate: string
+  } | null>(null)
   const [treatments, setTreatments] = useState<Option[]>([])
   const [professionals, setProfessionals] = useState<Option[]>([])
   const [myUserId, setMyUserId] = useState<string | null>(null)
@@ -1093,7 +1131,27 @@ export function CalendarView() {
             setDraft(null)
             reload()
           }}
+          onCloseSession={(pf) => {
+            setDraft(null)
+            setEvolucionPrefill(pf)
+          }}
           t={t}
+        />
+      )}
+
+      {evolucionPrefill && (
+        <EvolucionForm
+          open
+          onClose={() => setEvolucionPrefill(null)}
+          onSaved={() => reload()}
+          patientId={evolucionPrefill.patientId}
+          evolucion={null}
+          prefill={{
+            ...(evolucionPrefill.treatmentSlug && { treatmentSlug: evolucionPrefill.treatmentSlug }),
+            ...(evolucionPrefill.professionalId && { professionalId: evolucionPrefill.professionalId }),
+            calendarEventId: evolucionPrefill.calendarEventId,
+            sessionDate: evolucionPrefill.sessionDate,
+          }}
         />
       )}
     </div>

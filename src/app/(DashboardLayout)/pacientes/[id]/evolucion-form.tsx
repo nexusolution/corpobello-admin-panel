@@ -56,12 +56,20 @@ export function EvolucionForm({
   onSaved,
   patientId,
   evolucion,
+  prefill,
 }: {
   open: boolean
   onClose: () => void
   onSaved: () => void
   patientId: string
   evolucion: Evolucion | null
+  // Pre-fill for a NEW evolution opened from an agenda turno (links the turno).
+  prefill?: {
+    treatmentSlug?: string
+    professionalId?: string
+    calendarEventId?: string
+    sessionDate?: string
+  }
 }) {
   const { t } = useTranslation() as { t: TFn }
   const { role } = useCurrentUser()
@@ -78,6 +86,9 @@ export function EvolucionForm({
   const [saving, setSaving] = useState(false)
   const [existingPhotos, setExistingPhotos] = useState<EvolucionPhoto[]>([])
   const [newFiles, setNewFiles] = useState<File[]>([])
+  // The agenda turno this evolution closes (links agenda ↔ ficha). Kept in
+  // state so a new-from-turno evolution carries it into createEvolucion.
+  const [calendarEventId, setCalendarEventId] = useState<string | null>(null)
 
   // Lookups + field init whenever the dialog opens for a (new/edit) record.
   useEffect(() => {
@@ -90,17 +101,24 @@ export function EvolucionForm({
         data.filter((u) => u.status === 'active').map((u) => ({ value: u.id, label: u.fullName })),
       ),
     )
-    setTreatmentSlug(evolucion?.treatmentSlug ?? '')
-    setSessionDate(evolucion ? isoToDateInput(evolucion.sessionDate) : todayInput())
+    setTreatmentSlug(evolucion?.treatmentSlug ?? prefill?.treatmentSlug ?? '')
+    setSessionDate(
+      evolucion
+        ? isoToDateInput(evolucion.sessionDate)
+        : prefill?.sessionDate
+          ? isoToDateInput(prefill.sessionDate)
+          : todayInput(),
+    )
     setNotes(evolucion?.notes ?? '')
     setNextFollowup(evolucion?.nextFollowup ?? '')
     setExistingPhotos(evolucion?.photos ?? [])
     setNewFiles([])
+    setCalendarEventId(evolucion?.calendarEventId ?? prefill?.calendarEventId ?? null)
     // A profesional can only file their own record (RLS) — lock it to them.
     if (isProfesional) {
       void getCurrentUserId().then((uid) => setProfessionalId(uid ?? ''))
     } else {
-      setProfessionalId(evolucion?.professionalId ?? '')
+      setProfessionalId(evolucion?.professionalId ?? prefill?.professionalId ?? '')
     }
   }, [open, evolucion, isProfesional])
 
@@ -109,6 +127,7 @@ export function EvolucionForm({
       patientId,
       treatmentSlug: treatmentSlug || null,
       professionalId: professionalId || null,
+      calendarEventId: calendarEventId || null,
       sessionDate: dateInputToIso(sessionDate),
       notes: notes.trim() || null,
       nextFollowup: nextFollowup || null,
