@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Icon } from '@iconify/react'
@@ -17,6 +17,7 @@ import {
   fetchPatientEvoluciones,
   type Evolucion,
 } from '@/lib/data/evoluciones'
+import { EvolucionForm } from './evolucion-form'
 import { PageSkeleton } from '@/app/components/shared/PageSkeleton'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
@@ -355,10 +356,20 @@ function FichaTab({
   const [rows, setRows] = useState<Evolucion[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
+  const [editing, setEditing] = useState<Evolucion | null>(null)
+
+  const reload = useCallback(() => {
+    setLoading(true)
+    return fetchPatientEvoluciones(patientId).then(({ data, error }) => {
+      setRows(data)
+      setError(error)
+      setLoading(false)
+    })
+  }, [patientId])
 
   useEffect(() => {
     let active = true
-    setLoading(true)
     void fetchPatientEvoluciones(patientId).then(({ data, error }) => {
       if (!active) return
       setRows(data)
@@ -370,47 +381,83 @@ function FichaTab({
     }
   }, [patientId])
 
-  if (loading) {
-    return <p className='text-sm text-link dark:text-darklink italic'>{t('ficha.loading')}</p>
+  function openNew() {
+    setEditing(null)
+    setFormOpen(true)
   }
-  if (error) {
-    return <p className='text-sm text-error italic'>{t('ficha.error')}</p>
-  }
-  if (rows.length === 0) {
-    return <EmptyBlock icon='solar:notebook-line-duotone' text={t('ficha.empty')} />
+  function openEdit(ev: Evolucion) {
+    setEditing(ev)
+    setFormOpen(true)
   }
 
   return (
     <div className='space-y-3'>
-      {rows.map((ev) => {
-        const closed = ev.status === 'cerrada'
-        return (
-          <div key={ev.id} className='rounded-md border border-border dark:border-darkborder p-4'>
-            <div className='flex items-center justify-between gap-2 mb-1'>
-              <p className='text-sm font-medium text-dark dark:text-white truncate'>
-                {ev.treatmentSlug ? prettySlug(ev.treatmentSlug) : t('ficha.session')}
+      <div className='flex items-center justify-between'>
+        <span className='text-xs text-link dark:text-darklink'>
+          {rows.length > 0 ? t('ficha.count', { n: String(rows.length) }) : ''}
+        </span>
+        <button
+          type='button'
+          onClick={openNew}
+          className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-primary text-white hover:bg-primary/90 transition-colors'>
+          <Icon icon='tabler:plus' height={15} width={15} />
+          {t('ficha.new')}
+        </button>
+      </div>
+
+      {loading ? (
+        <p className='text-sm text-link dark:text-darklink italic'>{t('ficha.loading')}</p>
+      ) : error ? (
+        <p className='text-sm text-error italic'>{t('ficha.error')}</p>
+      ) : rows.length === 0 ? (
+        <EmptyBlock icon='solar:notebook-line-duotone' text={t('ficha.empty')} />
+      ) : (
+        rows.map((ev) => {
+          const closed = ev.status === 'cerrada'
+          return (
+            <div key={ev.id} className='rounded-md border border-border dark:border-darkborder p-4'>
+              <div className='flex items-center justify-between gap-2 mb-1'>
+                <p className='text-sm font-medium text-dark dark:text-white truncate'>
+                  {ev.treatmentSlug ? prettySlug(ev.treatmentSlug) : t('ficha.session')}
+                </p>
+                <div className='flex items-center gap-2 shrink-0'>
+                  {!closed && (
+                    <button
+                      type='button'
+                      onClick={() => openEdit(ev)}
+                      className='text-xs font-medium text-primary hover:underline'>
+                      {t('ficha.edit')}
+                    </button>
+                  )}
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      closed ? 'bg-lightsuccess text-success' : 'bg-lightwarning text-warning'
+                    }`}>
+                    {closed ? t('ficha.status.closed') : t('ficha.status.draft')}
+                  </span>
+                </div>
+              </div>
+              <p className='text-xs text-link dark:text-darklink mb-2'>
+                {formatDateTime(ev.sessionDate, locale)}
+                {ev.professionalName ? ` · ${ev.professionalName}` : ''}
               </p>
-              <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
-                  closed
-                    ? 'bg-lightsuccess text-success'
-                    : 'bg-lightwarning text-warning'
-                }`}>
-                {closed ? t('ficha.status.closed') : t('ficha.status.draft')}
-              </span>
+              {ev.notes && (
+                <p className='text-sm text-dark dark:text-white whitespace-pre-wrap break-words'>
+                  {ev.notes}
+                </p>
+              )}
             </div>
-            <p className='text-xs text-link dark:text-darklink mb-2'>
-              {formatDateTime(ev.sessionDate, locale)}
-              {ev.professionalName ? ` · ${ev.professionalName}` : ''}
-            </p>
-            {ev.notes && (
-              <p className='text-sm text-dark dark:text-white whitespace-pre-wrap break-words'>
-                {ev.notes}
-              </p>
-            )}
-          </div>
-        )
-      })}
+          )
+        })
+      )}
+
+      <EvolucionForm
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        onSaved={() => void reload()}
+        patientId={patientId}
+        evolucion={editing}
+      />
     </div>
   )
 }
