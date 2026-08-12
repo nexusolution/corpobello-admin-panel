@@ -446,6 +446,21 @@ function FichaTab({
                   {ev.notes}
                 </p>
               )}
+              {ev.photos && ev.photos.length > 0 && (
+                <div className='mt-2 flex flex-wrap gap-2'>
+                  {ev.photos.map((p) => (
+                    <a
+                      key={p.id}
+                      href={p.url}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      className='block h-16 w-16 rounded-md overflow-hidden border border-border dark:border-darkborder'>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={p.url} alt='' className='h-full w-full object-cover' />
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           )
         })

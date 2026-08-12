@@ -7,7 +7,19 @@
 
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 
+// Session photos live in the same private bucket as bot patient photos (0026),
+// under an evoluciones/<id>/ prefix, shown via short-lived signed URLs.
+const MEDIA_BUCKET = 'patient-media'
+const SIGNED_URL_TTL_SECONDS = 60 * 60
+
 export type EvolucionStatus = 'borrador' | 'cerrada'
+
+export type EvolucionPhoto = {
+  id: string
+  storagePath: string
+  label: string | null
+  url: string // signed
+}
 
 export type Evolucion = {
   id: string
@@ -24,6 +36,7 @@ export type Evolucion = {
   pdfPath: string | null
   nextFollowup: string | null // 'YYYY-MM-DD'
   createdAt: string
+  photos?: EvolucionPhoto[]
 }
 
 export type EvolucionDraft = {
@@ -80,7 +93,9 @@ export async function fetchPatientEvoluciones(
     .eq('patient_id', patientId)
     .order('session_date', { ascending: false })
   if (error) return { data: [], error: error.message }
-  return { data: (data as any[]).map(mapRow), error: null }
+  const rows = (data as any[]).map(mapRow)
+  await attachEvolucionPhotos(rows)
+  return { data: rows, error: null }
 }
 
 /** Worklist for /fichas. RLS returns only the profesional's own rows; admin/
@@ -92,7 +107,9 @@ export async function fetchEvoluciones(): Promise<Result<Evolucion[]>> {
     .select(SELECT)
     .order('session_date', { ascending: false })
   if (error) return { data: [], error: error.message }
-  return { data: (data as any[]).map(mapRow), error: null }
+  const rows = (data as any[]).map(mapRow)
+  await attachEvolucionPhotos(rows)
+  return { data: rows, error: null }
 }
 
 /** Create a draft evolution. Returns the new id (or null on failure). */
@@ -133,6 +150,73 @@ export async function updateEvolucion(
   if (patch.nextFollowup !== undefined) body.next_followup = patch.nextFollowup
   const { error } = await getSupabase().from('evoluciones').update(body).eq('id', id)
   return { error: error ? error.message : null }
+}
+
+// Fetch each evolution's session photos + sign their URLs, in place. Best-effort
+// (leaves photos empty on any error). One query for all rows + one batch sign.
+async function attachEvolucionPhotos(rows: Evolucion[]): Promise<void> {
+  const ids = rows.map((r) => r.id)
+  if (ids.length === 0) return
+  try {
+    const { data } = await getSupabase()
+      .from('evolucion_media')
+      .select('id, evolucion_id, storage_path, label')
+      .in('evolucion_id', ids)
+    const media = (data as any[]) ?? []
+    if (media.length === 0) return
+
+    const paths = [...new Set(media.map((m) => m.storage_path as string))]
+    const { data: signed } = await getSupabase().storage
+      .from(MEDIA_BUCKET)
+      .createSignedUrls(paths, SIGNED_URL_TTL_SECONDS)
+    const urlByPath = new Map<string, string>()
+    for (const s of signed ?? []) {
+      if (s.signedUrl && s.path) urlByPath.set(s.path, s.signedUrl)
+    }
+
+    const byEvolucion = new Map<string, EvolucionPhoto[]>()
+    for (const m of media) {
+      const url = urlByPath.get(m.storage_path)
+      if (!url) continue
+      const arr = byEvolucion.get(m.evolucion_id) ?? []
+      arr.push({ id: m.id, storagePath: m.storage_path, label: m.label ?? null, url })
+      byEvolucion.set(m.evolucion_id, arr)
+    }
+    for (const r of rows) r.photos = byEvolucion.get(r.id) ?? []
+  } catch {
+    // Non-fatal — timeline/form still render without photos.
+  }
+}
+
+/** Upload one session photo to Storage + link it to the evolution. */
+export async function uploadEvolucionPhoto(
+  evolucionId: string,
+  file: File,
+  label?: string | null,
+): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured()) return { error: null }
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+  const path = `evoluciones/${evolucionId}/${crypto.randomUUID()}.${ext}`
+  const { error: upErr } = await getSupabase()
+    .storage.from(MEDIA_BUCKET)
+    .upload(path, file, { contentType: file.type || undefined })
+  if (upErr) return { error: upErr.message }
+  const { error } = await getSupabase()
+    .from('evolucion_media')
+    .insert({ evolucion_id: evolucionId, storage_path: path, label: label ?? null })
+  return { error: error ? error.message : null }
+}
+
+/** Remove a session photo (row + storage object; the object delete is best-effort). */
+export async function deleteEvolucionMedia(
+  id: string,
+  storagePath: string,
+): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured()) return { error: null }
+  const { error } = await getSupabase().from('evolucion_media').delete().eq('id', id)
+  if (error) return { error: error.message }
+  await getSupabase().storage.from(MEDIA_BUCKET).remove([storagePath])
+  return { error: null }
 }
 
 /** Sign + close a session: status 'cerrada' + signature by the current user.

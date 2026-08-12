@@ -15,9 +15,13 @@ import {
   createEvolucion,
   updateEvolucion,
   closeEvolucion,
+  uploadEvolucionPhoto,
+  deleteEvolucionMedia,
   type Evolucion,
+  type EvolucionPhoto,
 } from '@/lib/data/evoluciones'
 import { getCurrentUserId } from '@/lib/data/calendar-events'
+import { Icon } from '@iconify/react'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
@@ -71,6 +75,8 @@ export function EvolucionForm({
   const [notes, setNotes] = useState('')
   const [nextFollowup, setNextFollowup] = useState('')
   const [saving, setSaving] = useState(false)
+  const [existingPhotos, setExistingPhotos] = useState<EvolucionPhoto[]>([])
+  const [newFiles, setNewFiles] = useState<File[]>([])
 
   // Lookups + field init whenever the dialog opens for a (new/edit) record.
   useEffect(() => {
@@ -87,6 +93,8 @@ export function EvolucionForm({
     setSessionDate(evolucion ? isoToDateInput(evolucion.sessionDate) : todayInput())
     setNotes(evolucion?.notes ?? '')
     setNextFollowup(evolucion?.nextFollowup ?? '')
+    setExistingPhotos(evolucion?.photos ?? [])
+    setNewFiles([])
     // A profesional can only file their own record (RLS) — lock it to them.
     if (isProfesional) {
       void getCurrentUserId().then((uid) => setProfessionalId(uid ?? ''))
@@ -124,9 +132,22 @@ export function EvolucionForm({
     return id
   }
 
+  // Upload any newly staged photos against the (now persisted) evolution.
+  async function uploadStagedPhotos(id: string) {
+    for (const file of newFiles) {
+      await uploadEvolucionPhoto(id, file)
+    }
+  }
+
+  async function removeExistingPhoto(photo: EvolucionPhoto) {
+    setExistingPhotos((prev) => prev.filter((p) => p.id !== photo.id))
+    await deleteEvolucionMedia(photo.id, photo.storagePath)
+  }
+
   async function handleSaveDraft() {
     setSaving(true)
     const id = await persist()
+    if (id) await uploadStagedPhotos(id)
     setSaving(false)
     if (id) {
       onSaved()
@@ -148,6 +169,7 @@ export function EvolucionForm({
     setSaving(true)
     const id = await persist()
     if (id) {
+      await uploadStagedPhotos(id)
       const { error } = await closeEvolucion(id)
       if (error) {
         setSaving(false)
@@ -231,6 +253,61 @@ export function EvolucionForm({
               className={FIELD_CLS}
               placeholder={t('ficha.form.notesPlaceholder')}
             />
+          </div>
+
+          <div>
+            <label className='block text-xs font-medium text-dark dark:text-white mb-1'>
+              {t('ficha.form.photos')}
+            </label>
+            <div className='flex flex-wrap gap-2'>
+              {existingPhotos.map((p) => (
+                <div
+                  key={p.id}
+                  className='relative h-20 w-20 rounded-md overflow-hidden border border-border dark:border-darkborder'>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p.url} alt='' className='h-full w-full object-cover' />
+                  <button
+                    type='button'
+                    onClick={() => void removeExistingPhoto(p)}
+                    className='absolute top-0.5 right-0.5 h-5 w-5 flex items-center justify-center rounded-full bg-black/60 text-white'>
+                    <Icon icon='tabler:x' height={12} width={12} />
+                  </button>
+                </div>
+              ))}
+              {newFiles.map((f, i) => (
+                <div
+                  key={i}
+                  className='relative h-20 w-20 rounded-md overflow-hidden border border-border dark:border-darkborder'>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={URL.createObjectURL(f)}
+                    alt=''
+                    className='h-full w-full object-cover'
+                  />
+                  <button
+                    type='button'
+                    onClick={() => setNewFiles((prev) => prev.filter((_, j) => j !== i))}
+                    className='absolute top-0.5 right-0.5 h-5 w-5 flex items-center justify-center rounded-full bg-black/60 text-white'>
+                    <Icon icon='tabler:x' height={12} width={12} />
+                  </button>
+                </div>
+              ))}
+              <label className='h-20 w-20 flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border dark:border-darkborder cursor-pointer text-link dark:text-darklink hover:border-primary hover:text-primary transition-colors'>
+                <Icon icon='tabler:camera-plus' height={18} width={18} />
+                <span className='text-[10px] text-center leading-tight'>{t('ficha.form.addPhoto')}</span>
+                <input
+                  type='file'
+                  accept='image/*'
+                  multiple
+                  className='hidden'
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? [])
+                    setNewFiles((prev) => [...prev, ...files])
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+            </div>
           </div>
 
           <div>
