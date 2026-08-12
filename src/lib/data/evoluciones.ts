@@ -37,6 +37,7 @@ export type Evolucion = {
   nextFollowup: string | null // 'YYYY-MM-DD'
   createdAt: string
   photos?: EvolucionPhoto[]
+  pdfUrl?: string | null // signed URL for the comprobante PDF, when generated
 }
 
 export type EvolucionDraft = {
@@ -152,8 +153,9 @@ export async function updateEvolucion(
   return { error: error ? error.message : null }
 }
 
-// Fetch each evolution's session photos + sign their URLs, in place. Best-effort
-// (leaves photos empty on any error). One query for all rows + one batch sign.
+// Fetch each evolution's session photos + sign their URLs (and the comprobante
+// PDF URL), in place. Best-effort. One query for all media + one batch sign that
+// also covers the rows' pdf_path.
 async function attachEvolucionPhotos(rows: Evolucion[]): Promise<void> {
   const ids = rows.map((r) => r.id)
   if (ids.length === 0) return
@@ -163,9 +165,16 @@ async function attachEvolucionPhotos(rows: Evolucion[]): Promise<void> {
       .select('id, evolucion_id, storage_path, label')
       .in('evolucion_id', ids)
     const media = (data as any[]) ?? []
-    if (media.length === 0) return
 
-    const paths = [...new Set(media.map((m) => m.storage_path as string))]
+    // Sign every distinct path we need: photo objects + comprobante PDFs.
+    const paths = [
+      ...new Set([
+        ...media.map((m) => m.storage_path as string),
+        ...rows.map((r) => r.pdfPath).filter((p): p is string => !!p),
+      ]),
+    ]
+    if (paths.length === 0) return
+
     const { data: signed } = await getSupabase().storage
       .from(MEDIA_BUCKET)
       .createSignedUrls(paths, SIGNED_URL_TTL_SECONDS)
@@ -182,9 +191,12 @@ async function attachEvolucionPhotos(rows: Evolucion[]): Promise<void> {
       arr.push({ id: m.id, storagePath: m.storage_path, label: m.label ?? null, url })
       byEvolucion.set(m.evolucion_id, arr)
     }
-    for (const r of rows) r.photos = byEvolucion.get(r.id) ?? []
+    for (const r of rows) {
+      r.photos = byEvolucion.get(r.id) ?? []
+      r.pdfUrl = r.pdfPath ? (urlByPath.get(r.pdfPath) ?? null) : null
+    }
   } catch {
-    // Non-fatal — timeline/form still render without photos.
+    // Non-fatal — timeline/form still render without photos/PDF.
   }
 }
 

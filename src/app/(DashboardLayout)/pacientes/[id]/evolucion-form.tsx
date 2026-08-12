@@ -21,6 +21,7 @@ import {
   type EvolucionPhoto,
 } from '@/lib/data/evoluciones'
 import { getCurrentUserId } from '@/lib/data/calendar-events'
+import { generateComprobante } from '@/lib/data/comprobante-pdf'
 import { Icon } from '@iconify/react'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 import { useTranslation } from '@/lib/i18n/context'
@@ -176,6 +177,9 @@ export function EvolucionForm({
         await Swal.fire({ icon: 'error', title: t('ficha.form.saveError'), text: error })
         return
       }
+      // Generate + store the signed comprobante PDF (best-effort — the session
+      // is already closed even if the PDF fails; it can be regenerated).
+      await generateComprobante(id)
     }
     setSaving(false)
     if (id) {

@@ -461,6 +461,16 @@ function FichaTab({
                   ))}
                 </div>
               )}
+              {ev.pdfUrl && (
+                <a
+                  href={ev.pdfUrl}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline'>
+                  <Icon icon='solar:file-text-line-duotone' height={14} width={14} />
+                  {t('ficha.viewComprobante')}
+                </a>
+              )}
             </div>
           )
         })
