@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Icon } from '@iconify/react'
@@ -128,6 +128,95 @@ function EmptyBlock({ icon, text }: { icon: string; text: string }) {
 
 // ---------- Contact tab ----------
 
+// A single read-only field: icon chip + label + value, with an optional
+// copy-to-clipboard affordance. Renders a muted placeholder when empty.
+function InfoRow({
+  icon,
+  label,
+  value,
+  copyable,
+  action,
+  t,
+}: {
+  icon: string
+  label: string
+  value: string
+  copyable?: string
+  action?: ReactNode
+  t: TFn
+}) {
+  const [copied, setCopied] = useState(false)
+  const has = value.trim().length > 0
+
+  async function copy() {
+    if (!copyable) return
+    try {
+      await navigator.clipboard.writeText(copyable)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1400)
+    } catch {
+      /* clipboard unavailable — ignore */
+    }
+  }
+
+  return (
+    <div className='group flex items-center gap-3 py-3'>
+      <div className='size-9 rounded-lg bg-lightprimary/60 dark:bg-lightprimary/20 flex items-center justify-center shrink-0'>
+        <Icon icon={icon} height={18} width={18} className='text-primary' />
+      </div>
+      <div className='min-w-0 flex-1'>
+        <p className='text-xs text-link dark:text-darklink'>{label}</p>
+        {has ? (
+          <p className='text-sm font-medium text-dark dark:text-white mt-0.5 break-words'>{value}</p>
+        ) : (
+          <p className='text-sm text-link/70 dark:text-darklink/70 mt-0.5 italic'>{t('patientDetail.contact.empty')}</p>
+        )}
+      </div>
+      <div className='flex items-center gap-1 shrink-0'>
+        {action}
+        {copyable && has && (
+          <button
+            type='button'
+            onClick={copy}
+            aria-label={t('patientDetail.contact.copy')}
+            title={copied ? t('patientDetail.contact.copied') : t('patientDetail.contact.copy')}
+            className='h-8 w-8 inline-flex items-center justify-center rounded-md text-link dark:text-darklink opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-muted/50 hover:text-primary transition-all'>
+            <Icon icon={copied ? 'solar:check-circle-line-duotone' : 'solar:copy-line-duotone'} height={16} width={16} className={copied ? 'text-success' : ''} />
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Small labelled input used inside the personal-details card while editing.
+function EditField({
+  label,
+  value,
+  onChange,
+  type = 'text',
+  placeholder,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  type?: string
+  placeholder?: string
+}) {
+  return (
+    <div>
+      <label className='text-xs text-link dark:text-darklink'>{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className='mt-1 w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all'
+      />
+    </div>
+  )
+}
+
 function ContactTab({
   detail,
   onSaved,
@@ -164,95 +253,118 @@ function ContactTab({
     onSaved(name.trim(), email.trim(), dni.trim())
   }
 
-  const rows: { label: string; value: string; editable?: boolean }[] = [
-    { label: t('patientDetail.contact.phone'), value: c.phone || '' },
-    { label: t('patientDetail.contact.treatment'), value: c.treatment },
-    { label: t('patientDetail.contact.sucursal'), value: c.sucursal ? SUCURSAL_LABELS[c.sucursal as keyof typeof SUCURSAL_LABELS] : '' },
-    { label: t('patientDetail.contact.joined'), value: formatDate(c.createdAt, locale) },
-  ]
+  const waDigits = (c.phone || '').replace(/\D/g, '')
+  const sucursal = c.sucursal ? SUCURSAL_LABELS[c.sucursal as keyof typeof SUCURSAL_LABELS] : ''
+  const status = detail.reservations[0]?.status ?? 'nuevo'
 
   return (
-    <div className='space-y-6 max-w-2xl'>
-      <div className='flex items-center justify-between'>
-        <h3 className='text-sm font-semibold text-dark dark:text-white'>{t('patientDetail.contact.title')}</h3>
-        {!editing ? (
-          <button
-            type='button'
-            onClick={() => setEditing(true)}
-            className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 transition-colors'>
-            <Icon icon='solar:pen-line-duotone' height={15} width={15} />
-            {t('patientDetail.contact.edit')}
-          </button>
-        ) : (
+    <div className='space-y-5 max-w-3xl'>
+      {/* Quick contact actions */}
+      {!editing && (
+        <div className='flex flex-wrap items-center gap-2'>
+          {waDigits && (
+            <a
+              href={`https://wa.me/${waDigits}`}
+              target='_blank'
+              rel='noopener noreferrer'
+              className='inline-flex items-center gap-2 px-3.5 py-2 rounded-md bg-lightsuccess text-success text-sm font-medium hover:bg-success hover:text-white transition-colors'>
+              <Icon icon='tabler:brand-whatsapp' height={17} width={17} />
+              {t('patientDetail.contact.whatsappAction')}
+            </a>
+          )}
+          {c.email && (
+            <a
+              href={`mailto:${c.email}`}
+              className='inline-flex items-center gap-2 px-3.5 py-2 rounded-md bg-lightprimary text-primary text-sm font-medium hover:bg-primary hover:text-white transition-colors'>
+              <Icon icon='solar:letter-line-duotone' height={17} width={17} />
+              {t('patientDetail.contact.emailAction')}
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Personal details */}
+      <section className='rounded-xl border border-border dark:border-darkborder bg-background/40'>
+        <div className='flex items-center justify-between gap-2 px-4 py-3 border-b border-border dark:border-darkborder'>
           <div className='flex items-center gap-2'>
+            <Icon icon='solar:user-circle-line-duotone' height={18} width={18} className='text-primary' />
+            <h3 className='text-sm font-semibold text-dark dark:text-white'>{t('patientDetail.contact.personalInfo')}</h3>
+          </div>
+          {!editing ? (
             <button
               type='button'
-              onClick={() => { setEditing(false); setName(c.fullName); setEmail(c.email); setDni(c.dni) }}
-              className='px-3 py-1.5 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 transition-colors'>
-              {t('patientDetail.contact.cancel')}
+              onClick={() => setEditing(true)}
+              className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 hover:border-primary hover:text-primary transition-colors'>
+              <Icon icon='solar:pen-line-duotone' height={15} width={15} />
+              {t('patientDetail.contact.edit')}
             </button>
-            <button
-              type='button'
-              disabled={saving || name.trim().length === 0}
-              onClick={handleSave}
-              className='px-3 py-1.5 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis disabled:opacity-50 transition-colors'>
-              {t('patientDetail.contact.save')}
-            </button>
+          ) : (
+            <div className='flex items-center gap-2'>
+              <button
+                type='button'
+                onClick={() => { setEditing(false); setName(c.fullName); setEmail(c.email); setDni(c.dni) }}
+                className='px-3 py-1.5 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 transition-colors'>
+                {t('patientDetail.contact.cancel')}
+              </button>
+              <button
+                type='button'
+                disabled={saving || name.trim().length === 0}
+                onClick={handleSave}
+                className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis disabled:opacity-50 transition-colors'>
+                {saving && <Icon icon='solar:refresh-line-duotone' height={14} width={14} className='animate-spin' />}
+                {t('patientDetail.contact.save')}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {editing ? (
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 p-4'>
+            <div className='sm:col-span-2'>
+              <EditField label={t('patientDetail.contact.name')} value={name} onChange={setName} />
+            </div>
+            <EditField label={t('patientDetail.contact.email')} value={email} onChange={setEmail} type='email' placeholder={t('patientDetail.contact.emailPlaceholder')} />
+            <EditField label={t('patientDetail.contact.dni')} value={dni} onChange={setDni} placeholder={t('patientDetail.contact.dniPlaceholder')} />
+          </div>
+        ) : (
+          <div className='px-4 divide-y divide-border dark:divide-darkborder'>
+            <InfoRow icon='solar:user-line-duotone' label={t('patientDetail.contact.name')} value={c.fullName} copyable={c.fullName} t={t} />
+            <InfoRow icon='solar:letter-line-duotone' label={t('patientDetail.contact.email')} value={c.email || ''} copyable={c.email} t={t} />
+            <InfoRow icon='solar:card-line-duotone' label={t('patientDetail.contact.dni')} value={c.dni || ''} copyable={c.dni} t={t} />
+            <InfoRow
+              icon='tabler:brand-whatsapp'
+              label={t('patientDetail.contact.phone')}
+              value={c.phone || ''}
+              copyable={c.phone}
+              t={t}
+            />
           </div>
         )}
-      </div>
+      </section>
 
-      <div className='grid grid-cols-1 sm:grid-cols-2 gap-5'>
-        <div>
-          <p className='text-xs text-link dark:text-darklink mb-1'>{t('patientDetail.contact.name')}</p>
-          {editing ? (
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
-            />
-          ) : (
-            <p className='text-dark dark:text-white'>{c.fullName}</p>
-          )}
+      {/* Activity / commercial */}
+      <section className='rounded-xl border border-border dark:border-darkborder bg-background/40'>
+        <div className='flex items-center gap-2 px-4 py-3 border-b border-border dark:border-darkborder'>
+          <Icon icon='solar:pulse-line-duotone' height={18} width={18} className='text-primary' />
+          <h3 className='text-sm font-semibold text-dark dark:text-white'>{t('patientDetail.contact.activityInfo')}</h3>
         </div>
-        <div>
-          <p className='text-xs text-link dark:text-darklink mb-1'>{t('patientDetail.contact.email')}</p>
-          {editing ? (
-            <input
-              type='email'
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={t('patientDetail.contact.emailPlaceholder')}
-              className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
-            />
-          ) : (
-            <p className='text-dark dark:text-white'>{c.email || ''}</p>
-          )}
-        </div>
-        <div>
-          <p className='text-xs text-link dark:text-darklink mb-1'>{t('patientDetail.contact.dni')}</p>
-          {editing ? (
-            <input
-              value={dni}
-              onChange={(e) => setDni(e.target.value)}
-              placeholder={t('patientDetail.contact.dniPlaceholder')}
-              className='w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
-            />
-          ) : (
-            <p className='text-dark dark:text-white'>{c.dni || ''}</p>
-          )}
-        </div>
-        {rows.map((r) => (
-          <div key={r.label}>
-            <p className='text-xs text-link dark:text-darklink mb-1'>{r.label}</p>
-            <p className='text-dark dark:text-white'>{r.value}</p>
+        <div className='px-4 divide-y divide-border dark:divide-darkborder'>
+          <InfoRow icon='solar:heart-pulse-line-duotone' label={t('patientDetail.contact.treatment')} value={c.treatment} t={t} />
+          <InfoRow icon='solar:map-point-line-duotone' label={t('patientDetail.contact.sucursal')} value={sucursal} t={t} />
+          <InfoRow icon='solar:calendar-add-line-duotone' label={t('patientDetail.contact.joined')} value={formatDate(c.createdAt, locale)} t={t} />
+          <div className='flex items-center gap-3 py-3'>
+            <div className='size-9 rounded-lg bg-lightprimary/60 dark:bg-lightprimary/20 flex items-center justify-center shrink-0'>
+              <Icon icon='solar:filter-line-duotone' height={18} width={18} className='text-primary' />
+            </div>
+            <div className='min-w-0 flex-1'>
+              <p className='text-xs text-link dark:text-darklink'>{t('patientDetail.contact.status')}</p>
+              <div className='mt-1'>
+                <StatusPill status={status} />
+              </div>
+            </div>
           </div>
-        ))}
-        <div>
-          <p className='text-xs text-link dark:text-darklink mb-1'>{t('patientDetail.contact.status')}</p>
-          <StatusPill status={detail.reservations[0]?.status ?? 'nuevo'} />
         </div>
-      </div>
+      </section>
     </div>
   )
 }
