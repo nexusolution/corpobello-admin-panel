@@ -9,6 +9,7 @@ import type { TranslationKey } from '@/lib/i18n/dictionaries'
 // The full 10-state turno machine (signed Etapa-2 scope). Colour follows the
 // status: full event background = estado, per Andrés' agenda scheme.
 export const TURNO_STATUSES = [
+  'pre_reserva',
   'reservado',
   'sena_parcial',
   'pendiente',
@@ -23,6 +24,7 @@ export const TURNO_STATUSES = [
 export type TurnoStatus = (typeof TURNO_STATUSES)[number]
 
 export const STATUS_COLORS: Record<TurnoStatus, string> = {
+  pre_reserva: '#b0bec5', // grey — horario en espera del depósito (auto-reserva)
   reservado: '#7c4dff', // violet — pre-reserva / seña
   sena_parcial: '#ec4899', // pink — seña parcial (falta completar depósito)
   pendiente: '#ffae1f', // amber — a confirmar
@@ -38,6 +40,7 @@ export const STATUS_COLORS: Record<TurnoStatus, string> = {
 // One place mapping each status to its i18n label key (reused by the agenda +
 // both dashboards, so all 10 states are covered everywhere).
 export const STATUS_LABEL_KEY: Record<TurnoStatus, TranslationKey> = {
+  pre_reserva: 'agenda.status.preReserva',
   reservado: 'agenda.status.reserved',
   sena_parcial: 'agenda.status.partialDeposit',
   pendiente: 'agenda.status.pending',
