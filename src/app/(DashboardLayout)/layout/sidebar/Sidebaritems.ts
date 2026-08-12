@@ -143,13 +143,12 @@ const SidebarContent: MenuItem[] = [
     headingKey: 'sidebar.reports',
     children: [
       {
-        name: 'Cierre diario',
+        name: 'Caja del día',
         nameKey: 'sidebar.dailyClose',
         icon: 'solar:wallet-money-line-duotone',
         id: uniqueId(),
-        url: '#',
-        underDevelopment: true,
-        adminOnly: true,
+        url: '/caja',
+        hideFromProfesional: true,
       },
       {
         name: 'Reportes operativos',
