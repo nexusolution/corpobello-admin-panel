@@ -38,7 +38,7 @@ export type ComprobanteStatus = 'pending' | 'received' | 'verified'
 
 export type LeadReservation = {
   slot: string // human-readable, e.g. "Vie 28 jun · 16:30"
-  sucursal: Sucursal
+  sucursal: Sucursal | null
   depositAmount: number
   depositCurrency: 'ARS' | 'USD'
   comprobanteStatus: ComprobanteStatus

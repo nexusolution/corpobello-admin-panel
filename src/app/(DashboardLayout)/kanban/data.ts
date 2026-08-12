@@ -73,17 +73,74 @@ export async function fetchLeads(): Promise<LeadsResult> {
     patientName: row.display_name?.trim() || row.whatsapp_phone || 'Sin nombre',
     phoneLast4: phoneLast4(row.whatsapp_phone),
     phoneFull: row.whatsapp_phone ?? '',
-    sucursal: normalizeSucursal(row.metadata?.['sucursal']),
-    treatmentLabel: treatmentLabel(row.treatments),
+    sucursal:
+      normalizeSucursal(metaReservationSucursal(row.metadata)) ??
+      normalizeSucursal(row.metadata?.['sucursal']),
+    treatmentLabel: metaTreatmentName(row.metadata) || treatmentLabel(row.treatments),
     lastActivityHoursAgo: hoursSince(row.last_message_at ?? row.created_at),
     // No tags/notes/photos columns yet — neutral defaults.
     tags: [],
     notesCount: 0,
     photosCount: 0,
     status: mapStatus(row.status),
+    ...(metaQuote(row.metadata) && { quote: metaQuote(row.metadata)! }),
+    ...(metaReservation(row.metadata) && {
+      reservation: metaReservation(row.metadata)!,
+    }),
   }))
 
   return { data: leads, error: null }
+}
+
+// ---------------------------------------------------------------------------
+// leads.metadata snapshot readers (written by the bot — treatment / quote /
+// reservation the patient reached; see the bot's lead-snapshot module). All
+// defensive: any missing/malformed shape returns undefined so the card falls
+// back to its "empty" state.
+// ---------------------------------------------------------------------------
+
+type Meta = Record<string, unknown> | null | undefined
+
+function metaObj(meta: Meta, key: string): Record<string, unknown> | undefined {
+  const v = (meta ?? {})[key]
+  return v && typeof v === 'object' ? (v as Record<string, unknown>) : undefined
+}
+
+function metaTreatmentName(meta: Meta): string {
+  const t = metaObj(meta, 'treatment')
+  return typeof t?.['name'] === 'string' ? (t['name'] as string).trim() : ''
+}
+
+function metaReservationSucursal(meta: Meta): unknown {
+  return metaObj(meta, 'reservation')?.['sucursal']
+}
+
+function metaQuote(meta: Meta): Lead['quote'] | undefined {
+  const q = metaObj(meta, 'quote')
+  if (!q || typeof q['listAmount'] !== 'number') return undefined
+  const currency = q['currency'] === 'USD' ? 'USD' : 'ARS'
+  return {
+    listAmount: q['listAmount'] as number,
+    ...(typeof q['efectivoAmount'] === 'number' && {
+      efectivoAmount: q['efectivoAmount'] as number,
+    }),
+    currency,
+    sentAtHoursAgo: hoursSince(
+      typeof q['sentAt'] === 'string' ? (q['sentAt'] as string) : null,
+    ),
+  }
+}
+
+function metaReservation(meta: Meta): Lead['reservation'] | undefined {
+  const r = metaObj(meta, 'reservation')
+  if (!r) return undefined
+  return {
+    slot: 'A coordinar',
+    sucursal: normalizeSucursal(r['sucursal']),
+    depositAmount: typeof r['senaAmount'] === 'number' ? (r['senaAmount'] as number) : 0,
+    depositCurrency: 'ARS',
+    comprobanteStatus: r['comprobante'] === 'received' ? 'received' : 'pending',
+  }
 }
 
 /** Persist a drag-and-drop move. Best-effort; returns an error string on fail. */

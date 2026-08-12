@@ -426,7 +426,10 @@ export function LeadDetailDialog({
                       {t('kanban.detail.reservation.slot')}
                     </span>
                     <span className='text-dark dark:text-white font-medium'>
-                      {lead.reservation.slot} · {SUCURSAL_LABELS[lead.reservation.sucursal]}
+                      {lead.reservation.slot}
+                      {lead.reservation.sucursal
+                        ? ` · ${SUCURSAL_LABELS[lead.reservation.sucursal]}`
+                        : ''}
                     </span>
                   </div>
                   <div className='flex justify-between'>
