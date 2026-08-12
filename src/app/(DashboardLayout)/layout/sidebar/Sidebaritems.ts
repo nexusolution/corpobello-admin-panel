@@ -102,8 +102,7 @@ const SidebarContent: MenuItem[] = [
         nameKey: 'sidebar.records',
         icon: 'solar:clipboard-heart-line-duotone',
         id: uniqueId(),
-        url: '#',
-        underDevelopment: true,
+        url: '/fichas',
       },
       {
         name: 'Consentimientos',
