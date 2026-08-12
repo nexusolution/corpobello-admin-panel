@@ -13,6 +13,10 @@ import {
   type PatientNote,
 } from '../data'
 import { SUCURSAL_LABELS } from '../mock-data'
+import {
+  fetchPatientEvoluciones,
+  type Evolucion,
+} from '@/lib/data/evoluciones'
 import { PageSkeleton } from '@/app/components/shared/PageSkeleton'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
@@ -31,13 +35,14 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
-type TabKey = 'contact' | 'conversation' | 'quotes' | 'reservations' | 'notes'
+type TabKey = 'contact' | 'conversation' | 'quotes' | 'reservations' | 'ficha' | 'notes'
 
 const TABS: { key: TabKey; labelKey: TranslationKey; icon: string }[] = [
   { key: 'contact', labelKey: 'patientDetail.tab.contact', icon: 'solar:user-circle-line-duotone' },
   { key: 'conversation', labelKey: 'patientDetail.tab.conversation', icon: 'solar:chat-round-line-duotone' },
   { key: 'quotes', labelKey: 'patientDetail.tab.quotes', icon: 'solar:bill-list-line-duotone' },
   { key: 'reservations', labelKey: 'patientDetail.tab.reservations', icon: 'solar:calendar-mark-line-duotone' },
+  { key: 'ficha', labelKey: 'patientDetail.tab.ficha', icon: 'solar:notebook-line-duotone' },
   { key: 'notes', labelKey: 'patientDetail.tab.notes', icon: 'solar:notes-line-duotone' },
 ]
 
@@ -324,6 +329,88 @@ function ReservationsTab({ detail, t, locale }: { detail: PatientDetailData; t: 
           )}
         </div>
       ))}
+    </div>
+  )
+}
+
+// ---------- Ficha clínica tab (Etapa 3) ----------
+
+// Turn a treatment slug into readable text WITHOUT a hyphen (panel rule: no
+// dashes). 'depilacion-laser' → 'Depilacion laser'.
+function prettySlug(slug: string | null): string {
+  if (!slug) return ''
+  const spaced = slug.replace(/-/g, ' ').trim()
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
+}
+
+function FichaTab({
+  patientId,
+  t,
+  locale,
+}: {
+  patientId: string
+  t: TFn
+  locale: string
+}) {
+  const [rows, setRows] = useState<Evolucion[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    void fetchPatientEvoluciones(patientId).then(({ data, error }) => {
+      if (!active) return
+      setRows(data)
+      setError(error)
+      setLoading(false)
+    })
+    return () => {
+      active = false
+    }
+  }, [patientId])
+
+  if (loading) {
+    return <p className='text-sm text-link dark:text-darklink italic'>{t('ficha.loading')}</p>
+  }
+  if (error) {
+    return <p className='text-sm text-error italic'>{t('ficha.error')}</p>
+  }
+  if (rows.length === 0) {
+    return <EmptyBlock icon='solar:notebook-line-duotone' text={t('ficha.empty')} />
+  }
+
+  return (
+    <div className='space-y-3'>
+      {rows.map((ev) => {
+        const closed = ev.status === 'cerrada'
+        return (
+          <div key={ev.id} className='rounded-md border border-border dark:border-darkborder p-4'>
+            <div className='flex items-center justify-between gap-2 mb-1'>
+              <p className='text-sm font-medium text-dark dark:text-white truncate'>
+                {ev.treatmentSlug ? prettySlug(ev.treatmentSlug) : t('ficha.session')}
+              </p>
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
+                  closed
+                    ? 'bg-lightsuccess text-success'
+                    : 'bg-lightwarning text-warning'
+                }`}>
+                {closed ? t('ficha.status.closed') : t('ficha.status.draft')}
+              </span>
+            </div>
+            <p className='text-xs text-link dark:text-darklink mb-2'>
+              {formatDateTime(ev.sessionDate, locale)}
+              {ev.professionalName ? ` · ${ev.professionalName}` : ''}
+            </p>
+            {ev.notes && (
+              <p className='text-sm text-dark dark:text-white whitespace-pre-wrap break-words'>
+                {ev.notes}
+              </p>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -622,6 +709,7 @@ export function PatientDetail({ id }: { id: string }) {
           {tab === 'conversation' && <ConversationTab detail={detail} t={t} locale={locale} />}
           {tab === 'quotes' && <QuotesTab detail={detail} t={t} locale={locale} />}
           {tab === 'reservations' && <ReservationsTab detail={detail} t={t} locale={locale} />}
+          {tab === 'ficha' && <FichaTab patientId={c.id} t={t} locale={locale} />}
           {tab === 'notes' && (
             <NotesTab patientId={c.id} notes={detail.notes} onAdded={handleNoteAdded} t={t} locale={locale} />
           )}
