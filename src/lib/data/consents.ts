@@ -209,3 +209,22 @@ export async function deleteConsent(id: string): Promise<{ error: string | null 
   const { error } = await getSupabase().from('consents').delete().eq('id', id)
   return { error: error ? error.message : null }
 }
+
+/** Upload a drawn-signature PNG (data URL) to Storage; returns its path. */
+export async function uploadConsentSignature(
+  consentId: string,
+  dataUrl: string,
+): Promise<{ path: string | null; error: string | null }> {
+  if (!isSupabaseConfigured()) return { path: null, error: null }
+  try {
+    const blob = await (await fetch(dataUrl)).blob()
+    const path = `consents/${consentId}/signature.png`
+    const { error } = await getSupabase()
+      .storage.from(MEDIA_BUCKET)
+      .upload(path, blob, { contentType: 'image/png', upsert: true })
+    if (error) return { path: null, error: error.message }
+    return { path, error: null }
+  } catch (e) {
+    return { path: null, error: e instanceof Error ? e.message : String(e) }
+  }
+}

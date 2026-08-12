@@ -21,6 +21,7 @@ import {
 import { EvolucionForm } from './evolucion-form'
 import { fetchPatientConsents, type Consent } from '@/lib/data/consents'
 import { ConsentForm } from './consent-form'
+import { ConsentSignDialog } from './consent-sign-dialog'
 import { PageSkeleton } from '@/app/components/shared/PageSkeleton'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
@@ -528,6 +529,7 @@ function ConsentsTab({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
+  const [signing, setSigning] = useState<Consent | null>(null)
 
   const reload = useCallback(() => {
     setLoading(true)
@@ -576,12 +578,22 @@ function ConsentsTab({
             <div key={c.id} className='rounded-md border border-border dark:border-darkborder p-4'>
               <div className='flex items-center justify-between gap-2 mb-1'>
                 <p className='text-sm font-medium text-dark dark:text-white truncate'>{c.title}</p>
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
-                    signed ? 'bg-lightsuccess text-success' : 'bg-lightwarning text-warning'
-                  }`}>
-                  {signed ? t('consent.status.signed') : t('consent.status.pending')}
-                </span>
+                <div className='flex items-center gap-2 shrink-0'>
+                  {!signed && (
+                    <button
+                      type='button'
+                      onClick={() => setSigning(c)}
+                      className='text-xs font-medium text-primary hover:underline'>
+                      {t('consent.sign.action')}
+                    </button>
+                  )}
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      signed ? 'bg-lightsuccess text-success' : 'bg-lightwarning text-warning'
+                    }`}>
+                    {signed ? t('consent.status.signed') : t('consent.status.pending')}
+                  </span>
+                </div>
               </div>
               <p className='text-xs text-link dark:text-darklink'>
                 {formatDateTime(c.createdAt, locale)}
@@ -608,6 +620,12 @@ function ConsentsTab({
         onClose={() => setFormOpen(false)}
         onSaved={() => void reload()}
         patientId={patientId}
+      />
+      <ConsentSignDialog
+        open={!!signing}
+        onClose={() => setSigning(null)}
+        onSigned={() => void reload()}
+        consent={signing}
       />
     </div>
   )
