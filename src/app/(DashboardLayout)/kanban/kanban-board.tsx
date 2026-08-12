@@ -342,8 +342,6 @@ function KanbanColumn({
   leads,
   emptyLabel,
   t,
-  onAddLead,
-  onClearColumn,
   onDeleteLead,
   onChangeColor,
   onOpenDetail,
@@ -354,8 +352,6 @@ function KanbanColumn({
   leads: Lead[]
   emptyLabel: string
   t: TFn
-  onAddLead: (columnId: LeadStatus) => void
-  onClearColumn: (columnId: LeadStatus) => void
   onDeleteLead: (id: string) => void
   onChangeColor: (columnId: LeadStatus, color: string) => void
   onOpenDetail: (lead: Lead) => void
@@ -381,7 +377,7 @@ function KanbanColumn({
         </div>
 
         <div className='flex items-center gap-1'>
-          {/* Color picker — the + button now opens a swatch grid */}
+          {/* Color picker — the palette button opens a swatch grid */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -390,7 +386,7 @@ function KanbanColumn({
                     type='button'
                     aria-label={t('kanban.tooltip.changeColor')}
                     className='h-6 w-6 flex items-center justify-center rounded-full border border-border dark:border-darkborder text-link dark:text-darklink hover:text-primary hover:border-primary transition-colors'>
-                    <Icon icon='tabler:plus' height={14} width={14} />
+                    <Icon icon='solar:palette-round-line-duotone' height={15} width={15} />
                   </button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
@@ -415,38 +411,6 @@ function KanbanColumn({
                   )
                 })}
               </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Column actions dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
-                aria-label={t('kanban.tooltip.columnActions')}
-                className='h-6 w-6 flex items-center justify-center rounded text-link dark:text-darklink hover:text-primary'>
-                <Icon icon='tabler:dots' height={16} width={16} />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align='end' className='w-44'>
-              <DropdownMenuItem onClick={() => onAddLead(columnId)}>
-                <Icon icon='tabler:plus' height={16} width={16} className='mr-2' />
-                {t('kanban.menu.addLead')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { /* edit column — schema-level, deferred */ }}>
-                <Icon icon='solar:pen-line-duotone' height={16} width={16} className='mr-2' />
-                {t('kanban.menu.edit')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { /* delete column — schema-level, deferred */ }}>
-                <Icon icon='solar:trash-bin-trash-line-duotone' height={16} width={16} className='mr-2' />
-                {t('kanban.menu.delete')}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onClearColumn(columnId)}
-                className='text-error focus:text-error focus:bg-error/10'>
-                <Icon icon='solar:close-circle-line-duotone' height={16} width={16} className='mr-2' />
-                {t('kanban.menu.clearAll')}
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -817,15 +781,6 @@ export function KanbanBoard() {
     setLeads((prev) => prev.filter((l) => l.id !== id))
   }
 
-  function handleClearColumn(columnId: LeadStatus) {
-    setLeads((prev) => prev.filter((l) => l.status !== columnId))
-  }
-
-  function handleAddLead(_columnId: LeadStatus) {
-    // Real add-lead flow comes when bot data layer + creation form land.
-    // For the visual prototype, this is a no-op.
-  }
-
   const activeLead = activeId ? leads.find((l) => l.id === activeId) : null
   const emptyLabel = t('kanban.emptyColumn')
 
@@ -908,8 +863,6 @@ export function KanbanBoard() {
               leads={leadsByStatus[column.id] ?? []}
               emptyLabel={emptyLabel}
               t={t}
-              onAddLead={handleAddLead}
-              onClearColumn={handleClearColumn}
               onDeleteLead={handleDeleteLead}
               onChangeColor={handleChangeColor}
               onOpenDetail={handleOpenDetail}
