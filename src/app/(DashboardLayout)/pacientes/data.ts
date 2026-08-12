@@ -206,17 +206,31 @@ export async function fetchPatientDetail(
   if (!p) return { data: null, error: null }
 
   // Linked leads → conversations → messages + quotes.
-  // Match by the patient_id FK OR the WhatsApp phone: older leads created before
-  // the bot started stamping patient_id stay unlinked, so the phone fallback is
-  // what surfaces their conversation on the patient 360.
-  const phone = (p.whatsapp_phone ?? '').trim()
-  let leadsQuery = supabase
+  // A patient links to its bot lead in one of two ways:
+  //   1. leads.patient_id — set only by the `leads_promote_to_patient` trigger
+  //      when a lead reaches status 'reservado'. Patients imported from Agendapro,
+  //      created manually, or whose lead never hit 'reservado' have it null.
+  //   2. Matching WhatsApp phone — the reliable fallback. Patients are often
+  //      stored with the local number (e.g. '54116850') while the bot stores the
+  //      lead in full international form ('5491154116850'), so we match on the
+  //      last 8 digits (suffix) rather than exact equality.
+  const phoneDigits = (p.whatsapp_phone ?? '').replace(/\D/g, '')
+  const suffix = phoneDigits.slice(-8)
+  const orParts = [`patient_id.eq.${id}`]
+  if (suffix.length >= 7) orParts.push(`whatsapp_phone.ilike.*${suffix}`)
+
+  let leadsRes = await supabase
     .from('leads')
     .select('id, status, created_at, last_message_at')
-  leadsQuery = phone
-    ? leadsQuery.or(`patient_id.eq.${id},whatsapp_phone.eq.${phone}`)
-    : leadsQuery.eq('patient_id', id)
-  const leadsRes = await leadsQuery
+    .or(orParts.join(','))
+  // Defensive: if this ad-hoc DB lacks the patient_id column the combined filter
+  // errors — retry on the phone suffix alone so the tabs still populate.
+  if (leadsRes.error && suffix.length >= 7) {
+    leadsRes = await supabase
+      .from('leads')
+      .select('id, status, created_at, last_message_at')
+      .ilike('whatsapp_phone', `%${suffix}`)
+  }
   const leads = (leadsRes.data as any[]) ?? []
   const leadIds = leads.map((l) => l.id)
 
