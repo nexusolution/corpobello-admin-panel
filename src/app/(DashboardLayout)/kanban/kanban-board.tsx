@@ -28,7 +28,12 @@ import {
   type LeadStatus,
   type Sucursal,
 } from './mock-data'
-import { fetchLeads, persistLeadStatus } from './data'
+import {
+  fetchLeads,
+  persistLeadStatus,
+  fetchColumnColors,
+  saveColumnColors,
+} from './data'
 import { LeadDetailDialog } from './lead-detail-dialog'
 import { getTreatmentColor } from '@/lib/treatment-colors'
 import { useTranslation } from '@/lib/i18n/context'
@@ -294,9 +299,6 @@ function SortableLeadCard({
     </div>
   )
 }
-
-// localStorage key for the per-column colour overrides (persist across refresh).
-const COLUMN_COLORS_KEY = 'kanban.columnColors'
 
 // Color picker palette for column dots. Tailwind classes so they pick up the
 // project's theme tokens (info / warning / etc.) plus a few generic hues.
@@ -654,8 +656,9 @@ export function KanbanBoard() {
   const [search, setSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   // Per-column dot color overrides. Falls back to the menu default when unset.
-  // Persisted per-browser in localStorage so a chosen colour survives a refresh
-  // (loaded in an effect after mount to avoid an SSR/hydration mismatch).
+  // Persisted PER USER in the DB (user_preferences, migration 0027) so a chosen
+  // colour is private to the signed-in user and follows their account across
+  // devices. Loaded in an effect after mount.
   const [columnColors, setColumnColors] = useState<
     Partial<Record<LeadStatus, string>>
   >({})
@@ -680,24 +683,22 @@ export function KanbanBoard() {
     }
   }, [])
 
-  // Restore saved column colours from localStorage (client-only, after mount).
+  // Restore this user's saved column colours (per-user, migration 0027).
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(COLUMN_COLORS_KEY)
-      if (raw) setColumnColors(JSON.parse(raw) as Partial<Record<LeadStatus, string>>)
-    } catch {
-      // Corrupt/blocked storage — fall back to defaults, no-op.
+    let active = true
+    void fetchColumnColors().then((colors) => {
+      if (active) setColumnColors(colors)
+    })
+    return () => {
+      active = false
     }
   }, [])
 
   function handleChangeColor(columnId: LeadStatus, color: string) {
     setColumnColors((prev) => {
       const next = { ...prev, [columnId]: color }
-      try {
-        localStorage.setItem(COLUMN_COLORS_KEY, JSON.stringify(next))
-      } catch {
-        // Storage blocked/full — the colour still applies for this session.
-      }
+      // Persist against the signed-in user; best-effort, applies immediately.
+      void saveColumnColors(next)
       return next
     })
   }

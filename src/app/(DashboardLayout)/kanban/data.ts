@@ -98,3 +98,52 @@ export async function persistLeadStatus(
     .eq('id', id)
   return error ? error.message : null
 }
+
+// ---------------------------------------------------------------------------
+// Per-user Kanban column colours (migration 0027 · user_preferences). Stored
+// against the signed-in user (RLS: user_id = auth.uid()), so a chosen colour is
+// private to that user and follows their account across devices. Best-effort:
+// on any failure the board just falls back to the default column colours.
+// ---------------------------------------------------------------------------
+
+const COLUMN_COLORS_PREF_KEY = 'kanban_column_colors'
+
+type ColumnColors = Partial<Record<LeadStatus, string>>
+
+async function currentUserId(): Promise<string | null> {
+  const { data } = await getSupabase().auth.getUser()
+  return data.user?.id ?? null
+}
+
+/** The signed-in user's saved column colours, or {} when none/unavailable. */
+export async function fetchColumnColors(): Promise<ColumnColors> {
+  if (!isSupabaseConfigured()) return {}
+  const uid = await currentUserId()
+  if (!uid) return {}
+  const { data, error } = await getSupabase()
+    .from('user_preferences')
+    .select('value')
+    .eq('user_id', uid)
+    .eq('key', COLUMN_COLORS_PREF_KEY)
+    .maybeSingle()
+  if (error || !data) return {}
+  return (data.value as ColumnColors) ?? {}
+}
+
+/** Upsert the signed-in user's column colours. Best-effort (no throw). */
+export async function saveColumnColors(colors: ColumnColors): Promise<void> {
+  if (!isSupabaseConfigured()) return
+  const uid = await currentUserId()
+  if (!uid) return
+  await getSupabase()
+    .from('user_preferences')
+    .upsert(
+      {
+        user_id: uid,
+        key: COLUMN_COLORS_PREF_KEY,
+        value: colors,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,key' },
+    )
+}
