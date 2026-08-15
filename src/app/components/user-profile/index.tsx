@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Swal from 'sweetalert2'
 import { Icon } from '@iconify/react/dist/iconify.js'
 
 import { useTranslation } from '@/lib/i18n/context'
@@ -99,23 +98,6 @@ const UserProfile = () => {
     }
   }
 
-  function openEditInfo() {
-    const dark =
-      typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
-    Swal.fire({
-      title: t('profile.edit'),
-      text: t('profile.editInfo'),
-      icon: 'info',
-      iconColor: '#5d87ff',
-      confirmButtonText: t('alerts.underDevelopmentButton'),
-      confirmButtonColor: '#5d87ff',
-      background: dark ? '#2a3547' : '#ffffff',
-      color: dark ? '#ffffff' : '#2a3547',
-      width: '380px',
-      customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
-    })
-  }
-
   const displayName = name || email.split('@')[0] || t('profile.heading')
   const roleLabel = t(ROLE_LABEL_KEY[role])
   const joined = extra?.createdAt
@@ -137,14 +119,6 @@ const UserProfile = () => {
           <h1 className='text-xl sm:text-2xl font-semibold text-dark dark:text-white'>{t('profile.heading')}</h1>
           <p className='text-sm text-link dark:text-darklink mt-0.5'>{t('profile.subtitle')}</p>
         </div>
-        <button
-          type='button'
-          onClick={openEditInfo}
-          disabled={loading}
-          className='inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis disabled:opacity-60 transition-colors'>
-          <Icon icon='solar:pen-2-line-duotone' height={16} width={16} />
-          {t('profile.edit')}
-        </button>
         <input
           ref={fileRef}
           type='file'
