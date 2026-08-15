@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Icon } from '@iconify/react'
 import * as profileData from './Data'
@@ -16,10 +15,11 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
+import { UserAvatar } from '@/components/ui/user-avatar'
 
 const Profile = () => {
   const router = useRouter()
-  const { avatar, loading } = useCurrentUser()
+  const { name, avatar, loading } = useCurrentUser()
 
   async function handleLogout() {
     if (isSupabaseConfigured()) {
@@ -35,17 +35,8 @@ const Profile = () => {
           <span className='hover:text-primary hover:bg-lightprimary rounded-full flex justify-center items-center cursor-pointer group-hover/menu:bg-lightprimary group-hover/menu:text-primary'>
             {loading ? (
               <span className='h-[35px] w-[35px] rounded-full bg-muted/70 dark:bg-darkmuted/60 animate-pulse' />
-            ) : avatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatar} alt='Perfil' className='h-[35px] w-[35px] rounded-full object-cover' />
             ) : (
-              <Image
-                src='/images/profile/doctor.png'
-                alt='Perfil'
-                height={35}
-                width={35}
-                className='h-[35px] w-[35px] rounded-full object-cover'
-              />
+              <UserAvatar name={name} src={avatar} size={35} />
             )}
           </span>
         </DropdownMenuTrigger>

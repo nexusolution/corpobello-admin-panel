@@ -29,6 +29,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { avatarColor, getInitials } from '@/lib/initials'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -205,8 +206,12 @@ function RecentUsersRail({
                   <div className='relative shrink-0'>
                     <Avatar className='size-12 ring-1 ring-border dark:ring-darkborder'>
                       {u.avatarUrl && <AvatarImage src={u.avatarUrl} alt={u.fullName} className='object-cover' />}
-                      <AvatarFallback className='bg-lightprimary text-primary'>
-                        <Icon icon='solar:user-bold-duotone' height={24} width={24} />
+                      <AvatarFallback
+                        className='text-white text-sm font-semibold'
+                        style={{ backgroundColor: avatarColor(u.fullName) }}>
+                        {getInitials(u.fullName) || (
+                          <Icon icon='solar:user-bold-duotone' height={24} width={24} />
+                        )}
                       </AvatarFallback>
                     </Avatar>
                     {u.status === 'active' && (
@@ -315,8 +320,12 @@ function IdentityCard({
         <div className='relative'>
           <Avatar className='size-36 !rounded-full ring-4 ring-card shadow-md'>
             {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.fullName} className='object-cover' />}
-            <AvatarFallback className='!rounded-full bg-lightprimary text-primary'>
-              <Icon icon='solar:user-bold-duotone' height={56} width={56} />
+            <AvatarFallback
+              className='!rounded-full text-white text-3xl font-semibold'
+              style={{ backgroundColor: avatarColor(user.fullName) }}>
+              {getInitials(user.fullName) || (
+                <Icon icon='solar:user-bold-duotone' height={56} width={56} />
+              )}
             </AvatarFallback>
           </Avatar>
           {user.status === 'active' && (

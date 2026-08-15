@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { usePathname } from 'next/navigation'
 import Swal from 'sweetalert2'
 import SidebarContent from './Sidebaritems'
@@ -273,17 +274,8 @@ const SidebarLayout = ({
                 className='flex justify-center bg-lightprimary rounded-lg p-2'>
                 {loading ? (
                   <span className='h-9 w-9 rounded-full bg-white/60 animate-pulse' />
-                ) : avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatar} alt='Perfil' className='h-9 w-9 rounded-full object-cover' />
                 ) : (
-                  <Image
-                    src='/images/profile/doctor.png'
-                    alt='Perfil'
-                    width={36}
-                    height={36}
-                    className='h-9 w-9 rounded-full object-cover'
-                  />
+                  <UserAvatar name={name} src={avatar} size={36} />
                 )}
               </Link>
             </TooltipTrigger>
@@ -294,17 +286,8 @@ const SidebarLayout = ({
             <div className='flex items-center gap-3 overflow-hidden'>
               {loading ? (
                 <span className='h-10 w-10 rounded-full bg-white/60 animate-pulse shrink-0' />
-              ) : avatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatar} alt='Perfil' className='h-10 w-10 rounded-full object-cover shrink-0' />
               ) : (
-                <Image
-                  src='/images/profile/doctor.png'
-                  alt='Perfil'
-                  width={40}
-                  height={40}
-                  className='h-10 w-10 rounded-full object-cover shrink-0'
-                />
+                <UserAvatar name={name} src={avatar} size={40} />
               )}
               {loading ? (
                 <div className='overflow-hidden space-y-1.5'>

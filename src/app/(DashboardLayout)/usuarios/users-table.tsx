@@ -22,6 +22,7 @@ import {
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { avatarColor, getInitials } from '@/lib/initials'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -418,8 +419,12 @@ function UserCard({
           <div className='relative'>
             <Avatar className='size-24 ring-4 ring-lightprimary/40'>
               {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.fullName} className='object-cover' />}
-              <AvatarFallback className='bg-lightprimary text-primary'>
-                <Icon icon='solar:user-bold-duotone' height={44} width={44} />
+              <AvatarFallback
+                className='text-white text-2xl font-semibold'
+                style={{ backgroundColor: avatarColor(user.fullName) }}>
+                {getInitials(user.fullName) || (
+                  <Icon icon='solar:user-bold-duotone' height={44} width={44} />
+                )}
               </AvatarFallback>
             </Avatar>
             <span className='absolute bottom-1 right-1 h-6 w-6 rounded-full bg-lightsuccess flex items-center justify-center border-2 border-card'>
@@ -785,8 +790,12 @@ function AddUserDialog({
                   {draft.avatarUrl && (
                     <AvatarImage src={draft.avatarUrl} alt='Avatar' className='object-cover' />
                   )}
-                  <AvatarFallback className='!rounded-xl bg-lightprimary text-primary'>
-                    <Icon icon='solar:user-bold-duotone' height={56} width={56} />
+                  <AvatarFallback
+                    className='!rounded-xl text-white text-3xl font-semibold'
+                    style={{ backgroundColor: avatarColor(draft.fullName) }}>
+                    {getInitials(draft.fullName) || (
+                      <Icon icon='solar:user-bold-duotone' height={56} width={56} />
+                    )}
                   </AvatarFallback>
                 </Avatar>
                 <button
