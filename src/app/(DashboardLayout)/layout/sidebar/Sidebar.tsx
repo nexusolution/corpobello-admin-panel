@@ -225,7 +225,26 @@ const SidebarLayout = ({
 
       <SimpleBar className='h-[calc(100vh-100px)]'>
         <div className={`pb-28 ${isCollapse ? 'px-3 mini-menu' : 'px-6'}`}>
-          {SidebarContent.map((section, index) => {
+          {/* Until the role resolves, show a neutral skeleton instead of a
+              role-filtered list — otherwise the wrong role's items flash on
+              login/re-login (e.g. operador items before profesional settles). */}
+          {loading
+            ? Array.from({ length: 7 }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`flex items-center gap-3 rounded-lg mb-1 ${
+                    isCollapse ? 'justify-center py-2.5' : 'px-3 py-2.5'
+                  }`}>
+                  <span className='h-5 w-5 rounded bg-white/10 animate-pulse shrink-0' />
+                  {!isCollapse && (
+                    <span
+                      className='h-3 rounded bg-white/10 animate-pulse'
+                      style={{ width: `${55 + ((i * 13) % 35)}%` }}
+                    />
+                  )}
+                </div>
+              ))
+            : SidebarContent.map((section, index) => {
             const visibleChildren = (section.children || []).filter(
               (child) =>
                 (canSeeAdmin || !child.adminOnly) &&

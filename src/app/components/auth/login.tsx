@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useTranslation } from '@/lib/i18n/context'
+import { markLoading } from '@/lib/auth/useCurrentUser'
 import type { Locale, TranslationKey } from '@/lib/i18n/dictionaries'
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 
@@ -123,6 +124,10 @@ export const Login = () => {
         )
         return
       }
+      // Reset the shared user store to "loading" BEFORE navigating in, so the
+      // previous session's role never flashes in the sidebar/dashboard while
+      // the new identity resolves (router.push keeps the store singleton alive).
+      markLoading()
       // Session is persisted by the client; the DashboardLayout gate reads it.
       router.push('/')
     } catch {

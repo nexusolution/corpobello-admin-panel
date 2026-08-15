@@ -93,6 +93,17 @@ export function updateCurrentAvatar(url: string | null) {
   setState({ ...state, avatar: url })
 }
 
+/**
+ * Reset the store to a clean loading state. Call this the moment a login is
+ * initiated (before navigating in) so the previous user's resolved role can
+ * never render for an instant — consumers show their skeleton until the new
+ * identity loads. Fixes the "operador list flashes before profesional" glitch
+ * on re-login, since router.push keeps this module singleton alive.
+ */
+export function markLoading() {
+  setState({ ...EMPTY, loading: true })
+}
+
 // Start the store once: do the initial load AND subscribe to Supabase auth
 // changes so a logout→login as a DIFFERENT user re-fetches the new identity
 // instead of keeping the previous user's role/name until a page refresh.
