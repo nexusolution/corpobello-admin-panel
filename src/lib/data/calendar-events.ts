@@ -14,7 +14,9 @@ export const TURNO_STATUSES = [
   'sena_parcial',
   'pendiente',
   'confirmado',
+  'confirmado_paciente',
   'reprogramado',
+  'reprogramacion_solicitada',
   'en_sala',
   'en_atencion',
   'atendido',
@@ -29,7 +31,9 @@ export const STATUS_COLORS: Record<TurnoStatus, string> = {
   sena_parcial: '#ec4899', // pink — seña parcial (falta completar depósito)
   pendiente: '#ffae1f', // amber — a confirmar
   confirmado: '#13deb9', // teal — confirmado
+  confirmado_paciente: '#16a34a', // green — confirmado por el paciente (recordatorio)
   reprogramado: '#06b6d4', // cyan — reprogramado
+  reprogramacion_solicitada: '#f97316', // orange — pidió reprogramar (recepción gestiona)
   en_sala: '#a855f7', // purple — en sala de espera
   en_atencion: '#5d87ff', // blue — en atención
   atendido: '#22c55e', // green — atendido
@@ -45,7 +49,9 @@ export const STATUS_LABEL_KEY: Record<TurnoStatus, TranslationKey> = {
   sena_parcial: 'agenda.status.partialDeposit',
   pendiente: 'agenda.status.pending',
   confirmado: 'agenda.status.confirmed',
+  confirmado_paciente: 'agenda.status.confirmedByPatient',
   reprogramado: 'agenda.status.rescheduled',
+  reprogramacion_solicitada: 'agenda.status.rescheduleRequested',
   en_sala: 'agenda.status.inRoom',
   en_atencion: 'agenda.status.inSession',
   atendido: 'agenda.status.attended',
