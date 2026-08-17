@@ -40,6 +40,7 @@ import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
 import { getTreatmentColorBySlug } from '@/lib/treatment-colors'
 import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
 import { fetchSucursalHours, type DayHours, type Sucursal } from '@/lib/data/sucursal-hours'
+import { fetchAgendaBlocks, type AgendaBlock } from '@/lib/data/agenda-blocks'
 import { EvolucionForm } from '@/app/(DashboardLayout)/pacientes/[id]/evolucion-form'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 import { useTranslation } from '@/lib/i18n/context'
@@ -713,6 +714,7 @@ export function CalendarView() {
   // meaningful in the Day view, so turning it on forces Day.
   const [resourceMode, setResourceMode] = useState(false)
   const [hours, setHours] = useState<DayHours[] | null>(null)
+  const [blocks, setBlocks] = useState<AgendaBlock[]>([])
 
   moment.locale(locale)
   const localizer = useMemo(() => momentLocalizer(moment), [locale])
@@ -814,26 +816,57 @@ export function CalendarView() {
     }
   }, [sucursalFilter])
 
-  // Shade whole days the branch is closed (month view).
+  // Load feriados / branch-closure blocks (0037) once, for day shading.
+  useEffect(() => {
+    let active = true
+    void fetchAgendaBlocks().then(({ data }) => {
+      if (active) setBlocks(data)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  // Branch-closure (feriado) blocks that apply to the current sucursal filter.
+  const closureBlocks = useMemo(
+    () =>
+      blocks.filter(
+        (b) =>
+          b.professionalId === null &&
+          (b.sucursal === null || b.sucursal === sucursalFilter),
+      ),
+    [blocks, sucursalFilter],
+  )
+  const isBlockedDay = useCallback(
+    (d: Date) => {
+      const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      return closureBlocks.some((b) => b.startDate <= ds && b.endDate >= ds)
+    },
+    [closureBlocks],
+  )
+
+  // Shade whole days the branch is closed (weekly hours) OR blocked (feriado).
   const dayPropGetter = useCallback(
     (d: Date) => {
+      if (isBlockedDay(d)) return { className: 'rbc-closed-day' }
       if (!hours) return {}
       const day = hours.find((h) => h.weekday === d.getDay())
       return day && !day.isOpen ? { className: 'rbc-closed-day' } : {}
     },
-    [hours],
+    [hours, isBlockedDay],
   )
 
-  // Shade time slots outside opening hours (week/day views).
+  // Shade time slots outside opening hours (week/day views) or on blocked days.
   const slotPropGetter = useCallback(
     (d: Date) => {
+      if (isBlockedDay(d)) return { className: 'rbc-closed-slot' }
       if (!hours) return {}
       const day = hours.find((h) => h.weekday === d.getDay())
       if (!day || !day.isOpen) return { className: 'rbc-closed-slot' }
       const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
       return hhmm < day.open || hhmm >= day.close ? { className: 'rbc-closed-slot' } : {}
     },
-    [hours],
+    [hours, isBlockedDay],
   )
 
   const openAdd = useCallback(
