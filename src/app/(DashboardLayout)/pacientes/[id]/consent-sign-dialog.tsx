@@ -23,6 +23,26 @@ type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 const CANVAS_W = 460
 const CANVAS_H = 160
 
+// SHA-256 hex of a string (Web Crypto) — used for the consent integrity hash.
+async function sha256Hex(input: string): Promise<string> {
+  const bytes = new TextEncoder().encode(input)
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+// Best-effort fetch of the signer's public IP for the audit trail.
+async function fetchClientIp(): Promise<string | null> {
+  try {
+    const res = await fetch('/api/client-ip', { cache: 'no-store' })
+    const json = (await res.json()) as { ip?: string }
+    return json.ip || null
+  } catch {
+    return null
+  }
+}
+
 // Sign a pending consent: patient draws their signature, we store the image,
 // mark it firmado, and generate the signed PDF (with the signature embedded).
 export function ConsentSignDialog({
@@ -99,9 +119,22 @@ export function ConsentSignDialog({
     if (!consent || !signerName.trim() || !hasDrawn) return
     setSaving(true)
     const dataUrl = canvasRef.current!.toDataURL('image/png')
+    // Audit trail (Etapa 4): integrity hash of the signed content + signer IP +
+    // user agent, captured at sign time. Best-effort — never blocks signing.
+    const [documentHash, ip] = await Promise.all([
+      sha256Hex(`${consent.id}|${consent.body}|${signerName.trim()}|${dataUrl}`).catch(
+        () => null,
+      ),
+      fetchClientIp(),
+    ])
+    const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : null
     // Store the signature image (best-effort), then mark signed + build the PDF.
     const { path } = await uploadConsentSignature(consent.id, dataUrl)
-    const { error } = await signConsent(consent.id, signerName.trim(), path)
+    const { error } = await signConsent(consent.id, signerName.trim(), path, {
+      documentHash,
+      ip,
+      userAgent,
+    })
     if (error) {
       setSaving(false)
       await Swal.fire({ icon: 'error', title: t('consent.sign.error'), text: error })
