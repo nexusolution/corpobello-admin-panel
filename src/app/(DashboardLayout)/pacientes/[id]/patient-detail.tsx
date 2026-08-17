@@ -492,6 +492,9 @@ function FichaTab({
   const [error, setError] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Evolucion | null>(null)
+  const [prefill, setPrefill] = useState<
+    { treatmentSlug?: string; professionalId?: string; notes?: string; nextFollowup?: string } | undefined
+  >(undefined)
 
   const reload = useCallback(() => {
     setLoading(true)
@@ -517,10 +520,27 @@ function FichaTab({
 
   function openNew() {
     setEditing(null)
+    setPrefill(undefined)
+    setFormOpen(true)
+  }
+  // "Copiar de anterior": open a NEW ficha pre-filled from the most recent one
+  // (rows are newest-first), so the profesional only edits what changed. Photos,
+  // date and turno link are intentionally NOT copied.
+  function openCopy() {
+    const last = rows[0]
+    if (!last) return
+    setEditing(null)
+    setPrefill({
+      ...(last.treatmentSlug ? { treatmentSlug: last.treatmentSlug } : {}),
+      ...(last.professionalId ? { professionalId: last.professionalId } : {}),
+      ...(last.notes ? { notes: last.notes } : {}),
+      ...(last.nextFollowup ? { nextFollowup: last.nextFollowup } : {}),
+    })
     setFormOpen(true)
   }
   function openEdit(ev: Evolucion) {
     setEditing(ev)
+    setPrefill(undefined)
     setFormOpen(true)
   }
 
@@ -530,13 +550,24 @@ function FichaTab({
         <span className='text-xs text-link dark:text-darklink'>
           {rows.length > 0 ? t('ficha.count', { n: String(rows.length) }) : ''}
         </span>
-        <button
-          type='button'
-          onClick={openNew}
-          className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-primary text-white hover:bg-primary/90 transition-colors'>
-          <Icon icon='tabler:plus' height={15} width={15} />
-          {t('ficha.new')}
-        </button>
+        <div className='flex items-center gap-2'>
+          {rows.length > 0 && (
+            <button
+              type='button'
+              onClick={openCopy}
+              className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium border border-border dark:border-darkborder text-dark dark:text-white hover:border-primary hover:text-primary transition-colors'>
+              <Icon icon='solar:copy-line-duotone' height={15} width={15} />
+              {t('ficha.copyPrevious')}
+            </button>
+          )}
+          <button
+            type='button'
+            onClick={openNew}
+            className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-primary text-white hover:bg-primary/90 transition-colors'>
+            <Icon icon='tabler:plus' height={15} width={15} />
+            {t('ficha.new')}
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -621,6 +652,7 @@ function FichaTab({
         onSaved={() => void reload()}
         patientId={patientId}
         evolucion={editing}
+        {...(prefill && { prefill })}
       />
     </div>
   )

@@ -69,12 +69,16 @@ export function EvolucionForm({
   onSaved: () => void
   patientId: string
   evolucion: Evolucion | null
-  // Pre-fill for a NEW evolution opened from an agenda turno (links the turno).
+  // Pre-fill for a NEW evolution: opened from an agenda turno (links the turno),
+  // or "copiar de anterior" (carries the previous ficha's clinical content so
+  // the profesional only edits what changed). Photos are never copied.
   prefill?: {
     treatmentSlug?: string
     professionalId?: string
     calendarEventId?: string
     sessionDate?: string
+    notes?: string
+    nextFollowup?: string
   }
 }) {
   const { t } = useTranslation() as { t: TFn }
@@ -115,8 +119,8 @@ export function EvolucionForm({
           ? isoToDateInput(prefill.sessionDate)
           : todayInput(),
     )
-    setNotes(evolucion?.notes ?? '')
-    setNextFollowup(evolucion?.nextFollowup ?? '')
+    setNotes(evolucion?.notes ?? prefill?.notes ?? '')
+    setNextFollowup(evolucion?.nextFollowup ?? prefill?.nextFollowup ?? '')
     setExistingPhotos(evolucion?.photos ?? [])
     setNewFiles([])
     setCalendarEventId(evolucion?.calendarEventId ?? prefill?.calendarEventId ?? null)
