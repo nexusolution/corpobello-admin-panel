@@ -10,10 +10,112 @@ import {
   type Sucursal,
   type DayHours,
 } from '@/lib/data/sucursal-hours'
+import {
+  fetchAppSettingNumber,
+  saveAppSetting,
+  PRE_RESERVA_HOLD_KEY,
+} from '@/lib/data/app-settings'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
+
+// Panel-editable pre-reserva TTL (minutes) — the bot reads this to decide how
+// long a slot stays held awaiting the deposit (signed scope: default 30 min).
+function PreReservaTtlCard({ t }: { t: TFn }) {
+  const [minutes, setMinutes] = useState('30')
+  const [base, setBase] = useState('30')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    void fetchAppSettingNumber(PRE_RESERVA_HOLD_KEY, 30).then((n) => {
+      if (!active) return
+      setMinutes(String(n))
+      setBase(String(n))
+      setLoading(false)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const parsed = Number(minutes)
+  const valid = Number.isFinite(parsed) && parsed >= 5 && parsed <= 240
+  const dirty = minutes !== base && valid
+
+  async function save() {
+    setSaving(true)
+    setError(false)
+    const err = await saveAppSetting(PRE_RESERVA_HOLD_KEY, parsed)
+    setSaving(false)
+    if (err) {
+      setError(true)
+      setTimeout(() => setError(false), 1800)
+      return
+    }
+    setBase(minutes)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 1500)
+  }
+
+  return (
+    <div className='rounded-lg border border-border dark:border-darkborder bg-card p-5 sm:p-6'>
+      <div className='mb-4'>
+        <h3 className='text-sm font-semibold text-dark dark:text-white'>{t('autoGestion.preReserva.heading')}</h3>
+        <p className='text-xs text-link dark:text-darklink mt-0.5 max-w-lg'>{t('autoGestion.preReserva.subtitle')}</p>
+      </div>
+      {loading ? (
+        <div className='py-4 flex justify-center'>
+          <Icon icon='tabler:loader-2' height={22} width={22} className='text-primary animate-spin' />
+        </div>
+      ) : (
+        <div className='flex items-end gap-3 flex-wrap'>
+          <label className='flex flex-col gap-1'>
+            <span className='text-xs font-medium text-dark dark:text-white'>{t('autoGestion.preReserva.label')}</span>
+            <div className='flex items-center gap-2'>
+              <input
+                type='number'
+                min={5}
+                max={240}
+                value={minutes}
+                onChange={(e) => setMinutes(e.target.value)}
+                className='w-24 rounded-md border border-border dark:border-darkborder bg-background px-2 py-1.5 text-sm text-dark dark:text-white focus:outline-none focus:border-primary'
+              />
+              <span className='text-sm text-link dark:text-darklink'>{t('autoGestion.preReserva.minutes')}</span>
+            </div>
+          </label>
+          <button
+            type='button'
+            disabled={!dirty || saving}
+            onClick={save}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              error
+                ? 'bg-lighterror text-error'
+                : saved
+                  ? 'bg-lightsuccess text-success'
+                  : 'bg-primary text-white hover:bg-primaryemphasis disabled:opacity-40 disabled:cursor-not-allowed'
+            }`}>
+            {error
+              ? t('autoGestion.cotizadores.failed')
+              : saved
+                ? t('autoGestion.cotizadores.saved')
+                : saving
+                  ? t('autoGestion.cotizadores.saving')
+                  : t('autoGestion.cotizadores.save')}
+          </button>
+        </div>
+      )}
+      <p className='text-xs text-link dark:text-darklink mt-4 flex items-start gap-1.5'>
+        <Icon icon='solar:info-circle-line-duotone' height={14} width={14} className='mt-0.5 shrink-0' />
+        {t('autoGestion.preReserva.note')}
+      </p>
+    </div>
+  )
+}
 
 const WEEKDAY_KEY: Record<number, TranslationKey> = {
   0: 'autoGestion.horarios.sun',
@@ -75,6 +177,8 @@ export function HorariosSection() {
   }
 
   return (
+    <div className='space-y-6'>
+    <PreReservaTtlCard t={t} />
     <div className='rounded-lg border border-border dark:border-darkborder bg-card p-5 sm:p-6'>
       <div className='mb-4'>
         <h3 className='text-sm font-semibold text-dark dark:text-white'>{t('autoGestion.horarios.heading')}</h3>
@@ -180,6 +284,7 @@ export function HorariosSection() {
         <Icon icon='solar:info-circle-line-duotone' height={14} width={14} className='mt-0.5 shrink-0' />
         {t('autoGestion.horarios.note')}
       </p>
+    </div>
     </div>
   )
 }
