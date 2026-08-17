@@ -22,6 +22,12 @@ import { EvolucionForm } from './evolucion-form'
 import { fetchPatientConsents, type Consent } from '@/lib/data/consents'
 import { ConsentForm } from './consent-form'
 import { ConsentSignDialog } from './consent-sign-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { PageSkeleton } from '@/app/components/shared/PageSkeleton'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
@@ -478,6 +484,104 @@ function FollowupChip({ dateStr, t, locale }: { dateStr: string; t: TFn; locale:
   )
 }
 
+// One ficha rendered as a column in the side-by-side comparison.
+function FichaCompareColumn({ ev, t, locale }: { ev: Evolucion; t: TFn; locale: string }) {
+  return (
+    <div className='rounded-md border border-border dark:border-darkborder p-3 space-y-2'>
+      <p className='text-sm font-semibold text-dark dark:text-white'>
+        {ev.treatmentSlug ? prettySlug(ev.treatmentSlug) : t('ficha.session')}
+      </p>
+      <p className='text-xs text-link dark:text-darklink'>
+        {formatDateTime(ev.sessionDate, locale)}
+        {ev.professionalName ? ` · ${ev.professionalName}` : ''}
+      </p>
+      <div>
+        <p className='text-[11px] uppercase tracking-wide text-link dark:text-darklink mb-0.5'>
+          {t('ficha.form.notes')}
+        </p>
+        <p className='text-sm text-dark dark:text-white whitespace-pre-wrap break-words'>
+          {ev.notes || '—'}
+        </p>
+      </div>
+      {ev.photos && ev.photos.length > 0 && (
+        <div className='flex flex-wrap gap-1.5'>
+          {ev.photos.map((p) => (
+            <a
+              key={p.id}
+              href={p.url}
+              target='_blank'
+              rel='noopener noreferrer'
+              className='block h-14 w-14 rounded overflow-hidden border border-border dark:border-darkborder'>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.url} alt='' className='h-full w-full object-cover' />
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Side-by-side comparison of two fichas of the same patient. The profesional
+// picks which two to compare (defaults to the two most recent).
+function FichaCompareDialog({
+  open,
+  onClose,
+  rows,
+  t,
+  locale,
+}: {
+  open: boolean
+  onClose: () => void
+  rows: Evolucion[]
+  t: TFn
+  locale: string
+}) {
+  const [aId, setAId] = useState('')
+  const [bId, setBId] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    setAId(rows[0]?.id ?? '')
+    setBId(rows[1]?.id ?? rows[0]?.id ?? '')
+  }, [open, rows])
+
+  const a = rows.find((r) => r.id === aId)
+  const b = rows.find((r) => r.id === bId)
+  const label = (ev: Evolucion) =>
+    `${formatDate(ev.sessionDate, locale)}${ev.treatmentSlug ? ` · ${prettySlug(ev.treatmentSlug)}` : ''}`
+  const selectCls =
+    'w-full px-2 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className='max-w-3xl'>
+        <DialogHeader>
+          <DialogTitle>{t('ficha.compare.title')}</DialogTitle>
+        </DialogHeader>
+        <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+          <div className='space-y-2'>
+            <select value={aId} onChange={(e) => setAId(e.target.value)} className={selectCls}>
+              {rows.map((r) => (
+                <option key={r.id} value={r.id}>{label(r)}</option>
+              ))}
+            </select>
+            {a && <FichaCompareColumn ev={a} t={t} locale={locale} />}
+          </div>
+          <div className='space-y-2'>
+            <select value={bId} onChange={(e) => setBId(e.target.value)} className={selectCls}>
+              {rows.map((r) => (
+                <option key={r.id} value={r.id}>{label(r)}</option>
+              ))}
+            </select>
+            {b && <FichaCompareColumn ev={b} t={t} locale={locale} />}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function FichaTab({
   patientId,
   t,
@@ -495,6 +599,7 @@ function FichaTab({
   const [prefill, setPrefill] = useState<
     { treatmentSlug?: string; professionalId?: string; notes?: string; nextFollowup?: string } | undefined
   >(undefined)
+  const [compareOpen, setCompareOpen] = useState(false)
 
   const reload = useCallback(() => {
     setLoading(true)
@@ -551,6 +656,15 @@ function FichaTab({
           {rows.length > 0 ? t('ficha.count', { n: String(rows.length) }) : ''}
         </span>
         <div className='flex items-center gap-2'>
+          {rows.length >= 2 && (
+            <button
+              type='button'
+              onClick={() => setCompareOpen(true)}
+              className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium border border-border dark:border-darkborder text-dark dark:text-white hover:border-primary hover:text-primary transition-colors'>
+              <Icon icon='solar:posts-carousel-horizontal-line-duotone' height={15} width={15} />
+              {t('ficha.compare')}
+            </button>
+          )}
           {rows.length > 0 && (
             <button
               type='button'
@@ -653,6 +767,13 @@ function FichaTab({
         patientId={patientId}
         evolucion={editing}
         {...(prefill && { prefill })}
+      />
+      <FichaCompareDialog
+        open={compareOpen}
+        onClose={() => setCompareOpen(false)}
+        rows={rows}
+        t={t}
+        locale={locale}
       />
     </div>
   )
