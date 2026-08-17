@@ -1,11 +1,34 @@
-// Patient import (Etapa 1 · E). Parses a CSV export (AgendaPro or Excel saved
-// as CSV), maps columns to patient fields, dedupes against existing patients by
-// phone, and bulk-inserts. RLS: patients insert is allowed for any operator.
+// Patient import (Etapa 1 · E). Parses a CSV or native .xlsx export (AgendaPro
+// or Excel), maps columns to patient fields, dedupes against existing patients
+// by phone, and bulk-inserts. RLS: patients insert is allowed for any operator.
 //
-// CSV (not native .xlsx) on purpose: it avoids a heavy spreadsheet dependency
-// (and SheetJS's npm CVE) in the client-handover repo. Excel → "Save as CSV".
+// .xlsx is parsed with SheetJS, dynamically imported (only loads when the user
+// actually uploads an Excel file, so it never bloats the main bundle).
 
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
+
+// ---------- XLSX parsing ----------
+
+/** Parse a native .xlsx file into rows of string cells (same shape as parseCsv).
+ *  Reads the first sheet; empty rows are dropped. */
+export async function parseXlsx(file: File): Promise<string[][]> {
+  const XLSX = await import('xlsx')
+  const buf = await file.arrayBuffer()
+  const wb = XLSX.read(buf, { type: 'array' })
+  const first = wb.SheetNames[0]
+  if (!first) return []
+  const sheet = wb.Sheets[first]
+  if (!sheet) return []
+  // header:1 → array-of-arrays; raw:false → formatted strings (dates, numbers).
+  const rows = XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    defval: '',
+    raw: false,
+  }) as unknown[][]
+  return rows
+    .map((r) => r.map((c) => (c == null ? '' : String(c))))
+    .filter((r) => r.some((v) => v.trim().length > 0))
+}
 
 // ---------- CSV parsing ----------
 

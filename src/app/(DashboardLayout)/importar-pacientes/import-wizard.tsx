@@ -6,6 +6,7 @@ import { Icon } from '@iconify/react'
 
 import {
   parseCsv,
+  parseXlsx,
   guessMapping,
   buildRecords,
   fetchExistingPhoneDigits,
@@ -103,8 +104,9 @@ export function ImportWizard({
     const file = e.target.files?.[0]
     if (!file) return
     setFileName(file.name)
-    const text = await file.text()
-    const rows = parseCsv(text)
+    const isXlsx =
+      /\.xlsx$/i.test(file.name) || file.type.includes('sheet')
+    const rows = isXlsx ? await parseXlsx(file) : parseCsv(await file.text())
     if (rows.length < 2) {
       setHeaders([])
       setDataRows([])
@@ -165,7 +167,12 @@ export function ImportWizard({
           <p className='text-base font-semibold text-dark dark:text-white'>{t('import.upload.title')}</p>
           <p className='text-sm text-link dark:text-darklink max-w-[380px]'>{t('import.upload.hint')}</p>
           <span className='mt-1 px-4 py-2 rounded-md bg-primary text-white text-sm font-medium'>{t('import.upload.button')}</span>
-          <input type='file' accept='.csv,text/csv' className='hidden' onChange={handleFile} />
+          <input
+            type='file'
+            accept='.csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            className='hidden'
+            onChange={handleFile}
+          />
         </label>
       )}
 
