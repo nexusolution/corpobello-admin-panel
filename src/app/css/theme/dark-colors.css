@@ -43,3 +43,12 @@
     --color-slateGray: #7c8fac;
     --color-breadcrumbColor: #223662;
 }
+
+/* Native <select> dropdown items: force a dark background + light text in dark
+   mode. color-scheme handles most browsers, but Chrome/Windows renders the
+   option popup white unless the options themselves are styled. */
+.dark select option,
+.dark select optgroup {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+}
