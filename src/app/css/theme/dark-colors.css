@@ -1,5 +1,8 @@
 /*---break---*/
 .dark {
+    /* Render native controls (select dropdown lists, date/time pickers) in dark.
+       Without this the browser paints those popups white in dark mode. */
+    color-scheme: dark;
     --background: var(--color-dark);
     --foreground: var(--color-white);
     --card: var(--color-dark);
