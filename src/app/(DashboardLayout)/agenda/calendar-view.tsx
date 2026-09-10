@@ -37,6 +37,7 @@ import {
   type PatientOption,
 } from '@/lib/data/calendar-events'
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
+import { suggestDurationMinutes } from '@/lib/scheduling/duration'
 import { getTreatmentColorBySlug } from '@/lib/treatment-colors'
 import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
 import { fetchSucursalHours, type DayHours, type Sucursal } from '@/lib/data/sucursal-hours'
@@ -360,8 +361,29 @@ function EventDialog({
   const [endStr, setEndStr] = useState(draft.endStr)
   const [startTime, setStartTime] = useState(draft.startTime)
   const [endTime, setEndTime] = useState(draft.endTime)
+  // Primera sesión: bumps the auto-suggested duration (charla/explicación previa).
+  const [firstSession, setFirstSession] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Auto-block the turno's duration from the treatment (Andrés' rule: 15 min
+  // habitual / 20 primera sesión; láser base + zonas). Only for timed turnos;
+  // always editable afterwards (this just moves the end time). Called on the
+  // user actions that change the suggestion, never on mount, so an existing
+  // turno's saved duration is preserved until the user re-picks a treatment.
+  const applyAutoDuration = (
+    slug: string,
+    first: boolean,
+    sStr: string = startStr,
+    sTime: string = startTime,
+  ) => {
+    if (allDay || !slug) return
+    const minutes = suggestDurationMinutes(slug, first)
+    if (minutes <= 0) return
+    const end = new Date(dateTime(sStr, sTime).getTime() + minutes * 60_000)
+    setEndStr(toDateInput(end))
+    setEndTime(toTimeInput(end))
+  }
   const [hours, setHours] = useState<DayHours[] | null>(null)
 
   const isEdit = draft.id !== null
@@ -515,7 +537,14 @@ function EventDialog({
           <div className='grid grid-cols-2 gap-3'>
             <label className='block'>
               <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.treatment')}</span>
-              <select value={treatmentSlug} onChange={(e) => setTreatmentSlug(e.target.value)} className={SELECT_CLS}>
+              <select
+                value={treatmentSlug}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setTreatmentSlug(v)
+                  applyAutoDuration(v, firstSession)
+                }}
+                className={SELECT_CLS}>
                 <option value=''>{t('turno.none')}</option>
                 {treatments.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -587,7 +616,12 @@ function EventDialog({
                 <input
                   type='time'
                   value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setStartTime(v)
+                    // Keep the auto-blocked duration when the start moves.
+                    applyAutoDuration(treatmentSlug, firstSession, startStr, v)
+                  }}
                   className='mt-1 w-full rounded-md border border-border dark:border-darkborder bg-background px-3 py-2 text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
                 />
               </label>
@@ -600,6 +634,25 @@ function EventDialog({
                   className='mt-1 w-full rounded-md border border-border dark:border-darkborder bg-background px-3 py-2 text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
                 />
               </label>
+            </div>
+          )}
+
+          {!allDay && (
+            <div className='space-y-1.5'>
+              <label className='flex items-center gap-2 cursor-pointer select-none'>
+                <input
+                  type='checkbox'
+                  checked={firstSession}
+                  onChange={(e) => {
+                    const c = e.target.checked
+                    setFirstSession(c)
+                    applyAutoDuration(treatmentSlug, c)
+                  }}
+                  className='h-4 w-4 rounded border-border dark:border-darkborder accent-primary'
+                />
+                <span className='text-sm text-dark dark:text-white'>{t('turno.firstSession')}</span>
+              </label>
+              <p className='text-xs text-link dark:text-darklink'>{t('turno.durationHint')}</p>
             </div>
           )}
 

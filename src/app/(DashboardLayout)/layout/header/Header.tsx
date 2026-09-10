@@ -8,6 +8,7 @@ import Swal from 'sweetalert2'
 import Profile from './Profile'
 import Language from './Language'
 import Notifications from './Notifications'
+import RoleModeSwitcher from './RoleModeSwitcher'
 import SidebarLayout from '../sidebar/Sidebar'
 import SidebarContent from '../sidebar/Sidebaritems'
 import FullLogo from '../shared/logo/FullLogo'
@@ -228,6 +229,11 @@ const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
             </div>
             <div className='flex w-full justify-end items-end'>
               <div className='flex gap-0 items-center '>
+                {/* Role mode switch (only for users with 2+ roles) */}
+                <div className='pr-2'>
+                  <RoleModeSwitcher />
+                </div>
+
                 {/* ✅ Dark/Light Toggle */}
                 <div
                   className='hover:text-primary px-15 group focus:ring-0 rounded-full flex justify-center items-center cursor-pointer text-gray relative'
@@ -266,6 +272,9 @@ const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) => {
         <div
           className={`mobile-header-menu xl:hidden ${actionsOpen ? 'active' : ''}`}>
           <div className='mobile-actions flex items-center justify-center gap-6 py-2 px-6'>
+            {/* Role mode switch (only for users with 2+ roles) */}
+            <RoleModeSwitcher />
+
             {/* Dark/Light toggle */}
             <button
               onClick={toggleMode}
