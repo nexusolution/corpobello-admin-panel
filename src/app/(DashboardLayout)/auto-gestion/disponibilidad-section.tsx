@@ -1,8 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Icon } from '@iconify/react'
 import Swal from 'sweetalert2'
+import moment from 'moment'
+import { es } from 'date-fns/locale'
+import { Calendar as DatePickerCalendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 import {
   fetchAvailability,
@@ -28,6 +32,85 @@ type Treatment = { slug: string; name: string }
 
 const FIELD =
   'rounded-md border border-border dark:border-darkborder bg-background px-2 py-1.5 text-sm text-dark dark:text-white focus:outline-none focus:border-primary'
+
+// Native select with a consistent custom chevron (no doubled/overlapping arrow).
+function Select({
+  value,
+  onChange,
+  children,
+  className,
+}: {
+  value: string | number
+  onChange: (v: string) => void
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={`relative inline-block ${className ?? ''}`}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`w-full appearance-none pr-8 ${FIELD}`}>
+        {children}
+      </select>
+      <Icon
+        icon='tabler:chevron-down'
+        height={15}
+        width={15}
+        className='pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-link dark:text-darklink'
+      />
+    </div>
+  )
+}
+
+function toDateInput(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Styled date picker (Popover + Calendar) matching the agenda — replaces the raw
+// native date input so the reference date reads and picks consistently.
+function DateField({
+  value,
+  onChange,
+  locale,
+  placeholder,
+}: {
+  value: string
+  onChange: (v: string) => void
+  locale: string
+  placeholder: string
+}) {
+  const [open, setOpen] = useState(false)
+  const date = value ? new Date(`${value}T00:00:00`) : undefined
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type='button'
+          className='w-full flex items-center justify-between gap-2 rounded-md border border-border dark:border-darkborder bg-background px-3 py-1.5 text-sm text-dark dark:text-white hover:border-primary focus:outline-none focus:border-primary transition-colors'>
+          <span>{date ? moment(date).format('DD MMM YYYY') : placeholder}</span>
+          <Icon icon='solar:calendar-mark-line-duotone' height={16} width={16} className='text-link dark:text-darklink shrink-0' />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className='w-auto p-0' align='start'>
+        <DatePickerCalendar
+          mode='single'
+          selected={date}
+          defaultMonth={date}
+          captionLayout='dropdown'
+          startMonth={new Date(2020, 0)}
+          endMonth={new Date(2035, 11)}
+          locale={locale === 'es' ? es : undefined}
+          onSelect={(d: Date | undefined) => {
+            if (!d) return
+            onChange(toDateInput(d))
+            setOpen(false)
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 // Monday-first display order (JS getDay numbers).
 const WEEKDAY_ORDER: Weekday[] = [1, 2, 3, 4, 5, 6, 0]
@@ -326,32 +409,47 @@ export function DisponibilidadSection() {
         <h4 className='text-sm font-semibold text-dark dark:text-white'>{t('autoGestion.availability.exclusionsHeading')}</h4>
         <p className='text-xs text-link dark:text-darklink mt-0.5 mb-3 max-w-xl'>{t('autoGestion.availability.exclusionsSubtitle')}</p>
 
-        <div className='rounded-md border border-border dark:border-darkborder p-3 mb-4 flex flex-wrap items-end gap-3'>
-          <label className='flex flex-col gap-1'>
-            <span className='text-xs font-medium text-dark dark:text-white'>{t('autoGestion.availability.blockedBranch')}</span>
-            <select value={exSucursal} onChange={(e) => setExSucursal(e.target.value)} className={FIELD}>
-              {SUCURSALES.map((s) => (
-                <option key={s} value={s}>{sucursalLabel(s)}</option>
-              ))}
-            </select>
-          </label>
-          <div className='flex flex-col gap-1'>
-            <span className='text-xs font-medium text-dark dark:text-white'>{t('autoGestion.availability.blockedTreatments')}</span>
-            <TreatmentChips treatments={treatments} selected={exSlugs} onToggle={(slug) => setExSlugs((p) => (p.includes(slug) ? p.filter((x) => x !== slug) : [...p, slug]))} />
-          </div>
-          <div className='flex flex-col gap-1'>
-            <span className='text-xs font-medium text-dark dark:text-white'>{t('autoGestion.availability.whenActiveIn')}</span>
-            <div className='flex flex-wrap gap-1.5'>
-              {SUCURSALES.filter((s) => s !== exSucursal).map((s) => {
-                const on = exWhen.includes(s)
-                return (
-                  <button key={s} type='button' onClick={() => setExWhen((p) => (on ? p.filter((x) => x !== s) : [...p, s]))} className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${on ? 'bg-primary text-white border-primary' : 'border-border dark:border-darkborder text-link dark:text-darklink hover:border-primary'}`}>
-                    {sucursalLabel(s)}
-                  </button>
-                )
-              })}
+        <div className='rounded-md border border-border dark:border-darkborder p-4 mb-4 space-y-4'>
+          <div className='grid gap-4 sm:grid-cols-2'>
+            <label className='flex flex-col gap-1'>
+              <span className='text-xs font-medium text-dark dark:text-white'>1. {t('autoGestion.availability.blockedBranch')}</span>
+              <Select value={exSucursal} onChange={setExSucursal} className='w-full'>
+                {SUCURSALES.map((s) => (
+                  <option key={s} value={s}>{sucursalLabel(s)}</option>
+                ))}
+              </Select>
+            </label>
+            <div className='flex flex-col gap-1'>
+              <span className='text-xs font-medium text-dark dark:text-white'>3. {t('autoGestion.availability.whenActiveIn')}</span>
+              <div className='flex flex-wrap gap-1.5 pt-0.5'>
+                {SUCURSALES.filter((s) => s !== exSucursal).map((s) => {
+                  const on = exWhen.includes(s)
+                  return (
+                    <button key={s} type='button' onClick={() => setExWhen((p) => (on ? p.filter((x) => x !== s) : [...p, s]))} className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${on ? 'bg-primary text-white border-primary' : 'border-border dark:border-darkborder text-link dark:text-darklink hover:border-primary'}`}>
+                      {sucursalLabel(s)}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           </div>
+
+          <div className='flex flex-col gap-1'>
+            <span className='text-xs font-medium text-dark dark:text-white'>
+              2. {t('autoGestion.availability.blockedTreatments')}
+              {exSlugs.length > 0 ? ` (${exSlugs.length})` : ''}
+            </span>
+            <TreatmentChips treatments={treatments} selected={exSlugs} onToggle={(slug) => setExSlugs((p) => (p.includes(slug) ? p.filter((x) => x !== slug) : [...p, slug]))} />
+          </div>
+
+          {/* Live preview so the rule reads as a plain sentence */}
+          <p className='text-sm text-dark dark:text-white bg-lightprimary/40 dark:bg-lightprimary/10 rounded-md px-3 py-2'>
+            <strong>{sucursalLabel(exSucursal)}</strong> {t('autoGestion.availability.doesNotDo')}{' '}
+            <strong>{exSlugs.length > 0 ? exSlugs.map(nameOf).join(', ') : '…'}</strong>{' '}
+            {t('autoGestion.availability.whenDoneIn')}{' '}
+            <strong>{exWhen.length > 0 ? exWhen.map(sucursalLabel).join(', ') : '…'}</strong>
+          </p>
+
           <button type='button' disabled={exSlugs.length === 0 || exWhen.length === 0} onClick={() => void addExclusion()} className='px-4 py-1.5 rounded-md text-sm font-medium bg-primary text-white hover:bg-primaryemphasis disabled:opacity-40 disabled:cursor-not-allowed transition-colors'>
             {t('autoGestion.availability.addExclusion')}
           </button>
@@ -419,11 +517,11 @@ function RuleEditor({
       <div className='flex flex-wrap items-end gap-3'>
         <label className='flex flex-col gap-1'>
           <span className='text-xs font-medium text-dark dark:text-white'>{t('autoGestion.availability.branch')}</span>
-          <select value={draft.sucursal} onChange={(e) => set({ sucursal: e.target.value })} className={FIELD}>
+          <Select value={draft.sucursal} onChange={(v) => set({ sucursal: v })}>
             {SUCURSALES.map((s) => (
               <option key={s} value={s}>{sucursalLabel(s)}</option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className='flex flex-col gap-1'>
           <span className='text-xs font-medium text-dark dark:text-white'>{t('autoGestion.availability.open')}</span>
@@ -443,10 +541,10 @@ function RuleEditor({
       <div className='space-y-1.5'>
         <div className='flex items-center gap-3'>
           <span className='text-xs font-medium text-dark dark:text-white'>{t('autoGestion.availability.treatments')}</span>
-          <select value={draft.mode} onChange={(e) => set({ mode: e.target.value as Draft['mode'] })} className={FIELD}>
+          <Select value={draft.mode} onChange={(v) => set({ mode: v as Draft['mode'] })}>
             <option value='include'>{t('autoGestion.availability.includeOnly')}</option>
             <option value='exclude'>{t('autoGestion.availability.excludeFrom')}</option>
-          </select>
+          </Select>
         </div>
         <TreatmentChips treatments={treatments} selected={draft.slugs} onToggle={(slug) => set({ slugs: draft.slugs.includes(slug) ? draft.slugs.filter((x) => x !== slug) : [...draft.slugs, slug] })} />
         <p className='text-[11px] text-link dark:text-darklink'>
@@ -458,11 +556,11 @@ function RuleEditor({
       <div className='space-y-2'>
         <label className='flex flex-col gap-1 max-w-[240px]'>
           <span className='text-xs font-medium text-dark dark:text-white'>{t('autoGestion.availability.pattern')}</span>
-          <select value={draft.patternType} onChange={(e) => set({ patternType: e.target.value as DayPattern['type'] })} className={FIELD}>
+          <Select value={draft.patternType} onChange={(v) => set({ patternType: v as DayPattern['type'] })}>
             <option value='weekly'>{t('autoGestion.availability.weekly')}</option>
             <option value='monthly_ordinal'>{t('autoGestion.availability.monthlyOrdinal')}</option>
             <option value='alternating'>{t('autoGestion.availability.alternating')}</option>
-          </select>
+          </Select>
         </label>
 
         {draft.patternType === 'weekly' && (
@@ -473,16 +571,16 @@ function RuleEditor({
           <div className='space-y-2'>
             {draft.monthly.map((row, i) => (
               <div key={i} className='flex items-center gap-2'>
-                <select value={row.ordinal} onChange={(e) => set({ monthly: draft.monthly.map((r, j) => (j === i ? { ...r, ordinal: parseInt(e.target.value, 10) } : r)) })} className={FIELD}>
+                <Select value={row.ordinal} onChange={(v) => set({ monthly: draft.monthly.map((r, j) => (j === i ? { ...r, ordinal: parseInt(v, 10) } : r)) })}>
                   {ORDINALS.map((o) => (
                     <option key={o} value={o}>{ordinalLabel(o, locale)}</option>
                   ))}
-                </select>
-                <select value={row.weekday} onChange={(e) => set({ monthly: draft.monthly.map((r, j) => (j === i ? { ...r, weekday: parseInt(e.target.value, 10) as Weekday } : r)) })} className={FIELD}>
+                </Select>
+                <Select value={row.weekday} onChange={(v) => set({ monthly: draft.monthly.map((r, j) => (j === i ? { ...r, weekday: parseInt(v, 10) as Weekday } : r)) })}>
                   {WEEKDAY_ORDER.map((w) => (
                     <option key={w} value={w}>{weekdayLabel(w, locale)}</option>
                   ))}
-                </select>
+                </Select>
                 <button type='button' onClick={() => set({ monthly: draft.monthly.filter((_, j) => j !== i) })} className='text-link dark:text-darklink hover:text-error'>
                   <Icon icon='solar:close-circle-line-duotone' height={18} width={18} />
                 </button>
@@ -496,11 +594,11 @@ function RuleEditor({
 
         {draft.patternType === 'alternating' && (
           <div className='space-y-2'>
-            <label className='flex flex-col gap-1 max-w-[220px]'>
+            <div className='flex flex-col gap-1 max-w-[220px]'>
               <span className='text-xs font-medium text-dark dark:text-white'>{t('autoGestion.availability.anchorDate')}</span>
-              <input type='date' value={draft.anchorMonday} onChange={(e) => set({ anchorMonday: e.target.value })} className={FIELD} />
+              <DateField value={draft.anchorMonday} onChange={(v) => set({ anchorMonday: v })} locale={locale} placeholder={t('turno.chooseDate')} />
               <span className='text-[11px] text-link dark:text-darklink'>{t('autoGestion.availability.anchorHint')}</span>
-            </label>
+            </div>
             <div>
               <span className='text-xs font-medium text-dark dark:text-white'>{t('autoGestion.availability.weekA')}</span>
               <WeekdayPicker value={draft.groupA} locale={locale} onToggle={(w) => toggleGroup('groupA', w)} />
