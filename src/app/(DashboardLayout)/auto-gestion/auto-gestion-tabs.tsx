@@ -11,6 +11,7 @@ import { FaqSection } from './faq-section'
 import { CotizadoresSection } from './cotizadores-section'
 import { PromocionesSection } from './promociones-section'
 import { HorariosSection } from './horarios-section'
+import { DisponibilidadSection } from './disponibilidad-section'
 import { FeriadosSection } from './feriados-section'
 import { ConsentimientosSection } from './consentimientos-section'
 import { useTranslation } from '@/lib/i18n/context'
@@ -25,6 +26,7 @@ type TabKey =
   | 'cotizadores'
   | 'promos'
   | 'horarios'
+  | 'disponibilidad'
   | 'feriados'
   | 'consents'
 
@@ -34,6 +36,7 @@ const TABS: { key: TabKey; labelKey: TranslationKey; icon: string }[] = [
   { key: 'cotizadores', labelKey: 'autoGestion.cotizadores.heading', icon: 'solar:calculator-line-duotone' },
   { key: 'promos', labelKey: 'autoGestion.promos.heading', icon: 'solar:tag-horizontal-line-duotone' },
   { key: 'horarios', labelKey: 'autoGestion.horarios.heading', icon: 'solar:clock-circle-line-duotone' },
+  { key: 'disponibilidad', labelKey: 'autoGestion.availability.heading', icon: 'solar:calendar-mark-line-duotone' },
   { key: 'feriados', labelKey: 'autoGestion.feriados.heading', icon: 'solar:calendar-line-duotone' },
   { key: 'texts', labelKey: 'autoGestion.texts.heading', icon: 'solar:document-text-line-duotone' },
   { key: 'intros', labelKey: 'autoGestion.intros.heading', icon: 'solar:chat-square-like-line-duotone' },
@@ -77,6 +80,7 @@ export function AutoGestionTabs() {
       {tab === 'cotizadores' && <CotizadoresSection />}
       {tab === 'promos' && <PromocionesSection />}
       {tab === 'horarios' && <HorariosSection />}
+      {tab === 'disponibilidad' && <DisponibilidadSection />}
       {tab === 'feriados' && <FeriadosSection />}
       {tab === 'texts' && <TextsSection />}
       {tab === 'intros' && <IntrosSection />}

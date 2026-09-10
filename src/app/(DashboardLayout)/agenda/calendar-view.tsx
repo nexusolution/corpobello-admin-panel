@@ -37,10 +37,17 @@ import {
   type PatientOption,
 } from '@/lib/data/calendar-events'
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
+import { fetchMenuOverrides } from '@/lib/data/menu-overrides'
+import { fetchAvailability } from '@/lib/data/availability'
+import {
+  availabilityFor,
+  anyTreatmentAvailability,
+  type AvailabilityRule,
+  type AvailabilityExclusion,
+} from '@/lib/scheduling/availability'
 import { suggestDurationMinutes } from '@/lib/scheduling/duration'
 import { getTreatmentColorBySlug } from '@/lib/treatment-colors'
 import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
-import { fetchSucursalHours, type DayHours, type Sucursal } from '@/lib/data/sucursal-hours'
 import { fetchAgendaBlocks, type AgendaBlock } from '@/lib/data/agenda-blocks'
 import { EvolucionForm } from '@/app/(DashboardLayout)/pacientes/[id]/evolucion-form'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
@@ -329,6 +336,9 @@ function EventDialog({
   draft,
   treatments,
   professionals,
+  rules,
+  exclusions,
+  catalogSlugs,
   onClose,
   onSaved,
   onCloseSession,
@@ -337,6 +347,9 @@ function EventDialog({
   draft: Draft
   treatments: Option[]
   professionals: Option[]
+  rules: AvailabilityRule[]
+  exclusions: AvailabilityExclusion[]
+  catalogSlugs: string[]
   onClose: () => void
   onSaved: () => void
   // Open the clinical evolution form pre-linked to this turno ("Cerrar sesión").
@@ -384,8 +397,6 @@ function EventDialog({
     setEndStr(toDateInput(end))
     setEndTime(toTimeInput(end))
   }
-  const [hours, setHours] = useState<DayHours[] | null>(null)
-
   const isEdit = draft.id !== null
   const valid =
     !!patientId &&
@@ -397,31 +408,22 @@ function EventDialog({
         !!endTime &&
         dateTime(endStr, endTime).getTime() > dateTime(startStr, startTime).getTime())
 
-  // Load the chosen sucursal's hours to warn about booking on a closed day.
-  useEffect(() => {
-    if (!sucursal) {
-      setHours(null)
-      return
-    }
-    let active = true
-    void fetchSucursalHours(sucursal as Sucursal).then((h) => {
-      if (active) setHours(h)
-    })
-    return () => {
-      active = false
-    }
-  }, [sucursal])
-
-  // Any day in [start, end] the branch is closed → availability warning.
+  // Any day in the range the treatment is NOT offered at the branch (per the
+  // availability rules) → warning. Uses the selected treatment when set, else
+  // "any treatment" (whether the branch works at all that day).
   const hasClosedDay = useMemo(() => {
-    if (!hours || !startStr || !endStr) return false
-    const end = new Date(`${endStr}T00:00:00`)
+    if (!sucursal || !startStr) return false
+    const endBound = allDay ? endStr || startStr : startStr
+    const end = new Date(`${endBound}T00:00:00`)
     for (const d = new Date(`${startStr}T00:00:00`); d <= end; d.setDate(d.getDate() + 1)) {
-      const day = hours.find((h) => h.weekday === d.getDay())
-      if (day && !day.isOpen) return true
+      const ds = toDateInput(d)
+      const w = treatmentSlug
+        ? availabilityFor(ds, sucursal, treatmentSlug, rules, exclusions)
+        : anyTreatmentAvailability(ds, sucursal, catalogSlugs, rules, exclusions)
+      if (!w.open) return true
     }
     return false
-  }, [hours, startStr, endStr])
+  }, [sucursal, treatmentSlug, startStr, endStr, allDay, rules, exclusions, catalogSlugs])
 
   async function save() {
     if (!valid || saving) return
@@ -766,7 +768,10 @@ export function CalendarView() {
   // resources) so staff can drag a turno between branches to reassign it. Only
   // meaningful in the Day view, so turning it on forces Day.
   const [resourceMode, setResourceMode] = useState(false)
-  const [hours, setHours] = useState<DayHours[] | null>(null)
+  const [availRules, setAvailRules] = useState<AvailabilityRule[]>([])
+  const [availExclusions, setAvailExclusions] = useState<AvailabilityExclusion[]>([])
+  const [catalogSlugs, setCatalogSlugs] = useState<string[]>([])
+  const [treatmentFilter, setTreatmentFilter] = useState('')
   const [blocks, setBlocks] = useState<AgendaBlock[]>([])
 
   moment.locale(locale)
@@ -804,10 +809,24 @@ export function CalendarView() {
       })
       reload()
     })
-    // Lookups for the form (best-effort; empty on RLS/error).
-    void fetchTreatmentPrices().then(({ data }) =>
-      setTreatments(data.map((p) => ({ value: p.slug, label: p.displayName }))),
-    )
+    // Lookups for the form (best-effort; empty on RLS/error). Merge the full
+    // treatment catalog (menu_overrides) with the flat-priced ones so depilación,
+    // tatuajes and verrugas are bookable — not just the photo-eval treatments.
+    void Promise.all([fetchMenuOverrides(), fetchTreatmentPrices()]).then(([mo, tp]) => {
+      const byslug = new Map<string, string>()
+      for (const m of mo.data) byslug.set(m.slug, m.displayName)
+      for (const p of tp.data) if (!byslug.has(p.slug)) byslug.set(p.slug, p.displayName)
+      const opts = [...byslug.entries()]
+        .map(([value, label]) => ({ value, label }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+      setTreatments(opts)
+      setCatalogSlugs(opts.map((o) => o.value))
+    })
+    // Availability rules + cross-sucursal exclusions for shading + warnings.
+    void fetchAvailability().then(({ rules, exclusions }) => {
+      setAvailRules(rules)
+      setAvailExclusions(exclusions)
+    })
     void fetchAppUsers().then(({ data }) =>
       setProfessionals(
         data
@@ -854,21 +873,6 @@ export function CalendarView() {
     [visibleEvents],
   )
 
-  // Load the selected sucursal's weekly hours (for closed-day/slot shading).
-  useEffect(() => {
-    if (!sucursalFilter) {
-      setHours(null)
-      return
-    }
-    let active = true
-    void fetchSucursalHours(sucursalFilter as Sucursal).then((h) => {
-      if (active) setHours(h)
-    })
-    return () => {
-      active = false
-    }
-  }, [sucursalFilter])
-
   // Load feriados / branch-closure blocks (0037) once, for day shading.
   useEffect(() => {
     let active = true
@@ -898,28 +902,43 @@ export function CalendarView() {
     [closureBlocks],
   )
 
-  // Shade whole days the branch is closed (weekly hours) OR blocked (feriado).
+  // Availability window for a date at the filtered sucursal, per the rules —
+  // scoped to the treatment filter when set, else "any treatment". Null when no
+  // sucursal is selected (all-branches view is not shaded by hours).
+  const shadeWindow = useCallback(
+    (d: Date) => {
+      if (!sucursalFilter) return null
+      const ds = toDateInput(d)
+      return treatmentFilter
+        ? availabilityFor(ds, sucursalFilter, treatmentFilter, availRules, availExclusions)
+        : anyTreatmentAvailability(ds, sucursalFilter, catalogSlugs, availRules, availExclusions)
+    },
+    [sucursalFilter, treatmentFilter, availRules, availExclusions, catalogSlugs],
+  )
+
+  // Shade whole days the branch is closed (per rules) OR blocked (feriado).
   const dayPropGetter = useCallback(
     (d: Date) => {
       if (isBlockedDay(d)) return { className: 'rbc-closed-day' }
-      if (!hours) return {}
-      const day = hours.find((h) => h.weekday === d.getDay())
-      return day && !day.isOpen ? { className: 'rbc-closed-day' } : {}
+      const w = shadeWindow(d)
+      return w && !w.open ? { className: 'rbc-closed-day' } : {}
     },
-    [hours, isBlockedDay],
+    [isBlockedDay, shadeWindow],
   )
 
-  // Shade time slots outside opening hours (week/day views) or on blocked days.
+  // Shade time slots outside the open window (week/day views) or on blocked days.
   const slotPropGetter = useCallback(
     (d: Date) => {
       if (isBlockedDay(d)) return { className: 'rbc-closed-slot' }
-      if (!hours) return {}
-      const day = hours.find((h) => h.weekday === d.getDay())
-      if (!day || !day.isOpen) return { className: 'rbc-closed-slot' }
-      const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-      return hhmm < day.open || hhmm >= day.close ? { className: 'rbc-closed-slot' } : {}
+      const w = shadeWindow(d)
+      if (!w) return {}
+      if (!w.open) return { className: 'rbc-closed-slot' }
+      const mins = d.getHours() * 60 + d.getMinutes()
+      const before = w.openMin != null && mins < w.openMin
+      const after = w.closeMin != null && mins >= w.closeMin
+      return before || after ? { className: 'rbc-closed-slot' } : {}
     },
-    [hours, isBlockedDay],
+    [isBlockedDay, shadeWindow],
   )
 
   const openAdd = useCallback(
@@ -1127,6 +1146,19 @@ export function CalendarView() {
             ))}
           </select>
         </div>
+        <div className='flex items-center gap-2'>
+          <Icon icon='solar:magic-stick-3-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
+          <span className='text-xs font-medium text-link dark:text-darklink'>{t('turno.treatment')}:</span>
+          <select
+            value={treatmentFilter}
+            onChange={(e) => setTreatmentFilter(e.target.value)}
+            className='pl-2.5 pr-9 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
+            <option value=''>{t('agendaCal.allTreatments')}</option>
+            {treatments.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
         {/* Columns-by-branch toggle: switches the Day view into one column per
             sucursal so a turno can be dragged between branches to reassign it. */}
         <label className='flex items-center gap-2 cursor-pointer select-none'>
@@ -1212,6 +1244,9 @@ export function CalendarView() {
           draft={draft}
           treatments={treatments}
           professionals={professionals}
+          rules={availRules}
+          exclusions={availExclusions}
+          catalogSlugs={catalogSlugs}
           onClose={() => setDraft(null)}
           onSaved={() => {
             setDraft(null)
