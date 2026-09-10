@@ -1,6 +1,15 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  cloneElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+} from 'react'
 import { Icon } from '@iconify/react'
 import Swal from 'sweetalert2'
 import {
@@ -60,6 +69,17 @@ import './calendar-theme.css'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 type Option = { value: string; label: string }
+
+// Distinct colour per sucursal for the "Todas" availability overview (Andrés
+// 2026-09-11: see, at a glance, which branch runs a treatment each day).
+const SUCURSAL_COLORS: Record<string, string> = {
+  caballito: '#5d87ff', // blue
+  merlo: '#13deb9', // teal/green
+  moreno: '#ffae1f', // amber
+}
+function sucursalColor(s: string): string {
+  return SUCURSAL_COLORS[s] ?? '#8a8a8a'
+}
 
 
 function sucursalLabel(s: string): string {
@@ -916,6 +936,23 @@ export function CalendarView() {
     [sucursalFilter, treatmentFilter, availRules, availExclusions, catalogSlugs],
   )
 
+  // "Todas" overview: which sucursales run the (filtered) treatment on a date —
+  // one coloured dot per open branch. Only in all-branches mode; a single-branch
+  // view uses the closed-day shading instead. Feriados/closures drop the branch.
+  const dayMarkers = useCallback(
+    (d: Date): { sucursal: string; color: string }[] => {
+      if (sucursalFilter) return []
+      const ds = toDateInput(d)
+      return SUCURSALES.filter((suc) => {
+        const w = treatmentFilter
+          ? availabilityFor(ds, suc, treatmentFilter, availRules, availExclusions)
+          : anyTreatmentAvailability(ds, suc, catalogSlugs, availRules, availExclusions)
+        return w.open
+      }).map((suc) => ({ sucursal: suc, color: sucursalColor(suc) }))
+    },
+    [sucursalFilter, treatmentFilter, availRules, availExclusions, catalogSlugs],
+  )
+
   // Shade whole days the branch is closed (per rules) OR blocked (feriado).
   const dayPropGetter = useCallback(
     (d: Date) => {
@@ -1173,6 +1210,19 @@ export function CalendarView() {
         </label>
       </div>
 
+      {/* Colour legend for the all-branches availability overview. */}
+      {!sucursalFilter && (
+        <div className='flex items-center gap-3 flex-wrap mb-3 text-xs text-link dark:text-darklink'>
+          <span className='font-medium'>{t('agenda.availabilityLegend')}:</span>
+          {SUCURSALES.map((s) => (
+            <span key={s} className='inline-flex items-center gap-1.5'>
+              <span className='h-2.5 w-2.5 rounded-full' style={{ backgroundColor: sucursalColor(s) }} />
+              {sucursalLabel(s)}
+            </span>
+          ))}
+        </div>
+      )}
+
       <DnDCalendar
         localizer={localizer}
         events={calendarEvents}
@@ -1236,6 +1286,30 @@ export function CalendarView() {
               )}
             </span>
           ),
+          // Month view: overlay a coloured dot per open sucursal ("Todas" mode).
+          dateCellWrapper: (props: { children: ReactElement; value: Date }) => {
+            const markers = dayMarkers(props.value)
+            const el = props.children as ReactElement<{
+              style?: CSSProperties
+              children?: ReactNode
+            }>
+            if (markers.length === 0) return el
+            return cloneElement(
+              el,
+              { style: { ...(el.props.style ?? {}), position: 'relative' } },
+              el.props.children,
+              <div key='mk' className='pointer-events-none absolute bottom-1 left-1 flex gap-1'>
+                {markers.map((m) => (
+                  <span
+                    key={m.sucursal}
+                    title={sucursalLabel(m.sucursal)}
+                    className='h-2.5 w-2.5 rounded-full ring-1 ring-white/70 dark:ring-black/30'
+                    style={{ backgroundColor: m.color }}
+                  />
+                ))}
+              </div>,
+            )
+          },
         }}
       />
 
