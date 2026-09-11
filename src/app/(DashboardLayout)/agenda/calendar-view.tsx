@@ -426,6 +426,49 @@ type Draft = {
 const SELECT_CLS =
   'mt-1 w-full pl-2.5 pr-9 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
 
+// Status picker with a colour dot per estado (native <option> can't be coloured).
+function StatusSelect({
+  value,
+  onChange,
+  t,
+}: {
+  value: TurnoStatus
+  onChange: (v: TurnoStatus) => void
+  t: TFn
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type='button' className={`${SELECT_CLS} flex items-center justify-between gap-2 text-left`}>
+          <span className='flex items-center gap-2 truncate'>
+            <span className='h-2.5 w-2.5 rounded-full shrink-0' style={{ backgroundColor: STATUS_COLORS[value] }} />
+            <span className='truncate'>{t(STATUS_LABEL_KEY[value])}</span>
+          </span>
+          <Icon icon='tabler:chevron-down' height={15} width={15} className='text-link dark:text-darklink shrink-0' />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className='w-[240px] p-1' align='start'>
+        <div className='max-h-72 overflow-y-auto'>
+          {TURNO_STATUSES.map((s) => (
+            <button
+              key={s}
+              type='button'
+              onClick={() => {
+                onChange(s)
+                setOpen(false)
+              }}
+              className={`w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded text-sm hover:bg-lightprimary text-dark dark:text-white ${s === value ? 'bg-lightprimary/60' : ''}`}>
+              <span className='h-2.5 w-2.5 rounded-full shrink-0' style={{ backgroundColor: STATUS_COLORS[s] }} />
+              <span className='truncate'>{t(STATUS_LABEL_KEY[s])}</span>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 function EventDialog({
   draft,
   treatments,
@@ -713,14 +756,7 @@ function EventDialog({
             </label>
             <label className='block'>
               <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.status')}</span>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as TurnoStatus)}
-                className={SELECT_CLS}>
-                {TURNO_STATUSES.map((s) => (
-                  <option key={s} value={s}>{t(STATUS_LABEL_KEY[s])}</option>
-                ))}
-              </select>
+              <StatusSelect value={status} onChange={setStatus} t={t} />
             </label>
           </div>
 
@@ -1133,6 +1169,14 @@ export function CalendarView() {
     },
     [treatments],
   )
+  // Professional id → display name, for the event card's third line.
+  const professionalName = useCallback(
+    (id?: string | null) => {
+      if (!id) return ''
+      return professionals.find((o) => o.value === id)?.label ?? ''
+    },
+    [professionals],
+  )
 
   // Refs to the volatile lookups so the RBC `components` can be STABLE (never
   // change identity). If the components object changed each render, RBC remounted
@@ -1143,6 +1187,8 @@ export function CalendarView() {
   dayMarkersRef.current = dayMarkers
   const treatmentNameRef = useRef(treatmentName)
   treatmentNameRef.current = treatmentName
+  const professionalNameRef = useRef(professionalName)
+  professionalNameRef.current = professionalName
 
   // Week/Day column header: default label + a coloured dot per open sucursal.
   const dayHeader = useCallback(
@@ -1240,13 +1286,14 @@ export function CalendarView() {
       const picked = rid != null && rid !== NONE_RESOURCE ? String(rid) : undefined
       const sucursalDefault = columnMode === 'sucursal' ? picked : undefined
       const professionalDefault = columnMode === 'professional' ? picked : undefined
-      // Month select → all-day; week/day time select → timed slot.
+      // Month: clicking a free area drills into that day's Day view (Andrés
+      // 2026-09-12) — creating a turno is via "Nuevo evento" or from Day/Week.
       if (view === Views.MONTH) {
-        const end = new Date(slot.end.getTime() - 1)
-        openAdd(slot.start, end < slot.start ? slot.start : end, true, sucursalDefault, professionalDefault)
-      } else {
-        openAdd(slot.start, slot.end, false, sucursalDefault, professionalDefault)
+        setDate(slot.start)
+        setView(Views.DAY)
+        return
       }
+      openAdd(slot.start, slot.end, false, sucursalDefault, professionalDefault)
     },
     [openAdd, view, columnMode],
   )
@@ -1424,22 +1471,40 @@ export function CalendarView() {
     [t, openAdd],
   )
   const eventComp = useCallback(
-    ({ event }: { event: CalendarEvent }) => (
-      <div className='flex flex-col leading-tight w-full overflow-hidden'>
-        <span className='flex items-center justify-between gap-1'>
-          <span className='truncate font-medium'>
-            {isExpiredReserva(event) && <span title={t('agendaCal.expiredMark')}>⏳ </span>}
-            {event.title}
-          </span>
-          {event.charged && (
-            <span className='font-bold shrink-0' title={t('agenda.charged')}>$</span>
-          )}
-        </span>
-        {event.treatmentSlug && (
-          <span className='truncate opacity-80 text-[11px]'>{treatmentNameRef.current(event.treatmentSlug)}</span>
-        )}
-      </div>
-    ),
+    ({ event }: { event: CalendarEvent }) => {
+      const proSuc = [professionalNameRef.current(event.professionalId), event.sucursal ? sucursalLabel(event.sucursal) : '']
+        .filter(Boolean)
+        .join(' · ')
+      return (
+        // Left bar = treatment colour; body = paciente / tratamiento / prof·sede;
+        // "$" = cobro. Full background (via eventPropGetter) = estado.
+        <div className='flex items-stretch gap-1.5 w-full overflow-hidden'>
+          <span
+            className='w-1 rounded-sm shrink-0'
+            style={{
+              backgroundColor: event.treatmentSlug
+                ? getTreatmentColorBySlug(event.treatmentSlug).hex
+                : 'rgba(255,255,255,0.6)',
+            }}
+          />
+          <div className='flex flex-col leading-tight min-w-0 flex-1 overflow-hidden'>
+            <span className='flex items-center justify-between gap-1'>
+              <span className='truncate font-medium'>
+                {isExpiredReserva(event) && <span title={t('agendaCal.expiredMark')}>⏳ </span>}
+                {event.title}
+              </span>
+              {event.charged && (
+                <span className='font-bold shrink-0' title={t('agenda.charged')}>$</span>
+              )}
+            </span>
+            {event.treatmentSlug && (
+              <span className='truncate opacity-90 text-[11px]'>{treatmentNameRef.current(event.treatmentSlug)}</span>
+            )}
+            {proSuc && <span className='truncate opacity-75 text-[11px]'>{proSuc}</span>}
+          </div>
+        </div>
+      )
+    },
     [t],
   )
   const dateCellWrapper = useCallback((props: { children: ReactElement; value: Date }) => {
@@ -1467,6 +1532,30 @@ export function CalendarView() {
       title: markers.map((m) => sucursalLabel(m.sucursal)).join(' · '),
     })
   }, [])
+  // Agenda (list) view: one clear line — paciente · tratamiento · prof · sede.
+  const agendaEventComp = useCallback(
+    ({ event }: { event: CalendarEvent }) => {
+      const parts = [
+        treatmentNameRef.current(event.treatmentSlug),
+        professionalNameRef.current(event.professionalId),
+        event.sucursal ? sucursalLabel(event.sucursal) : '',
+      ].filter(Boolean)
+      return (
+        <span className='flex items-center gap-1.5'>
+          {event.treatmentSlug && (
+            <span
+              className='inline-block h-2.5 w-2.5 rounded-sm shrink-0'
+              style={{ backgroundColor: getTreatmentColorBySlug(event.treatmentSlug).hex }}
+            />
+          )}
+          <span className='font-medium'>{event.title}</span>
+          {parts.length > 0 && <span className='text-link dark:text-darklink'>· {parts.join(' · ')}</span>}
+          {event.charged && <span className='font-bold text-success' title={t('agenda.charged')}>$</span>}
+        </span>
+      )
+    },
+    [t],
+  )
   const calendarComponents = useMemo(
     () => ({
       toolbar: toolbarComp,
@@ -1474,8 +1563,9 @@ export function CalendarView() {
       dateCellWrapper,
       week: { header: dayHeader },
       day: { header: dayHeader },
+      agenda: { event: agendaEventComp },
     }),
-    [toolbarComp, eventComp, dateCellWrapper, dayHeader],
+    [toolbarComp, eventComp, dateCellWrapper, dayHeader, agendaEventComp],
   )
 
   if (loading) {
@@ -1622,14 +1712,12 @@ export function CalendarView() {
           } as CSSProperties
         }
         eventPropGetter={(event: CalendarEvent) => ({
-          // Full background = STATUS; thin left bar = TREATMENT (Andrés' scheme).
+          // Full background = STATUS. The treatment-colour left bar is rendered
+          // inside the event card (eventComp) so it shows reliably in every view.
           style: {
             backgroundColor: STATUS_COLORS[event.status],
             color: '#ffffff',
             border: 'none',
-            borderLeft: `5px solid ${
-              event.treatmentSlug ? getTreatmentColorBySlug(event.treatmentSlug).hex : 'rgba(255,255,255,0.5)'
-            }`,
           },
         })}
         components={calendarComponents}
