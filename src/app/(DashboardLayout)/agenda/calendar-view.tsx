@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useRouter } from 'next/navigation'
+import { computeAge } from '@/lib/age'
 import { Icon } from '@iconify/react'
 import Swal from 'sweetalert2'
 import {
@@ -419,6 +420,7 @@ type Draft = {
   endStr: string
   startTime: string
   endTime: string
+  observaciones: string
 }
 
 const SELECT_CLS =
@@ -466,6 +468,7 @@ function EventDialog({
   const [endStr, setEndStr] = useState(draft.endStr)
   const [startTime, setStartTime] = useState(draft.startTime)
   const [endTime, setEndTime] = useState(draft.endTime)
+  const [observaciones, setObservaciones] = useState(draft.observaciones)
   // Primera sesión: bumps the auto-suggested duration (charla/explicación previa).
   const [firstSession, setFirstSession] = useState(false)
   const router = useRouter()
@@ -570,6 +573,7 @@ function EventDialog({
       professionalId: professionalId || null,
       sucursal: sucursal || null,
       treatmentSlug: treatmentSlug || null,
+      observaciones: observaciones.trim() || null,
     }
     const err = isEdit
       ? await updateCalendarEvent(draft.id as string, input)
@@ -662,6 +666,12 @@ function EventDialog({
                 {basics.dni && <span>{t('turno.dni')}: {basics.dni}</span>}
                 {basics.phone && <span>{t('turno.phone')}: {basics.phone}</span>}
                 {basics.email && <span>{t('turno.email')}: {basics.email}</span>}
+                {basics.birthdate && (
+                  <span>
+                    {t('turno.birthdate')}: {basics.birthdate}
+                    {computeAge(basics.birthdate) != null ? ` (${computeAge(basics.birthdate)} ${t('turno.yearsShort')})` : ''}
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -796,6 +806,17 @@ function EventDialog({
               className='h-4 w-4 rounded border-border dark:border-darkborder accent-success'
             />
             <span className='text-sm text-dark dark:text-white'>{t('turno.charged')}</span>
+          </label>
+
+          <label className='block'>
+            <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.observaciones')}</span>
+            <textarea
+              value={observaciones}
+              onChange={(e) => setObservaciones(e.target.value)}
+              rows={2}
+              placeholder={t('turno.observacionesPlaceholder')}
+              className='mt-1 w-full rounded-md border border-border dark:border-darkborder bg-background px-3 py-2 text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors resize-y'
+            />
           </label>
 
           {hasClosedDay && (
@@ -1206,6 +1227,7 @@ export function CalendarView() {
         endStr: toDateInput(e),
         startTime: toTimeInput(s),
         endTime: toTimeInput(e),
+        observaciones: '',
       })
     },
     [isProfesional, myUserId],
@@ -1274,6 +1296,7 @@ export function CalendarView() {
         professionalId,
         sucursal,
         treatmentSlug: event.treatmentSlug,
+        observaciones: event.observaciones,
       })
       reload()
     },
@@ -1362,6 +1385,7 @@ export function CalendarView() {
       endStr: toDateInput(ev.end),
       startTime: toTimeInput(ev.start),
       endTime: toTimeInput(ev.end),
+      observaciones: ev.observaciones ?? '',
     })
   }, [])
 
@@ -1427,10 +1451,12 @@ export function CalendarView() {
     }>
     if (markers.length === 0) return el
     const n = markers.length
+    // Equal vertical columns per open sede (Andrés 2026-09-12): 1 = full colour,
+    // 2 = 50/50, 3 = 33/33/33 — clearer and scales better than an oblique split.
     const background =
       n === 1
         ? hexToRgba(markers[0]!.color, 0.16)
-        : `linear-gradient(135deg, ${markers
+        : `linear-gradient(90deg, ${markers
             .map(
               (m, i) =>
                 `${hexToRgba(m.color, 0.16)} ${Math.round((i / n) * 100)}% ${Math.round(((i + 1) / n) * 100)}%`,

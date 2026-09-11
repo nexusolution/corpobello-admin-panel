@@ -83,6 +83,7 @@ export type CalendarEvent = {
   professionalId: string | null
   sucursal: string | null
   treatmentSlug: string | null
+  observaciones: string | null
   createdAt: Date
 }
 
@@ -98,6 +99,7 @@ type Row = {
   professional_id: string | null
   sucursal: string | null
   treatment_slug: string | null
+  observaciones: string | null
   created_at: string
   patient: { full_name: string | null } | { full_name: string | null }[] | null
 }
@@ -125,6 +127,7 @@ function rowToEvent(r: Row): CalendarEvent {
     professionalId: r.professional_id,
     sucursal: r.sucursal,
     treatmentSlug: r.treatment_slug,
+    observaciones: r.observaciones,
     createdAt: new Date(r.created_at),
   }
 }
@@ -161,7 +164,7 @@ export async function autoCancelExpiredReservas(): Promise<{
 }
 
 const SELECT =
-  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, created_at, patient:patient_id (full_name)'
+  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, observaciones, created_at, patient:patient_id (full_name)'
 
 export async function fetchCalendarEvents(): Promise<{
   data: CalendarEvent[]
@@ -187,6 +190,7 @@ export type CalendarEventInput = {
   professionalId: string | null
   sucursal: string | null
   treatmentSlug: string | null
+  observaciones: string | null
 }
 
 function toPayload(input: CalendarEventInput) {
@@ -201,6 +205,7 @@ function toPayload(input: CalendarEventInput) {
     professional_id: input.professionalId,
     sucursal: input.sucursal,
     treatment_slug: input.treatmentSlug,
+    observaciones: input.observaciones,
     color: STATUS_COLORS[input.status],
   }
 }
@@ -276,6 +281,7 @@ export type PatientBasics = {
   dni: string | null
   email: string | null
   phone: string | null
+  birthdate: string | null
   sucursal: string | null
   status: string | null
 }
@@ -284,7 +290,7 @@ export async function fetchPatientBasics(id: string): Promise<PatientBasics | nu
   if (!isSupabaseConfigured()) return null
   const { data } = await getSupabase()
     .from('patients')
-    .select('id, full_name, whatsapp_phone, email, dni, sucursal, status')
+    .select('id, full_name, whatsapp_phone, email, dni, birthdate, sucursal, status')
     .eq('id', id)
     .single<{
       id: string
@@ -292,6 +298,7 @@ export async function fetchPatientBasics(id: string): Promise<PatientBasics | nu
       whatsapp_phone: string | null
       email: string | null
       dni: string | null
+      birthdate: string | null
       sucursal: string | null
       status: string | null
     }>()
@@ -302,6 +309,7 @@ export async function fetchPatientBasics(id: string): Promise<PatientBasics | nu
     dni: data.dni,
     email: data.email,
     phone: data.whatsapp_phone,
+    birthdate: data.birthdate,
     sucursal: data.sucursal,
     status: data.status,
   }

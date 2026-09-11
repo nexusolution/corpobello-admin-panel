@@ -28,7 +28,8 @@ export interface AvailabilityRule {
 export interface AvailabilityExclusion {
   id: string
   sucursal: string
-  treatmentSlugs: string[]
+  treatmentSlugs: string[] // treatments BLOCKED; empty = all
+  triggerSlugs?: string[] // activity elsewhere that triggers the block; default = same slug
   whenActiveIn: string[]
   active: boolean
   label?: string
@@ -159,8 +160,14 @@ export function availabilityFor(
   for (const ex of exclusions) {
     if (!ex.active || ex.sucursal !== sucursal) continue
     if (ex.treatmentSlugs.length > 0 && !ex.treatmentSlugs.includes(slug)) continue
+    const triggers =
+      ex.triggerSlugs && ex.triggerSlugs.length > 0
+        ? ex.triggerSlugs
+        : ex.treatmentSlugs.length > 0
+          ? ex.treatmentSlugs
+          : [slug]
     const blockedElsewhere = ex.whenActiveIn.some((other) =>
-      isTreatmentActive(dateStr, other, slug, rules),
+      triggers.some((ts) => isTreatmentActive(dateStr, other, ts, rules)),
     )
     if (blockedElsewhere) return { open: false }
   }

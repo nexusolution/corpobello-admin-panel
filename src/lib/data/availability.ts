@@ -27,6 +27,7 @@ type ExclusionRow = {
   id: string
   sucursal: string
   treatment_slugs: string[] | null
+  trigger_slugs: string[] | null
   when_active_in: string[] | null
   active: boolean
   label: string | null
@@ -52,6 +53,7 @@ function toExclusion(r: ExclusionRow): AvailabilityExclusion {
     id: r.id,
     sucursal: r.sucursal,
     treatmentSlugs: r.treatment_slugs ?? [],
+    triggerSlugs: r.trigger_slugs ?? [],
     whenActiveIn: r.when_active_in ?? [],
     active: r.active,
     label: r.label ?? undefined,
@@ -110,6 +112,7 @@ export async function saveExclusion(ex: AvailabilityExclusion): Promise<string |
   const payload: Record<string, unknown> = {
     sucursal: ex.sucursal,
     treatment_slugs: ex.treatmentSlugs,
+    trigger_slugs: ex.triggerSlugs ?? [],
     when_active_in: ex.whenActiveIn,
     active: ex.active,
     label: ex.label ?? null,

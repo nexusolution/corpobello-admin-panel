@@ -13,6 +13,7 @@ import {
   type PatientNote,
 } from '../data'
 import { SUCURSAL_LABELS } from '../mock-data'
+import { computeAge } from '@/lib/age'
 import {
   fetchPatientEvoluciones,
   followupState,
@@ -239,13 +240,15 @@ function ContactTab({
   const [name, setName] = useState(c.fullName)
   const [email, setEmail] = useState(c.email)
   const [dni, setDni] = useState(c.dni)
+  const [birthdate, setBirthdate] = useState(c.birthdate)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     setName(c.fullName)
     setEmail(c.email)
     setDni(c.dni)
-  }, [c.fullName, c.email, c.dni])
+    setBirthdate(c.birthdate)
+  }, [c.fullName, c.email, c.dni, c.birthdate])
 
   async function handleSave() {
     setSaving(true)
@@ -253,11 +256,14 @@ function ContactTab({
       fullName: name.trim(),
       email: email.trim(),
       dni: dni.trim(),
+      birthdate: birthdate.trim(),
     })
     setSaving(false)
     setEditing(false)
     onSaved(name.trim(), email.trim(), dni.trim())
   }
+
+  const age = computeAge(birthdate)
 
   const waDigits = (c.phone || '').replace(/\D/g, '')
   const sucursal = c.sucursal ? SUCURSAL_LABELS[c.sucursal as keyof typeof SUCURSAL_LABELS] : ''
@@ -308,7 +314,7 @@ function ContactTab({
             <div className='flex items-center gap-2'>
               <button
                 type='button'
-                onClick={() => { setEditing(false); setName(c.fullName); setEmail(c.email); setDni(c.dni) }}
+                onClick={() => { setEditing(false); setName(c.fullName); setEmail(c.email); setDni(c.dni); setBirthdate(c.birthdate) }}
                 className='px-3 py-1.5 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 transition-colors'>
                 {t('patientDetail.contact.cancel')}
               </button>
@@ -331,12 +337,19 @@ function ContactTab({
             </div>
             <EditField label={t('patientDetail.contact.email')} value={email} onChange={setEmail} type='email' placeholder={t('patientDetail.contact.emailPlaceholder')} />
             <EditField label={t('patientDetail.contact.dni')} value={dni} onChange={setDni} placeholder={t('patientDetail.contact.dniPlaceholder')} />
+            <EditField label={t('patientDetail.contact.birthdate')} value={birthdate} onChange={setBirthdate} type='date' />
           </div>
         ) : (
           <div className='px-4 divide-y divide-border dark:divide-darkborder'>
             <InfoRow icon='solar:user-line-duotone' label={t('patientDetail.contact.name')} value={c.fullName} copyable={c.fullName} t={t} />
             <InfoRow icon='solar:letter-line-duotone' label={t('patientDetail.contact.email')} value={c.email || ''} copyable={c.email} t={t} />
             <InfoRow icon='solar:card-line-duotone' label={t('patientDetail.contact.dni')} value={c.dni || ''} copyable={c.dni} t={t} />
+            <InfoRow
+              icon='solar:calendar-date-line-duotone'
+              label={t('patientDetail.contact.birthdate')}
+              value={birthdate ? `${birthdate}${age != null ? ` · ${age} ${t('patientDetail.contact.years')}` : ''}` : ''}
+              t={t}
+            />
             <InfoRow
               icon='tabler:brand-whatsapp'
               label={t('patientDetail.contact.phone')}

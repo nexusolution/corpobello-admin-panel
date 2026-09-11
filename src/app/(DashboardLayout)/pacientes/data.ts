@@ -161,6 +161,7 @@ export type PatientContact = {
   email: string
   dni: string
   phone: string
+  birthdate: string
   sucursal: string | null
   status: PatientStatus
   treatment: string
@@ -190,7 +191,7 @@ export async function fetchPatientDetail(
     supabase
       .from('patients')
       .select(
-        'id, full_name, whatsapp_phone, email, dni, sucursal, status, created_at, treatments:current_treatment_id (display_name)',
+        'id, full_name, whatsapp_phone, email, dni, birthdate, sucursal, status, created_at, treatments:current_treatment_id (display_name)',
       )
       .eq('id', id)
       .maybeSingle(),
@@ -291,6 +292,7 @@ export async function fetchPatientDetail(
     email: p.email ?? '',
     dni: p.dni ?? '',
     phone: p.whatsapp_phone ?? '',
+    birthdate: p.birthdate ?? '',
     sucursal: normalizeSucursal(p.sucursal),
     status: mapStatus(p.status),
     treatment: treatmentLabel(p.treatments),
@@ -401,7 +403,7 @@ export async function deletePatients(
 /** Persist editable contact fields (name + email + DNI) on the patient row. */
 export async function updatePatientContact(
   id: string,
-  fields: { fullName: string; email: string; dni?: string },
+  fields: { fullName: string; email: string; dni?: string; birthdate?: string },
 ): Promise<string | null> {
   if (!isSupabaseConfigured()) return null
   const { error } = await getSupabase()
@@ -410,6 +412,7 @@ export async function updatePatientContact(
       full_name: fields.fullName,
       email: fields.email || null,
       ...(fields.dni !== undefined && { dni: fields.dni.trim() || null }),
+      ...(fields.birthdate !== undefined && { birthdate: fields.birthdate.trim() || null }),
     })
     .eq('id', id)
   return error ? error.message : null
