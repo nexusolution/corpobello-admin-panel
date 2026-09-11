@@ -14,6 +14,8 @@ export type DayPattern =
 export interface AvailabilityRule {
   id: string
   sucursal: string
+  // Professional/operator this rule is for. null/undefined = any (generic).
+  professionalId?: string | null
   treatmentSlugs: string[]
   treatmentExclude?: string[]
   pattern: DayPattern
@@ -87,10 +89,20 @@ export function matchesPattern(dateStr: string, pattern: DayPattern): boolean {
   }
 }
 
-function ruleApplies(rule: AvailabilityRule, sucursal: string, slug: string): boolean {
+// When `professionalId` is given, only that professional's rules plus generic
+// (null-professional) rules match; when omitted, any professional's rules match.
+function ruleApplies(
+  rule: AvailabilityRule,
+  sucursal: string,
+  slug: string,
+  professionalId?: string,
+): boolean {
   if (!rule.active || rule.sucursal !== sucursal) return false
   if (rule.treatmentSlugs.length > 0 && !rule.treatmentSlugs.includes(slug)) return false
   if (rule.treatmentExclude && rule.treatmentExclude.includes(slug)) return false
+  if (professionalId && rule.professionalId != null && rule.professionalId !== professionalId) {
+    return false
+  }
   return true
 }
 
@@ -99,9 +111,10 @@ export function openWindowsFor(
   sucursal: string,
   slug: string,
   rules: readonly AvailabilityRule[],
+  professionalId?: string,
 ): { openMin: number; closeMin: number }[] {
   return rules
-    .filter((r) => ruleApplies(r, sucursal, slug) && matchesPattern(dateStr, r.pattern))
+    .filter((r) => ruleApplies(r, sucursal, slug, professionalId) && matchesPattern(dateStr, r.pattern))
     .map((r) => ({ openMin: r.openMin, closeMin: r.closeMin }))
 }
 
@@ -110,8 +123,25 @@ export function isTreatmentActive(
   sucursal: string,
   slug: string,
   rules: readonly AvailabilityRule[],
+  professionalId?: string,
 ): boolean {
-  return openWindowsFor(dateStr, sucursal, slug, rules).length > 0
+  return openWindowsFor(dateStr, sucursal, slug, rules, professionalId).length > 0
+}
+
+/** Distinct professional ids (non-generic) scheduled for a treatment that day. */
+export function professionalsFor(
+  dateStr: string,
+  sucursal: string,
+  slug: string,
+  rules: readonly AvailabilityRule[],
+): string[] {
+  const set = new Set<string>()
+  for (const r of rules) {
+    if (ruleApplies(r, sucursal, slug) && matchesPattern(dateStr, r.pattern) && r.professionalId) {
+      set.add(r.professionalId)
+    }
+  }
+  return [...set]
 }
 
 /** Full availability for one treatment on one date, after exclusions. */
@@ -121,8 +151,9 @@ export function availabilityFor(
   slug: string,
   rules: readonly AvailabilityRule[],
   exclusions: readonly AvailabilityExclusion[] = [],
+  professionalId?: string,
 ): AvailabilityWindow {
-  const windows = openWindowsFor(dateStr, sucursal, slug, rules)
+  const windows = openWindowsFor(dateStr, sucursal, slug, rules, professionalId)
   if (windows.length === 0) return { open: false }
 
   for (const ex of exclusions) {

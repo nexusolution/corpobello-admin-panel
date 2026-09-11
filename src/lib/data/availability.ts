@@ -13,6 +13,7 @@ import type {
 type RuleRow = {
   id: string
   sucursal: string
+  professional_id: string | null
   treatment_slugs: string[] | null
   treatment_exclude: string[] | null
   pattern: DayPattern
@@ -35,6 +36,7 @@ function toRule(r: RuleRow): AvailabilityRule {
   return {
     id: r.id,
     sucursal: r.sucursal,
+    professionalId: r.professional_id,
     treatmentSlugs: r.treatment_slugs ?? [],
     treatmentExclude: r.treatment_exclude ?? [],
     pattern: r.pattern,
@@ -80,6 +82,7 @@ export async function saveRule(rule: AvailabilityRule): Promise<string | null> {
   if (!isSupabaseConfigured()) return null
   const payload: Record<string, unknown> = {
     sucursal: rule.sucursal,
+    professional_id: rule.professionalId ?? null,
     treatment_slugs: rule.treatmentSlugs,
     treatment_exclude: rule.treatmentExclude ?? [],
     pattern: rule.pattern,

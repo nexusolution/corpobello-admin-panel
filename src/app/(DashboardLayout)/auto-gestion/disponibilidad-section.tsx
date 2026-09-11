@@ -24,11 +24,13 @@ import type {
 import { SUCURSALES } from '@/lib/data/calendar-events'
 import { fetchMenuOverrides } from '@/lib/data/menu-overrides'
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
+import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 type Treatment = { slug: string; name: string }
+type Professional = { id: string; name: string }
 
 const FIELD =
   'rounded-md border border-border dark:border-darkborder bg-background px-2 py-1.5 text-sm text-dark dark:text-white focus:outline-none focus:border-primary'
@@ -159,6 +161,7 @@ function patternSummary(p: DayPattern, locale: string): string {
 type Draft = {
   id: string
   sucursal: string
+  professionalId: string // '' = sin asignar (aplica a cualquiera)
   mode: 'include' | 'exclude' // include a set, or "todos menos" a set
   slugs: string[]
   patternType: DayPattern['type']
@@ -177,6 +180,7 @@ function emptyDraft(): Draft {
   return {
     id: '',
     sucursal: SUCURSALES[0] ?? 'merlo',
+    professionalId: '',
     mode: 'include',
     slugs: [],
     patternType: 'weekly',
@@ -197,6 +201,7 @@ function ruleToDraft(r: AvailabilityRule): Draft {
   const d = emptyDraft()
   d.id = r.id
   d.sucursal = r.sucursal
+  d.professionalId = r.professionalId ?? ''
   d.mode = exclude.length > 0 ? 'exclude' : 'include'
   d.slugs = exclude.length > 0 ? exclude : r.treatmentSlugs
   d.patternType = r.pattern.type
@@ -222,6 +227,7 @@ function draftToRule(d: Draft): AvailabilityRule {
   return {
     id: d.id,
     sucursal: d.sucursal,
+    professionalId: d.professionalId || null,
     treatmentSlugs: d.mode === 'include' ? d.slugs : [],
     treatmentExclude: d.mode === 'exclude' ? d.slugs : [],
     pattern,
@@ -237,6 +243,7 @@ export function DisponibilidadSection() {
   const [rules, setRules] = useState<AvailabilityRule[]>([])
   const [exclusions, setExclusions] = useState<AvailabilityExclusion[]>([])
   const [treatments, setTreatments] = useState<Treatment[]>([])
+  const [professionals, setProfessionals] = useState<Professional[]>([])
   const [loading, setLoading] = useState(true)
   const [draft, setDraft] = useState<Draft | null>(null)
 
@@ -249,6 +256,11 @@ export function DisponibilidadSection() {
     const m = new Map(treatments.map((x) => [x.slug, x.name]))
     return (slug: string) => m.get(slug) ?? slug
   }, [treatments])
+
+  const professionalName = useMemo(() => {
+    const m = new Map(professionals.map((x) => [x.id, x.name]))
+    return (id?: string | null) => (id ? m.get(id) ?? id : '')
+  }, [professionals])
 
   function reload() {
     setLoading(true)
@@ -271,6 +283,13 @@ export function DisponibilidadSection() {
           .sort((a, b) => a.name.localeCompare(b.name)),
       )
     })
+    void fetchAppUsers().then(({ data }) =>
+      setProfessionals(
+        data
+          .filter((u) => u.status === 'active')
+          .map((u) => ({ id: u.id, name: u.fullName })),
+      ),
+    )
   }, [])
 
   async function persist() {
@@ -352,6 +371,7 @@ export function DisponibilidadSection() {
         <RuleEditor
           draft={draft}
           treatments={treatments}
+          professionals={professionals}
           locale={locale}
           t={t}
           onChange={setDraft}
@@ -386,6 +406,7 @@ export function DisponibilidadSection() {
                       </div>
                       <div className='text-xs text-link dark:text-darklink mt-0.5'>
                         {patternSummary(r.pattern, locale)} · {minToHHMM(r.openMin)} a {minToHHMM(r.closeMin)}
+                        {r.professionalId ? ` · ${professionalName(r.professionalId)}` : ''}
                       </div>
                     </div>
                     <div className='ml-auto flex items-center gap-2'>
@@ -485,6 +506,7 @@ export function DisponibilidadSection() {
 function RuleEditor({
   draft,
   treatments,
+  professionals,
   locale,
   t,
   onChange,
@@ -493,6 +515,7 @@ function RuleEditor({
 }: {
   draft: Draft
   treatments: Treatment[]
+  professionals: Professional[]
   locale: string
   t: TFn
   onChange: (d: Draft) => void
@@ -520,6 +543,15 @@ function RuleEditor({
           <Select value={draft.sucursal} onChange={(v) => set({ sucursal: v })}>
             {SUCURSALES.map((s) => (
               <option key={s} value={s}>{sucursalLabel(s)}</option>
+            ))}
+          </Select>
+        </label>
+        <label className='flex flex-col gap-1'>
+          <span className='text-xs font-medium text-dark dark:text-white'>{t('autoGestion.availability.professional')}</span>
+          <Select value={draft.professionalId} onChange={(v) => set({ professionalId: v })}>
+            <option value=''>{t('autoGestion.availability.anyProfessional')}</option>
+            {professionals.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </Select>
         </label>
