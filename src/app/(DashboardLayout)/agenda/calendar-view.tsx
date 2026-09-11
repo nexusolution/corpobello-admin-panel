@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type ReactElement,
@@ -19,6 +20,7 @@ import {
   Views,
   type View,
   type SlotInfo,
+  type ToolbarProps,
 } from 'react-big-calendar'
 import withDragAndDrop, {
   type withDragAndDropProps,
@@ -1111,10 +1113,20 @@ export function CalendarView() {
     [treatments],
   )
 
+  // Refs to the volatile lookups so the RBC `components` can be STABLE (never
+  // change identity). If the components object changed each render, RBC remounted
+  // the toolbar + cells → the "Nuevo evento" button, month label and cells blinked
+  // on every state change (e.g. toggling a filter). Stable components read the
+  // latest data via these refs; the calendar re-renders cells when `events` change.
+  const dayMarkersRef = useRef(dayMarkers)
+  dayMarkersRef.current = dayMarkers
+  const treatmentNameRef = useRef(treatmentName)
+  treatmentNameRef.current = treatmentName
+
   // Week/Day column header: default label + a coloured dot per open sucursal.
   const dayHeader = useCallback(
     ({ date, label }: { date: Date; label: string }) => {
-      const markers = dayMarkers(date)
+      const markers = dayMarkersRef.current(date)
       return (
         <div className='flex flex-col items-center gap-0.5 py-0.5'>
           <span>{label}</span>
@@ -1133,7 +1145,7 @@ export function CalendarView() {
         </div>
       )
     },
-    [dayMarkers],
+    [],
   )
 
   // Shade whole days the branch is closed (per rules) OR blocked (feriado).
@@ -1371,6 +1383,75 @@ export function CalendarView() {
     [t],
   )
 
+  // Stable RBC components — identities never change (volatile data read via the
+  // refs above), so toggling a filter re-renders cells WITHOUT remounting the
+  // toolbar/cells (which was the "Nuevo evento" + month + cells blink).
+  const toolbarComp = useCallback(
+    (props: ToolbarProps<CalendarEvent, object>) => (
+      <Toolbar
+        label={props.label}
+        view={props.view}
+        onView={props.onView}
+        onNavigate={props.onNavigate}
+        onAdd={() => openAdd()}
+        t={t}
+      />
+    ),
+    [t, openAdd],
+  )
+  const eventComp = useCallback(
+    ({ event }: { event: CalendarEvent }) => (
+      <div className='flex flex-col leading-tight w-full overflow-hidden'>
+        <span className='flex items-center justify-between gap-1'>
+          <span className='truncate font-medium'>
+            {isExpiredReserva(event) && <span title={t('agendaCal.expiredMark')}>⏳ </span>}
+            {event.title}
+          </span>
+          {event.charged && (
+            <span className='font-bold shrink-0' title={t('agenda.charged')}>$</span>
+          )}
+        </span>
+        {event.treatmentSlug && (
+          <span className='truncate opacity-80 text-[11px]'>{treatmentNameRef.current(event.treatmentSlug)}</span>
+        )}
+      </div>
+    ),
+    [t],
+  )
+  const dateCellWrapper = useCallback((props: { children: ReactElement; value: Date }) => {
+    const markers = dayMarkersRef.current(props.value)
+    const el = props.children as ReactElement<{
+      style?: CSSProperties
+      children?: ReactNode
+      title?: string
+    }>
+    if (markers.length === 0) return el
+    const n = markers.length
+    const background =
+      n === 1
+        ? hexToRgba(markers[0]!.color, 0.16)
+        : `linear-gradient(135deg, ${markers
+            .map(
+              (m, i) =>
+                `${hexToRgba(m.color, 0.16)} ${Math.round((i / n) * 100)}% ${Math.round(((i + 1) / n) * 100)}%`,
+            )
+            .join(', ')})`
+    return cloneElement(el, {
+      style: { ...(el.props.style ?? {}), background },
+      title: markers.map((m) => sucursalLabel(m.sucursal)).join(' · '),
+    })
+  }, [])
+  const calendarComponents = useMemo(
+    () => ({
+      toolbar: toolbarComp,
+      event: eventComp,
+      dateCellWrapper,
+      week: { header: dayHeader },
+      day: { header: dayHeader },
+    }),
+    [toolbarComp, eventComp, dateCellWrapper, dayHeader],
+  )
+
   if (loading) {
     return (
       <div className='rounded-lg border border-border dark:border-darkborder bg-card p-6 flex justify-center py-20'>
@@ -1525,65 +1606,7 @@ export function CalendarView() {
             }`,
           },
         })}
-        components={{
-          toolbar: (props) => (
-            <Toolbar
-              label={props.label}
-              view={props.view}
-              onView={props.onView}
-              onNavigate={props.onNavigate}
-              onAdd={() => openAdd()}
-              t={t}
-            />
-          ),
-          event: ({ event }: { event: CalendarEvent }) => (
-            // Two lines: paciente (+ charge/expired marks) and treatment. The
-            // full background encodes the status; the left bar the treatment.
-            <div className='flex flex-col leading-tight w-full overflow-hidden'>
-              <span className='flex items-center justify-between gap-1'>
-                <span className='truncate font-medium'>
-                  {isExpiredReserva(event) && <span title={t('agendaCal.expiredMark')}>⏳ </span>}
-                  {event.title}
-                </span>
-                {event.charged && (
-                  <span className='font-bold shrink-0' title={t('agenda.charged')}>$</span>
-                )}
-              </span>
-              {event.treatmentSlug && (
-                <span className='truncate opacity-80 text-[11px]'>{treatmentName(event.treatmentSlug)}</span>
-              )}
-            </div>
-          ),
-          // Month view ("Todas"): soft-tint the day cell with the open sucursal
-          // colour(s) — a single soft fill, or thin stripes when several sedes
-          // are open that day. Turnos render above with their status colour.
-          dateCellWrapper: (props: { children: ReactElement; value: Date }) => {
-            const markers = dayMarkers(props.value)
-            const el = props.children as ReactElement<{
-              style?: CSSProperties
-              children?: ReactNode
-              title?: string
-            }>
-            if (markers.length === 0) return el
-            const n = markers.length
-            const background =
-              n === 1
-                ? hexToRgba(markers[0]!.color, 0.16)
-                : `linear-gradient(135deg, ${markers
-                    .map(
-                      (m, i) =>
-                        `${hexToRgba(m.color, 0.16)} ${Math.round((i / n) * 100)}% ${Math.round(((i + 1) / n) * 100)}%`,
-                    )
-                    .join(', ')})`
-            return cloneElement(el, {
-              style: { ...(el.props.style ?? {}), background },
-              title: markers.map((m) => sucursalLabel(m.sucursal)).join(' · '),
-            })
-          },
-          // Week/Day: coloured dots per open sucursal in each day-column header.
-          week: { header: dayHeader },
-          day: { header: dayHeader },
-        }}
+        components={calendarComponents}
       />
 
       {draft && (
