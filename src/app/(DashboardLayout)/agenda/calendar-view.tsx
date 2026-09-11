@@ -10,6 +10,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react'
+import { useRouter } from 'next/navigation'
 import { Icon } from '@iconify/react'
 import Swal from 'sweetalert2'
 import {
@@ -34,6 +35,7 @@ import {
   updateCalendarEvent,
   deleteCalendarEvent,
   searchPatients,
+  fetchPatientBasics,
   getCurrentUserId,
   isExpiredReserva,
   autoCancelExpiredReservas,
@@ -44,6 +46,7 @@ import {
   type CalendarEvent,
   type TurnoStatus,
   type PatientOption,
+  type PatientBasics,
 } from '@/lib/data/calendar-events'
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
 import { fetchMenuOverrides } from '@/lib/data/menu-overrides'
@@ -396,6 +399,22 @@ function EventDialog({
   const [endTime, setEndTime] = useState(draft.endTime)
   // Primera sesión: bumps the auto-suggested duration (charla/explicación previa).
   const [firstSession, setFirstSession] = useState(false)
+  const router = useRouter()
+  // Basic patient data shown read-only when an existing turno is opened.
+  const [basics, setBasics] = useState<PatientBasics | null>(null)
+  useEffect(() => {
+    if (!patientId) {
+      setBasics(null)
+      return
+    }
+    let active = true
+    void fetchPatientBasics(patientId).then((b) => {
+      if (active) setBasics(b)
+    })
+    return () => {
+      active = false
+    }
+  }, [patientId])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -555,6 +574,28 @@ function EventDialog({
             }}
             t={t}
           />
+
+          {basics && (
+            <div className='rounded-md border border-border dark:border-darkborder bg-lightprimary/30 dark:bg-white/5 px-3 py-2.5 text-xs space-y-1'>
+              <div className='flex items-center justify-between gap-2'>
+                <span className='font-semibold text-dark dark:text-white text-sm'>{basics.fullName}</span>
+                {patientId && (
+                  <button
+                    type='button'
+                    onClick={() => router.push(`/pacientes/${patientId}`)}
+                    className='inline-flex items-center gap-1 text-primary hover:underline font-medium shrink-0'>
+                    <Icon icon='solar:user-id-line-duotone' height={14} width={14} />
+                    {t('turno.viewFicha')}
+                  </button>
+                )}
+              </div>
+              <div className='flex flex-wrap gap-x-4 gap-y-1 text-link dark:text-darklink'>
+                {basics.dni && <span>{t('turno.dni')}: {basics.dni}</span>}
+                {basics.phone && <span>{t('turno.phone')}: {basics.phone}</span>}
+                {basics.email && <span>{t('turno.email')}: {basics.email}</span>}
+              </div>
+            </div>
+          )}
 
           <div className='grid grid-cols-2 gap-3'>
             <label className='block'>
@@ -788,6 +829,9 @@ export function CalendarView() {
   // resources) so staff can drag a turno between branches to reassign it. Only
   // meaningful in the Day view, so turning it on forces Day.
   const [resourceMode, setResourceMode] = useState(false)
+  // Vertical time scale (minutes per slot) for Week/Day — a zoom, not the real
+  // duration. Smaller = short turnos read clearly (Andrés 2026-09-11).
+  const [scaleMin, setScaleMin] = useState(30)
   const [availRules, setAvailRules] = useState<AvailabilityRule[]>([])
   const [availExclusions, setAvailExclusions] = useState<AvailabilityExclusion[]>([])
   const [catalogSlugs, setCatalogSlugs] = useState<string[]>([])
@@ -953,6 +997,15 @@ export function CalendarView() {
       }).map((suc) => ({ sucursal: suc, color: sucursalColor(suc) }))
     },
     [sucursalFilter, resourceMode, treatmentFilter, availRules, availExclusions, catalogSlugs],
+  )
+
+  // Treatment slug → display name, for the event card's second line.
+  const treatmentName = useCallback(
+    (slug?: string | null) => {
+      if (!slug) return ''
+      return treatments.find((o) => o.value === slug)?.label ?? slug
+    },
+    [treatments],
   )
 
   // Week/Day column header: default label + a coloured dot per open sucursal.
@@ -1235,6 +1288,18 @@ export function CalendarView() {
           <Icon icon='solar:layers-minimalistic-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
           <span className='text-xs font-medium text-link dark:text-darklink'>{t('agenda.bySucursal')}</span>
         </label>
+        <div className='flex items-center gap-2'>
+          <Icon icon='solar:clock-square-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
+          <span className='text-xs font-medium text-link dark:text-darklink'>{t('agenda.scale')}:</span>
+          <select
+            value={scaleMin}
+            onChange={(e) => setScaleMin(parseInt(e.target.value, 10))}
+            className='pl-2.5 pr-9 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
+            {[5, 10, 15, 20, 30, 60].map((m) => (
+              <option key={m} value={m}>{m} min</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Colour legend for the all-branches availability overview. */}
@@ -1270,6 +1335,8 @@ export function CalendarView() {
         selectable
         popup
         resizable
+        step={scaleMin}
+        timeslots={Math.max(1, Math.round(60 / scaleMin))}
         onEventDrop={onEventDrop}
         onEventResize={onEventResize}
         onSelectSlot={onSelectSlot}
@@ -1277,7 +1344,13 @@ export function CalendarView() {
         dayPropGetter={dayPropGetter}
         slotPropGetter={slotPropGetter}
         messages={messages}
-        style={{ height: 720 }}
+        style={
+          {
+            height: 720,
+            // Taller rows for finer scales so short turnos stay readable.
+            ['--rbc-group-h' as string]: `${Math.max(1, Math.round(60 / scaleMin)) * 24}px`,
+          } as CSSProperties
+        }
         eventPropGetter={(event: CalendarEvent) => ({
           // Full background = STATUS; thin left bar = TREATMENT (Andrés' scheme).
           style: {
@@ -1301,17 +1374,22 @@ export function CalendarView() {
             />
           ),
           event: ({ event }: { event: CalendarEvent }) => (
-            // Title on the left; "$" pushed to the right as an extra charge mark
-            // (does not replace the status, which the full background encodes).
-            <span className='flex items-center justify-between gap-1 w-full'>
-              <span className='truncate'>
-                {isExpiredReserva(event) && <span title={t('agendaCal.expiredMark')}>⏳ </span>}
-                {event.title}
+            // Two lines: paciente (+ charge/expired marks) and treatment. The
+            // full background encodes the status; the left bar the treatment.
+            <div className='flex flex-col leading-tight w-full overflow-hidden'>
+              <span className='flex items-center justify-between gap-1'>
+                <span className='truncate font-medium'>
+                  {isExpiredReserva(event) && <span title={t('agendaCal.expiredMark')}>⏳ </span>}
+                  {event.title}
+                </span>
+                {event.charged && (
+                  <span className='font-bold shrink-0' title={t('agenda.charged')}>$</span>
+                )}
               </span>
-              {event.charged && (
-                <span className='font-bold shrink-0' title={t('agenda.charged')}>$</span>
+              {event.treatmentSlug && (
+                <span className='truncate opacity-80 text-[11px]'>{treatmentName(event.treatmentSlug)}</span>
               )}
-            </span>
+            </div>
           ),
           // Month view: overlay a coloured dot per open sucursal ("Todas" mode).
           dateCellWrapper: (props: { children: ReactElement; value: Date }) => {

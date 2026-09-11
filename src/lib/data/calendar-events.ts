@@ -268,3 +268,41 @@ export async function searchPatients(query: string): Promise<PatientOption[]> {
     (r) => ({ id: r.id, name: r.full_name?.trim() || r.whatsapp_phone || 'Sin nombre' }),
   )
 }
+
+// Basic patient fields shown when a turno is opened from the agenda.
+export type PatientBasics = {
+  id: string
+  fullName: string
+  dni: string | null
+  email: string | null
+  phone: string | null
+  sucursal: string | null
+  status: string | null
+}
+
+export async function fetchPatientBasics(id: string): Promise<PatientBasics | null> {
+  if (!isSupabaseConfigured()) return null
+  const { data } = await getSupabase()
+    .from('patients')
+    .select('id, full_name, whatsapp_phone, email, dni, sucursal, status')
+    .eq('id', id)
+    .single<{
+      id: string
+      full_name: string | null
+      whatsapp_phone: string | null
+      email: string | null
+      dni: string | null
+      sucursal: string | null
+      status: string | null
+    }>()
+  if (!data) return null
+  return {
+    id: data.id,
+    fullName: data.full_name?.trim() || data.whatsapp_phone || 'Sin nombre',
+    dni: data.dni,
+    email: data.email,
+    phone: data.whatsapp_phone,
+    sucursal: data.sucursal,
+    status: data.status,
+  }
+}

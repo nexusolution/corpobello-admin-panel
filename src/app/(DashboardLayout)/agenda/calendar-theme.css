@@ -169,3 +169,10 @@
 .dark .rbc-closed-slot {
   background: rgba(100, 116, 139, 0.16);
 }
+
+/* Time-scale zoom (Andrés 2026-09-11): group height driven by --rbc-group-h,
+   set inline from the selected minutes-per-slot so finer scales get taller,
+   scrollable rows and short turnos stay readable. */
+.rbc-time-view .rbc-timeslot-group {
+  min-height: var(--rbc-group-h, 40px);
+}
