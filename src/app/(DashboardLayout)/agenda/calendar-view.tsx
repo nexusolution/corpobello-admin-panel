@@ -83,6 +83,73 @@ const SUCURSAL_COLORS: Record<string, string> = {
 function sucursalColor(s: string): string {
   return SUCURSAL_COLORS[s] ?? '#8a8a8a'
 }
+function hexToRgba(hex: string, a: number): string {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16)
+  const g = parseInt(h.slice(2, 4), 16)
+  const b = parseInt(h.slice(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${a})`
+}
+
+// Checkbox multi-select in a popover (empty selection = Todos). Used for the
+// Profesional and Tratamiento filters so reception can watch several at once.
+function MultiSelect({
+  options,
+  selected,
+  onChange,
+  allLabel,
+}: {
+  options: Option[]
+  selected: string[]
+  onChange: (v: string[]) => void
+  allLabel: string
+}) {
+  const [open, setOpen] = useState(false)
+  const summary =
+    selected.length === 0
+      ? allLabel
+      : selected.length === 1
+        ? options.find((o) => o.value === selected[0])?.label ?? '1'
+        : `${selected.length}`
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type='button'
+          className='inline-flex items-center justify-between gap-2 min-w-[120px] pl-2.5 pr-2 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white hover:border-primary focus:outline-none focus:border-primary transition-colors'>
+          <span className='truncate'>{summary}</span>
+          <Icon icon='tabler:chevron-down' height={15} width={15} className='text-link dark:text-darklink shrink-0' />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className='w-[230px] p-1' align='start'>
+        <button
+          type='button'
+          onClick={() => onChange([])}
+          className={`w-full text-left px-2.5 py-1.5 rounded text-sm hover:bg-lightprimary hover:text-primary ${selected.length === 0 ? 'text-primary font-medium' : 'text-dark dark:text-white'}`}>
+          {allLabel}
+        </button>
+        <div className='max-h-60 overflow-y-auto'>
+          {options.map((o) => {
+            const on = selected.includes(o.value)
+            return (
+              <label
+                key={o.value}
+                className='flex items-center gap-2 px-2.5 py-1.5 rounded cursor-pointer hover:bg-lightprimary text-sm text-dark dark:text-white'>
+                <input
+                  type='checkbox'
+                  checked={on}
+                  onChange={() => onChange(on ? selected.filter((x) => x !== o.value) : [...selected, o.value])}
+                  className='h-4 w-4 rounded border-border dark:border-darkborder accent-primary'
+                />
+                <span className='truncate'>{o.label}</span>
+              </label>
+            )
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 
 function sucursalLabel(s: string): string {
@@ -821,21 +888,24 @@ export function CalendarView() {
   const [myUserId, setMyUserId] = useState<string | null>(null)
   // Filter by professional. Admin/operador pick from the dropdown ('' = all);
   // the Profesional role is locked to their own turnos (Andrés' scoped view).
-  const [professionalFilter, setProfessionalFilter] = useState('')
+  const [professionalFilterIds, setProfessionalFilterIds] = useState<string[]>([])
   // Filter by sucursal ('' = all). When a sucursal is picked we also shade its
   // closed days/hours (availability) from sucursal_hours.
   const [sucursalFilter, setSucursalFilter] = useState('')
   // "Columns by branch" mode: render one column per sucursal (react-big-calendar
   // resources) so staff can drag a turno between branches to reassign it. Only
   // meaningful in the Day view, so turning it on forces Day.
-  const [resourceMode, setResourceMode] = useState(false)
+  // Resource columns in Day view: none, one column per sucursal, or one per
+  // profesional (Andrés 2026-09-11: two professionals working simultaneously).
+  const [columnMode, setColumnMode] = useState<'none' | 'sucursal' | 'professional'>('none')
+  const inColumns = columnMode !== 'none'
   // Vertical time scale (minutes per slot) for Week/Day — a zoom, not the real
   // duration. Smaller = short turnos read clearly (Andrés 2026-09-11).
   const [scaleMin, setScaleMin] = useState(30)
   const [availRules, setAvailRules] = useState<AvailabilityRule[]>([])
   const [availExclusions, setAvailExclusions] = useState<AvailabilityExclusion[]>([])
   const [catalogSlugs, setCatalogSlugs] = useState<string[]>([])
-  const [treatmentFilter, setTreatmentFilter] = useState('')
+  const [treatmentFilterSlugs, setTreatmentFilterSlugs] = useState<string[]>([])
   const [blocks, setBlocks] = useState<AgendaBlock[]>([])
 
   moment.locale(locale)
@@ -901,16 +971,22 @@ export function CalendarView() {
   }, [reload, t])
 
   // Effective professional filter: the Profesional role is always locked to
-  // their own turnos; everyone else uses the dropdown ('' = all).
-  const effectiveProfessional = isProfesional ? myUserId ?? '__none__' : professionalFilter
+  // their own turnos; everyone else uses the multi-select (empty = all).
+  const effectiveProfessionalIds = useMemo(
+    () => (isProfesional ? [myUserId ?? '__none__'] : professionalFilterIds),
+    [isProfesional, myUserId, professionalFilterIds],
+  )
   const visibleEvents = useMemo(
     () =>
       events.filter(
         (e) =>
-          (!effectiveProfessional || e.professionalId === effectiveProfessional) &&
-          (!sucursalFilter || e.sucursal === sucursalFilter),
+          (effectiveProfessionalIds.length === 0 ||
+            (e.professionalId != null && effectiveProfessionalIds.includes(e.professionalId))) &&
+          (!sucursalFilter || e.sucursal === sucursalFilter) &&
+          (treatmentFilterSlugs.length === 0 ||
+            (e.treatmentSlug != null && treatmentFilterSlugs.includes(e.treatmentSlug))),
       ),
-    [events, effectiveProfessional, sucursalFilter],
+    [events, effectiveProfessionalIds, sucursalFilter, treatmentFilterSlugs],
   )
 
   // "Columns by branch" resources: one column per sucursal + a "Sin asignar"
@@ -923,12 +999,23 @@ export function CalendarView() {
     ],
     [t],
   )
+  // One column per (active) profesional + a "Sin asignar" bucket.
+  const professionalResources = useMemo(
+    () => [
+      ...professionals.map((p) => ({ resourceId: p.value, resourceTitle: p.label })),
+      { resourceId: NONE_RESOURCE, resourceTitle: t('turno.none') },
+    ],
+    [professionals, t],
+  )
+  const resources = columnMode === 'professional' ? professionalResources : sucursalResources
   const calendarEvents = useMemo(
     () =>
-      resourceMode
-        ? visibleEvents.map((e) => ({ ...e, resourceId: e.sucursal || NONE_RESOURCE }))
-        : visibleEvents,
-    [resourceMode, visibleEvents],
+      columnMode === 'professional'
+        ? visibleEvents.map((e) => ({ ...e, resourceId: e.professionalId || NONE_RESOURCE }))
+        : columnMode === 'sucursal'
+          ? visibleEvents.map((e) => ({ ...e, resourceId: e.sucursal || NONE_RESOURCE }))
+          : visibleEvents,
+    [columnMode, visibleEvents],
   )
 
   // Pre-reservas past the TTL (highlight only — no auto-cancel in v1).
@@ -969,34 +1056,50 @@ export function CalendarView() {
   // Availability window for a date at the filtered sucursal, per the rules —
   // scoped to the treatment filter when set, else "any treatment". Null when no
   // sucursal is selected (all-branches view is not shaded by hours).
-  const shadeWindow = useCallback(
-    (d: Date) => {
-      if (!sucursalFilter) return null
-      const ds = toDateInput(d)
-      return treatmentFilter
-        ? availabilityFor(ds, sucursalFilter, treatmentFilter, availRules, availExclusions)
-        : anyTreatmentAvailability(ds, sucursalFilter, catalogSlugs, availRules, availExclusions)
+  // Availability window at a sucursal on a date, honouring the multi-selects:
+  // treatment = union of the selected (or the whole catalog), professional =
+  // union of the selected (or any). Drives shading and the day dots.
+  const sucursalOpen = useCallback(
+    (ds: string, sucursal: string) => {
+      const slugs = treatmentFilterSlugs.length ? treatmentFilterSlugs : catalogSlugs
+      const profs: (string | undefined)[] = professionalFilterIds.length
+        ? professionalFilterIds
+        : [undefined]
+      let open = false
+      let openMin = Number.POSITIVE_INFINITY
+      let closeMin = Number.NEGATIVE_INFINITY
+      for (const slug of slugs)
+        for (const p of profs) {
+          const w = availabilityFor(ds, sucursal, slug, availRules, availExclusions, p)
+          if (w.open) {
+            open = true
+            openMin = Math.min(openMin, w.openMin ?? openMin)
+            closeMin = Math.max(closeMin, w.closeMin ?? closeMin)
+          }
+        }
+      return open ? { open: true, openMin, closeMin } : { open: false }
     },
-    [sucursalFilter, treatmentFilter, availRules, availExclusions, catalogSlugs],
+    [treatmentFilterSlugs, professionalFilterIds, catalogSlugs, availRules, availExclusions],
   )
 
-  // "Todas" overview: which sucursales run the (filtered) treatment on a date —
-  // one coloured dot per open branch. Only in all-branches mode; a single-branch
-  // view uses the closed-day shading instead. Feriados/closures drop the branch.
+  const shadeWindow = useCallback(
+    (d: Date) => (sucursalFilter ? sucursalOpen(toDateInput(d), sucursalFilter) : null),
+    [sucursalFilter, sucursalOpen],
+  )
+
+  // "Todas" overview: which sucursales are open on a date (per the filters) —
+  // one soft-coloured marker/tint per open branch. Only in all-branches mode; a
+  // single-branch view uses the closed-day shading instead.
   const dayMarkers = useCallback(
     (d: Date): { sucursal: string; color: string }[] => {
-      // Only in all-branches mode; in resource-columns mode the columns already
-      // are the sucursales, so dots would be redundant.
-      if (sucursalFilter || resourceMode) return []
+      if (sucursalFilter || inColumns) return []
       const ds = toDateInput(d)
-      return SUCURSALES.filter((suc) => {
-        const w = treatmentFilter
-          ? availabilityFor(ds, suc, treatmentFilter, availRules, availExclusions)
-          : anyTreatmentAvailability(ds, suc, catalogSlugs, availRules, availExclusions)
-        return w.open
-      }).map((suc) => ({ sucursal: suc, color: sucursalColor(suc) }))
+      return SUCURSALES.filter((suc) => sucursalOpen(ds, suc).open).map((suc) => ({
+        sucursal: suc,
+        color: sucursalColor(suc),
+      }))
     },
-    [sucursalFilter, resourceMode, treatmentFilter, availRules, availExclusions, catalogSlugs],
+    [sucursalFilter, inColumns, sucursalOpen],
   )
 
   // Treatment slug → display name, for the event card's second line.
@@ -1043,7 +1146,9 @@ export function CalendarView() {
     [isBlockedDay, shadeWindow],
   )
 
-  // Shade time slots outside the open window (week/day views) or on blocked days.
+  // Shade time slots: closed slots greyed out; the open range softly tinted with
+  // the selected sucursal's colour (Week/Day), so the available band reads at a
+  // glance. Turnos render above with their status colour.
   const slotPropGetter = useCallback(
     (d: Date) => {
       if (isBlockedDay(d)) return { className: 'rbc-closed-slot' }
@@ -1053,13 +1158,22 @@ export function CalendarView() {
       const mins = d.getHours() * 60 + d.getMinutes()
       const before = w.openMin != null && mins < w.openMin
       const after = w.closeMin != null && mins >= w.closeMin
-      return before || after ? { className: 'rbc-closed-slot' } : {}
+      if (before || after) return { className: 'rbc-closed-slot' }
+      return sucursalFilter
+        ? { style: { backgroundColor: hexToRgba(sucursalColor(sucursalFilter), 0.1) } }
+        : {}
     },
-    [isBlockedDay, shadeWindow],
+    [isBlockedDay, shadeWindow, sucursalFilter],
   )
 
   const openAdd = useCallback(
-    (start?: Date, end?: Date, allDay = false, sucursalDefault?: string) => {
+    (
+      start?: Date,
+      end?: Date,
+      allDay = false,
+      sucursalDefault?: string,
+      professionalDefault?: string,
+    ) => {
       const now = new Date()
       // Default new turno: a 1-hour slot at the next full hour.
       const s = start ?? new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.min(now.getHours() + 1, 23), 0, 0)
@@ -1069,8 +1183,9 @@ export function CalendarView() {
         patientId: null,
         patientName: null,
         treatmentSlug: '',
-        // A profesional creating a turno defaults it to themselves.
-        professionalId: isProfesional ? myUserId ?? '' : '',
+        // A profesional creating a turno defaults it to themselves; clicking a
+        // professional column pre-fills that professional.
+        professionalId: isProfesional ? myUserId ?? '' : professionalDefault ?? '',
         sucursal: sucursalDefault ?? '',
         status: 'pendiente',
         charged: false,
@@ -1086,19 +1201,20 @@ export function CalendarView() {
 
   const onSelectSlot = useCallback(
     (slot: SlotInfo) => {
-      // In branch-columns mode, clicking a column pre-fills that sucursal.
+      // Clicking a column pre-fills that column's sucursal or profesional.
       const rid = (slot as { resourceId?: unknown }).resourceId
-      const sucursalDefault =
-        resourceMode && rid != null && rid !== NONE_RESOURCE ? String(rid) : undefined
+      const picked = rid != null && rid !== NONE_RESOURCE ? String(rid) : undefined
+      const sucursalDefault = columnMode === 'sucursal' ? picked : undefined
+      const professionalDefault = columnMode === 'professional' ? picked : undefined
       // Month select → all-day; week/day time select → timed slot.
       if (view === Views.MONTH) {
         const end = new Date(slot.end.getTime() - 1)
-        openAdd(slot.start, end < slot.start ? slot.start : end, true, sucursalDefault)
+        openAdd(slot.start, end < slot.start ? slot.start : end, true, sucursalDefault, professionalDefault)
       } else {
-        openAdd(slot.start, slot.end, false, sucursalDefault)
+        openAdd(slot.start, slot.end, false, sucursalDefault, professionalDefault)
       }
     },
-    [openAdd, view, resourceMode],
+    [openAdd, view, columnMode],
   )
 
   // Persist a drag/resize. Timed turnos keep their exact times; all-day ones
@@ -1109,9 +1225,9 @@ export function CalendarView() {
       start: Date,
       end: Date,
       allDay: boolean,
-      // undefined = keep the event's sucursal; a string/null reassigns it
-      // (used when dragging between branch columns).
+      // undefined = keep; a string/null reassigns (dragging between columns).
       newSucursal?: string | null,
+      newProfessional?: string | null,
     ) => {
       let s: Date
       let e: Date
@@ -1128,8 +1244,12 @@ export function CalendarView() {
         e = end
       }
       const sucursal = newSucursal !== undefined ? newSucursal : event.sucursal
+      const professionalId =
+        newProfessional !== undefined ? newProfessional : event.professionalId
       setEvents((prev) =>
-        prev.map((ev) => (ev.id === event.id ? { ...ev, start: s, end: e, allDay, sucursal } : ev)),
+        prev.map((ev) =>
+          ev.id === event.id ? { ...ev, start: s, end: e, allDay, sucursal, professionalId } : ev,
+        ),
       )
       await updateCalendarEvent(event.id, {
         title: event.title,
@@ -1139,7 +1259,7 @@ export function CalendarView() {
         status: event.status,
         charged: event.charged,
         patientId: event.patientId,
-        professionalId: event.professionalId,
+        professionalId,
         sucursal,
         treatmentSlug: event.treatmentSlug,
       })
@@ -1151,17 +1271,64 @@ export function CalendarView() {
   const onEventDrop = useCallback<
     NonNullable<withDragAndDropProps<CalendarEvent>['onEventDrop']>
   >(
-    ({ event, start, end, isAllDay, resourceId }) => {
-      // In branch-columns mode the drop target's resourceId is the new sucursal.
-      const newSucursal =
-        resourceMode && resourceId != null
-          ? resourceId === NONE_RESOURCE
-            ? null
-            : String(resourceId)
-          : undefined
-      void persistMove(event, new Date(start), new Date(end), !!isAllDay, newSucursal)
+    async ({ event, start, end, isAllDay, resourceId }) => {
+      const s = new Date(start)
+      const e = new Date(end)
+      const rid =
+        resourceId != null ? (resourceId === NONE_RESOURCE ? null : String(resourceId)) : undefined
+
+      // Dragging between columns reassigns that dimension.
+      if (columnMode === 'sucursal') {
+        void persistMove(event, s, e, !!isAllDay, rid)
+        return
+      }
+      if (columnMode === 'professional') {
+        void persistMove(event, s, e, !!isAllDay, undefined, rid)
+        return
+      }
+
+      // Plain reprogramación: keep the sucursal if it still matches availability;
+      // otherwise switch to the only open one, ask if several, block if none.
+      const slug = event.treatmentSlug
+      if (slug && !isAllDay && availRules.length > 0) {
+        const ds = toDateInput(s)
+        const prof = event.professionalId ?? undefined
+        const openSucs: string[] = SUCURSALES.filter(
+          (suc) => availabilityFor(ds, suc, slug, availRules, availExclusions, prof).open,
+        )
+        if (event.sucursal && openSucs.includes(event.sucursal)) {
+          void persistMove(event, s, e, !!isAllDay)
+          return
+        }
+        if (openSucs.length === 1) {
+          void persistMove(event, s, e, !!isAllDay, openSucs[0])
+          return
+        }
+        if (openSucs.length > 1) {
+          const res = await Swal.fire({
+            title: t('agenda.pickSucursalTitle'),
+            input: 'select',
+            inputOptions: Object.fromEntries(openSucs.map((x) => [x, sucursalLabel(x)])),
+            showCancelButton: true,
+            confirmButtonText: t('autoGestion.availability.save'),
+            cancelButtonText: t('autoGestion.availability.cancel'),
+            confirmButtonColor: '#5d87ff',
+          })
+          if (res.isConfirmed && res.value) void persistMove(event, s, e, !!isAllDay, String(res.value))
+          return // cancel → no move (reverts)
+        }
+        await Swal.fire({
+          icon: 'warning',
+          title: t('agenda.noAvailabilityTitle'),
+          text: t('agenda.noAvailabilityBody'),
+          confirmButtonColor: '#5d87ff',
+        })
+        return // invalid combination → do not save
+      }
+
+      void persistMove(event, s, e, !!isAllDay)
     },
-    [persistMove, resourceMode],
+    [persistMove, columnMode, availRules, availExclusions, t],
   )
 
   const onEventResize = useCallback<
@@ -1239,15 +1406,12 @@ export function CalendarView() {
           {isProfesional ? (
             <span className='text-sm font-medium text-primary'>{t('agendaCal.myAgenda')}</span>
           ) : (
-            <select
-              value={professionalFilter}
-              onChange={(e) => setProfessionalFilter(e.target.value)}
-              className='pl-2.5 pr-9 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
-              <option value=''>{t('agendaCal.allProfessionals')}</option>
-              {professionals.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
+            <MultiSelect
+              options={professionals}
+              selected={professionalFilterIds}
+              onChange={setProfessionalFilterIds}
+              allLabel={t('agendaCal.allProfessionals')}
+            />
           )}
         </div>
         <div className='flex items-center gap-2'>
@@ -1266,28 +1430,27 @@ export function CalendarView() {
         <div className='flex items-center gap-2'>
           <Icon icon='solar:magic-stick-3-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
           <span className='text-xs font-medium text-link dark:text-darklink'>{t('turno.treatment')}:</span>
+          <MultiSelect
+            options={treatments}
+            selected={treatmentFilterSlugs}
+            onChange={setTreatmentFilterSlugs}
+            allLabel={t('agendaCal.allTreatments')}
+          />
+        </div>
+        {/* Columns mode: none, one column per sucursal, or one per profesional
+            (Day view). Dragging a turno between columns reassigns that field. */}
+        <div className='flex items-center gap-2'>
+          <Icon icon='solar:layers-minimalistic-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
+          <span className='text-xs font-medium text-link dark:text-darklink'>{t('agenda.columns')}:</span>
           <select
-            value={treatmentFilter}
-            onChange={(e) => setTreatmentFilter(e.target.value)}
+            value={columnMode}
+            onChange={(e) => setColumnMode(e.target.value as 'none' | 'sucursal' | 'professional')}
             className='pl-2.5 pr-9 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
-            <option value=''>{t('agendaCal.allTreatments')}</option>
-            {treatments.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
+            <option value='none'>{t('agenda.columnsNone')}</option>
+            <option value='sucursal'>{t('agenda.columnsBySucursal')}</option>
+            <option value='professional'>{t('agenda.columnsByProfessional')}</option>
           </select>
         </div>
-        {/* Columns-by-branch toggle: switches the Day view into one column per
-            sucursal so a turno can be dragged between branches to reassign it. */}
-        <label className='flex items-center gap-2 cursor-pointer select-none'>
-          <input
-            type='checkbox'
-            checked={resourceMode}
-            onChange={(e) => setResourceMode(e.target.checked)}
-            className='h-4 w-4 rounded border-border dark:border-darkborder text-primary focus:ring-primary'
-          />
-          <Icon icon='solar:layers-minimalistic-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
-          <span className='text-xs font-medium text-link dark:text-darklink'>{t('agenda.bySucursal')}</span>
-        </label>
         <div className='flex items-center gap-2'>
           <Icon icon='solar:clock-square-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
           <span className='text-xs font-medium text-link dark:text-darklink'>{t('agenda.scale')}:</span>
@@ -1320,13 +1483,13 @@ export function CalendarView() {
         events={calendarEvents}
         startAccessor='start'
         endAccessor='end'
-        view={resourceMode ? Views.DAY : view}
+        view={inColumns ? Views.DAY : view}
         onView={setView}
         date={date}
         onNavigate={setDate}
         views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
-        {...(resourceMode && {
-          resources: sucursalResources,
+        {...(inColumns && {
+          resources,
           resourceIdAccessor: (item: object) =>
             (item as { resourceId?: string }).resourceId ?? NONE_RESOURCE,
           resourceTitleAccessor: (item: object) =>
@@ -1391,29 +1554,31 @@ export function CalendarView() {
               )}
             </div>
           ),
-          // Month view: overlay a coloured dot per open sucursal ("Todas" mode).
+          // Month view ("Todas"): soft-tint the day cell with the open sucursal
+          // colour(s) — a single soft fill, or thin stripes when several sedes
+          // are open that day. Turnos render above with their status colour.
           dateCellWrapper: (props: { children: ReactElement; value: Date }) => {
             const markers = dayMarkers(props.value)
             const el = props.children as ReactElement<{
               style?: CSSProperties
               children?: ReactNode
+              title?: string
             }>
             if (markers.length === 0) return el
-            return cloneElement(
-              el,
-              { style: { ...(el.props.style ?? {}), position: 'relative' } },
-              el.props.children,
-              <div key='mk' className='pointer-events-none absolute bottom-1 left-1 flex gap-1'>
-                {markers.map((m) => (
-                  <span
-                    key={m.sucursal}
-                    title={sucursalLabel(m.sucursal)}
-                    className='h-2.5 w-2.5 rounded-full ring-1 ring-white/70 dark:ring-black/30'
-                    style={{ backgroundColor: m.color }}
-                  />
-                ))}
-              </div>,
-            )
+            const n = markers.length
+            const background =
+              n === 1
+                ? hexToRgba(markers[0]!.color, 0.16)
+                : `linear-gradient(135deg, ${markers
+                    .map(
+                      (m, i) =>
+                        `${hexToRgba(m.color, 0.16)} ${Math.round((i / n) * 100)}% ${Math.round(((i + 1) / n) * 100)}%`,
+                    )
+                    .join(', ')})`
+            return cloneElement(el, {
+              style: { ...(el.props.style ?? {}), background },
+              title: markers.map((m) => sucursalLabel(m.sucursal)).join(' · '),
+            })
           },
           // Week/Day: coloured dots per open sucursal in each day-column header.
           week: { header: dayHeader },
