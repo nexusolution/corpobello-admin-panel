@@ -181,13 +181,19 @@ function ensureStarted() {
     setState({ ...EMPTY })
     return
   }
-  getSupabase().auth.onAuthStateChange((event) => {
+  getSupabase().auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') {
       setState({ ...EMPTY })
       return
     }
-    // SIGNED_IN / USER_UPDATED / TOKEN_REFRESHED / INITIAL_SESSION: clear the
-    // previous identity immediately, then re-fetch the current one.
+    // Supabase fires SIGNED_IN / TOKEN_REFRESHED / INITIAL_SESSION on every tab
+    // refocus and on the hourly token refresh. If it's the SAME user, do NOT
+    // flush the identity — doing so flipped every consumer (sidebar, header,
+    // role-gated pages) back to its loading skeleton, which looked like the page
+    // reloading on each tab switch or minor change. Only reset + refetch when the
+    // signed-in user actually changes.
+    const newId = session?.user?.id ?? null
+    if (newId && newId === state.userId) return
     setState({ ...EMPTY, loading: true })
     void load()
   })
