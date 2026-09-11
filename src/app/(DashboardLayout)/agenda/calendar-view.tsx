@@ -941,7 +941,9 @@ export function CalendarView() {
   // view uses the closed-day shading instead. Feriados/closures drop the branch.
   const dayMarkers = useCallback(
     (d: Date): { sucursal: string; color: string }[] => {
-      if (sucursalFilter) return []
+      // Only in all-branches mode; in resource-columns mode the columns already
+      // are the sucursales, so dots would be redundant.
+      if (sucursalFilter || resourceMode) return []
       const ds = toDateInput(d)
       return SUCURSALES.filter((suc) => {
         const w = treatmentFilter
@@ -950,7 +952,32 @@ export function CalendarView() {
         return w.open
       }).map((suc) => ({ sucursal: suc, color: sucursalColor(suc) }))
     },
-    [sucursalFilter, treatmentFilter, availRules, availExclusions, catalogSlugs],
+    [sucursalFilter, resourceMode, treatmentFilter, availRules, availExclusions, catalogSlugs],
+  )
+
+  // Week/Day column header: default label + a coloured dot per open sucursal.
+  const dayHeader = useCallback(
+    ({ date, label }: { date: Date; label: string }) => {
+      const markers = dayMarkers(date)
+      return (
+        <div className='flex flex-col items-center gap-0.5 py-0.5'>
+          <span>{label}</span>
+          {markers.length > 0 && (
+            <span className='flex gap-1'>
+              {markers.map((m) => (
+                <span
+                  key={m.sucursal}
+                  title={sucursalLabel(m.sucursal)}
+                  className='h-2 w-2 rounded-full'
+                  style={{ backgroundColor: m.color }}
+                />
+              ))}
+            </span>
+          )}
+        </div>
+      )
+    },
+    [dayMarkers],
   )
 
   // Shade whole days the branch is closed (per rules) OR blocked (feriado).
@@ -1310,6 +1337,9 @@ export function CalendarView() {
               </div>,
             )
           },
+          // Week/Day: coloured dots per open sucursal in each day-column header.
+          week: { header: dayHeader },
+          day: { header: dayHeader },
         }}
       />
 
