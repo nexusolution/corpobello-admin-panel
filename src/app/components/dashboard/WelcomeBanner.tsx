@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Icon } from '@iconify/react'
 
 import { Card } from '@/components/ui/card'
@@ -22,6 +23,32 @@ const TODAYS_LOAD: Record<string, number> = {
   facial: 0,
 }
 
+// Three-dot progress indicator (first one active) — mirrors the sample cards.
+function Dots({ color }: { color: string }) {
+  return (
+    <span className='flex items-center gap-1 shrink-0'>
+      <span className={`h-1.5 w-4 rounded-full ${color}`} />
+      <span className='h-1.5 w-1.5 rounded-full bg-black/15 dark:bg-white/25' />
+      <span className='h-1.5 w-1.5 rounded-full bg-black/15 dark:bg-white/25' />
+    </span>
+  )
+}
+
+// One stat line: a "›" chevron badge + value + muted label (sample format).
+function StatRow({ value, label }: { value: string; label: string }) {
+  return (
+    <div className='flex items-center gap-2 min-w-0'>
+      <span className='inline-flex items-center justify-center h-5 w-5 rounded bg-white/70 dark:bg-white/10 shrink-0'>
+        <Icon icon='tabler:chevron-right' height={13} width={13} className='text-link dark:text-darklink' />
+      </span>
+      <span className='truncate text-sm text-dark dark:text-white'>
+        <span className='font-semibold'>{value}</span>{' '}
+        <span className='text-link dark:text-darklink'>{label}</span>
+      </span>
+    </div>
+  )
+}
+
 // showFinancials gates the economic KPIs (daily income + pending charges) so
 // non-admin roles never see clinic billing (Andrés' rule: Operador/Profesional
 // must not see facturación). Default true (admin/superset view).
@@ -32,104 +59,103 @@ export function WelcomeBanner({
 } = {}) {
   const { t } = useTranslation()
 
-  // Only render chips for categories with at least 1 scheduled today.
+  // Only chips for categories with at least 1 scheduled today.
   const treatmentChips = TREATMENT_SLUGS_ORDERED.filter(
     (slug) => (TODAYS_LOAD[slug] ?? 0) > 0
   )
+  const totalTurnos = treatmentChips.reduce((sum, slug) => sum + (TODAYS_LOAD[slug] ?? 0), 0)
 
   return (
     <Card className='!rounded-md !p-0 bg-lightprimary dark:bg-lightprimary border-0 relative overflow-hidden h-full'>
       <div className='flex flex-col md:flex-row items-stretch h-full'>
-        {/* Left half — Today at a glance (KPIs) */}
-        <div className='flex-1 min-w-0 p-6 flex flex-col justify-center border-b md:border-b-0 md:border-r border-white/40 dark:border-white/10'>
-          <h2 className='text-lg sm:text-xl font-semibold text-dark dark:text-white mb-5'>
-            {t('welcome.title')}
-          </h2>
+        {/* Left panel — Today at a glance */}
+        <div className='flex-1 min-w-0 p-6 flex flex-col border-b md:border-b-0 md:border-r border-white/40 dark:border-white/10'>
+          <div className='flex items-start justify-between gap-2 mb-4'>
+            <div className='min-w-0'>
+              <h2 className='text-lg font-semibold text-dark dark:text-white'>{t('welcome.title')}</h2>
+              <p className='text-xs text-link dark:text-darklink mt-0.5'>{t('welcome.subtitle')}</p>
+            </div>
+            <Dots color='bg-primary' />
+          </div>
 
-          <div className='flex flex-wrap gap-x-8 gap-y-4'>
-            <div className='min-w-[80px]'>
-              <div className='text-xl sm:text-2xl font-bold text-dark dark:text-white'>
-                2
-              </div>
-              <div className='text-xs text-link dark:text-darklink mt-0.5'>
-                {t('welcome.patientsAttended')}
-              </div>
+          <div className='flex items-center gap-4 flex-1'>
+            <div className='h-14 w-14 rounded-full bg-white/70 dark:bg-white/10 flex items-center justify-center shrink-0'>
+              <Icon icon='solar:chart-square-line-duotone' height={28} width={28} className='text-primary' />
             </div>
-            <div className='min-w-[80px]'>
-              <div className='text-xl sm:text-2xl font-bold text-dark dark:text-white'>
-                1
-              </div>
-              <div className='text-xs text-link dark:text-darklink mt-0.5'>
-                {t('welcome.cancellations')}
-              </div>
+            <div className='grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 min-w-0'>
+              <StatRow value='2' label={t('welcome.patientsAttended')} />
+              <StatRow value='1' label={t('welcome.cancellations')} />
+              {showFinancials && (
+                <>
+                  <StatRow value='$84.500' label={t('welcome.dailyIncome')} />
+                  <StatRow value='$31.000' label={t('welcome.pendingCharges')} />
+                </>
+              )}
             </div>
+          </div>
+
+          <div className='flex items-center gap-2 mt-5'>
+            <Link
+              href='/agenda'
+              className='px-3 py-1.5 rounded-md text-sm font-medium bg-white/70 dark:bg-white/10 text-dark dark:text-white hover:bg-white transition-colors'>
+              {t('welcome.viewAgenda')}
+            </Link>
             {showFinancials && (
-              <>
-                <div className='min-w-[110px]'>
-                  <div className='flex items-center gap-1.5'>
-                    <span className='text-xl sm:text-2xl font-bold text-success whitespace-nowrap'>
-                      $84.500
-                    </span>
-                    <Icon
-                      icon='tabler:arrow-up-right'
-                      height={16}
-                      width={16}
-                      className='text-success shrink-0'
-                    />
-                  </div>
-                  <div className='text-xs text-link dark:text-darklink mt-0.5'>
-                    {t('welcome.dailyIncome')}
-                  </div>
-                </div>
-                <div className='min-w-[100px]'>
-                  <div className='text-xl sm:text-2xl font-bold text-warning whitespace-nowrap'>
-                    $31.000
-                  </div>
-                  <div className='text-xs text-link dark:text-darklink mt-0.5'>
-                    {t('welcome.pendingCharges')}
-                  </div>
-                </div>
-              </>
+              <Link
+                href='/caja'
+                className='px-3 py-1.5 rounded-md text-sm font-medium bg-primary text-white hover:bg-primaryemphasis transition-colors'>
+                {t('welcome.viewCaja')}
+              </Link>
             )}
           </div>
         </div>
 
-        {/* Right half — Today's workload (treatment chip row), vertically
-            centered to line up with the "Today at a glance" column beside it. */}
-        <div className='flex-1 min-w-0 p-6 flex flex-col justify-center'>
-          <h2 className='text-lg sm:text-xl font-semibold text-dark dark:text-white mb-5'>
-            {t('treatments.summary.title')}
-          </h2>
+        {/* Right panel — Today's workload */}
+        <div className='flex-1 min-w-0 p-6 flex flex-col'>
+          <div className='flex items-start justify-between gap-2 mb-4'>
+            <div className='min-w-0'>
+              <h2 className='text-lg font-semibold text-dark dark:text-white'>
+                {t('treatments.summary.title')}
+              </h2>
+              <p className='text-xs text-link dark:text-darklink mt-0.5'>
+                {t('treatments.summary.subtitle', { n: String(totalTurnos) })}
+              </p>
+            </div>
+            <Dots color='bg-secondary' />
+          </div>
 
           {treatmentChips.length === 0 ? (
-            <p className='text-sm text-link dark:text-darklink italic'>
+            <p className='text-sm text-link dark:text-darklink italic flex-1'>
               {t('treatments.summary.empty')}
             </p>
           ) : (
-            <div className='flex flex-col gap-3'>
-              {treatmentChips.map((slug) => {
-                const color = getTreatmentColorBySlug(slug)
-                return (
-                  <div key={slug} className='flex items-center gap-3'>
-                    <Icon
-                      icon={color.icon}
-                      height={28}
-                      width={28}
-                      className={`shrink-0 ${color.textClass}`}
+            <div className='flex items-center gap-4 flex-1'>
+              <div className='h-14 w-14 rounded-full bg-white/70 dark:bg-white/10 flex items-center justify-center shrink-0'>
+                <Icon icon='solar:stethoscope-line-duotone' height={28} width={28} className='text-secondary' />
+              </div>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 min-w-0'>
+                {treatmentChips.map((slug) => {
+                  const color = getTreatmentColorBySlug(slug)
+                  return (
+                    <StatRow
+                      key={slug}
+                      value={String(TODAYS_LOAD[slug])}
+                      label={t(color.labelKey as TranslationKey)}
                     />
-                    <span className={`text-base font-bold ${color.textClass}`}>
-                      {TODAYS_LOAD[slug]}
-                    </span>
-                    <span className='text-sm text-dark dark:text-white'>
-                      {t(color.labelKey as TranslationKey)}
-                    </span>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
           )}
-        </div>
 
+          <div className='flex items-center gap-2 mt-5'>
+            <Link
+              href='/agenda'
+              className='px-3 py-1.5 rounded-md text-sm font-medium bg-secondary text-white hover:brightness-95 transition-colors'>
+              {t('treatments.summary.openAgenda')}
+            </Link>
+          </div>
+        </div>
       </div>
     </Card>
   )
