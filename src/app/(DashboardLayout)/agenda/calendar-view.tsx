@@ -1549,6 +1549,13 @@ export function CalendarView() {
     [t],
   )
 
+  // Week/Day open scrolled to 08:00 so morning turnos are visible without scrolling.
+  const scrollToTime = useMemo(() => {
+    const d = new Date()
+    d.setHours(8, 0, 0, 0)
+    return d
+  }, [])
+
   // Stable RBC components — identities never change (volatile data read via the
   // refs above), so toggling a filter re-renders cells WITHOUT remounting the
   // toolbar/cells (which was the "Nuevo evento" + month + cells blink).
@@ -1779,6 +1786,13 @@ export function CalendarView() {
         onView={setView}
         date={date}
         onNavigate={setDate}
+        // Clicking a day number in Month opens that day's Day view.
+        onDrillDown={(d: Date) => {
+          setDate(d)
+          setView(Views.DAY)
+        }}
+        // Week/Day start scrolled to the morning so turnos are visible at once.
+        scrollToTime={scrollToTime}
         views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
         {...(inColumns && {
           resources,

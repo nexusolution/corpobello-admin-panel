@@ -53,8 +53,8 @@ export function WelcomeBanner({
             {t('welcome.title')}
           </h2>
 
-          <div className='grid grid-cols-2 gap-x-6 gap-y-4'>
-            <div>
+          <div className='flex flex-wrap gap-x-8 gap-y-4'>
+            <div className='min-w-[80px]'>
               <div className='text-xl sm:text-2xl font-bold text-dark dark:text-white'>
                 2
               </div>
@@ -62,7 +62,7 @@ export function WelcomeBanner({
                 {t('welcome.patientsAttended')}
               </div>
             </div>
-            <div>
+            <div className='min-w-[80px]'>
               <div className='text-xl sm:text-2xl font-bold text-dark dark:text-white'>
                 1
               </div>
@@ -72,24 +72,24 @@ export function WelcomeBanner({
             </div>
             {showFinancials && (
               <>
-                <div>
+                <div className='min-w-[110px]'>
                   <div className='flex items-center gap-1.5'>
-                    <span className='text-xl sm:text-2xl font-bold text-success'>
+                    <span className='text-xl sm:text-2xl font-bold text-success whitespace-nowrap'>
                       $84.500
                     </span>
                     <Icon
                       icon='tabler:arrow-up-right'
                       height={16}
                       width={16}
-                      className='text-success'
+                      className='text-success shrink-0'
                     />
                   </div>
                   <div className='text-xs text-link dark:text-darklink mt-0.5'>
                     {t('welcome.dailyIncome')}
                   </div>
                 </div>
-                <div>
-                  <div className='text-xl sm:text-2xl font-bold text-warning'>
+                <div className='min-w-[100px]'>
+                  <div className='text-xl sm:text-2xl font-bold text-warning whitespace-nowrap'>
                     $31.000
                   </div>
                   <div className='text-xs text-link dark:text-darklink mt-0.5'>
