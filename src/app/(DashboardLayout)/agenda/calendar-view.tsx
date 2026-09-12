@@ -469,6 +469,61 @@ function StatusSelect({
   )
 }
 
+// Treatment picker with a colour dot per tratamiento (same colour as the agenda
+// left bar). Native <option> can't be coloured, so a small popup like the estado.
+function TreatmentSelect({
+  value,
+  options,
+  onChange,
+  t,
+}: {
+  value: string
+  options: Option[]
+  onChange: (v: string) => void
+  t: TFn
+}) {
+  const [open, setOpen] = useState(false)
+  const current = options.find((o) => o.value === value)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type='button' className={`${SELECT_CLS} flex items-center justify-between gap-2 text-left`}>
+          <span className='flex items-center gap-2 truncate'>
+            {value && (
+              <span
+                className='h-2.5 w-2.5 rounded-sm shrink-0'
+                style={{ backgroundColor: getTreatmentColorBySlug(value).hex }}
+              />
+            )}
+            <span className='truncate'>{current ? current.label : t('turno.none')}</span>
+          </span>
+          <Icon icon='tabler:chevron-down' height={15} width={15} className='text-link dark:text-darklink shrink-0' />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className='w-[260px] p-1' align='start'>
+        <div className='max-h-72 overflow-y-auto'>
+          <button
+            type='button'
+            onClick={() => { onChange(''); setOpen(false) }}
+            className={`w-full text-left px-2.5 py-1.5 rounded text-sm hover:bg-lightprimary text-dark dark:text-white ${value === '' ? 'bg-lightprimary/60' : ''}`}>
+            {t('turno.none')}
+          </button>
+          {options.map((o) => (
+            <button
+              key={o.value}
+              type='button'
+              onClick={() => { onChange(o.value); setOpen(false) }}
+              className={`w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded text-sm hover:bg-lightprimary text-dark dark:text-white ${o.value === value ? 'bg-lightprimary/60' : ''}`}>
+              <span className='h-2.5 w-2.5 rounded-sm shrink-0' style={{ backgroundColor: getTreatmentColorBySlug(o.value).hex }} />
+              <span className='truncate'>{o.label}</span>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 function EventDialog({
   draft,
   treatments,
@@ -476,6 +531,8 @@ function EventDialog({
   rules,
   exclusions,
   catalogSlugs,
+  backDate,
+  backView,
   onClose,
   onSaved,
   onCloseSession,
@@ -487,6 +544,8 @@ function EventDialog({
   rules: AvailabilityRule[]
   exclusions: AvailabilityExclusion[]
   catalogSlugs: string[]
+  backDate: string
+  backView: string
   onClose: () => void
   onSaved: () => void
   // Open the clinical evolution form pre-linked to this turno ("Cerrar sesión").
@@ -698,7 +757,11 @@ function EventDialog({
                 {patientId && (
                   <button
                     type='button'
-                    onClick={() => router.push(`/pacientes/${patientId}`)}
+                    onClick={() =>
+                      router.push(
+                        `/pacientes/${patientId}?from=agenda&date=${backDate}&view=${backView}`,
+                      )
+                    }
                     className='inline-flex items-center gap-1 text-primary hover:underline font-medium shrink-0'>
                     <Icon icon='solar:user-id-line-duotone' height={14} width={14} />
                     {t('turno.viewFicha')}
@@ -722,19 +785,15 @@ function EventDialog({
           <div className='grid grid-cols-2 gap-3'>
             <label className='block'>
               <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.treatment')}</span>
-              <select
+              <TreatmentSelect
                 value={treatmentSlug}
-                onChange={(e) => {
-                  const v = e.target.value
+                options={treatments}
+                onChange={(v) => {
                   setTreatmentSlug(v)
                   applyAutoDuration(v, firstSession)
                 }}
-                className={SELECT_CLS}>
-                <option value=''>{t('turno.none')}</option>
-                {treatments.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+                t={t}
+              />
             </label>
             <label className='block'>
               <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.professional')}</span>
@@ -770,22 +829,35 @@ function EventDialog({
             <span className='text-sm text-dark dark:text-white'>{t('turno.allDay')}</span>
           </label>
 
-          <div className='grid grid-cols-2 gap-3'>
+          {allDay ? (
+            // Multi-day range (feriados/bloqueos/eventos de varios días).
+            <div className='grid grid-cols-2 gap-3'>
+              <DateField
+                label={t('agendaCal.fieldStart')}
+                value={startStr}
+                onChange={(v) => {
+                  setStartStr(v)
+                  if (endStr < v) setEndStr(v)
+                }}
+              />
+              <DateField
+                label={t('agendaCal.fieldEnd')}
+                value={endStr}
+                min={startStr}
+                onChange={setEndStr}
+              />
+            </div>
+          ) : (
+            // Normal turno: a single date + hora inicio/fin (Andrés 2026-09-12).
             <DateField
-              label={t('agendaCal.fieldStart')}
+              label={t('turno.date')}
               value={startStr}
               onChange={(v) => {
                 setStartStr(v)
-                if (endStr < v) setEndStr(v)
+                setEndStr(v)
               }}
             />
-            <DateField
-              label={t('agendaCal.fieldEnd')}
-              value={endStr}
-              min={startStr}
-              onChange={setEndStr}
-            />
-          </div>
+          )}
 
           {!allDay && (
             <div className='grid grid-cols-2 gap-3'>
@@ -930,8 +1002,17 @@ export function CalendarView() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [view, setView] = useState<View>(Views.MONTH)
-  const [date, setDate] = useState<Date>(() => new Date())
+  // Restore date/view from the URL (?date=&view=) when returning from a ficha.
+  const [view, setView] = useState<View>(() => {
+    if (typeof window === 'undefined') return Views.MONTH
+    const v = new URLSearchParams(window.location.search).get('view')
+    return v === 'week' || v === 'day' || v === 'agenda' || v === 'month' ? (v as View) : Views.MONTH
+  })
+  const [date, setDate] = useState<Date>(() => {
+    if (typeof window === 'undefined') return new Date()
+    const d = new URLSearchParams(window.location.search).get('date')
+    return d ? new Date(`${d}T00:00:00`) : new Date()
+  })
   const [draft, setDraft] = useState<Draft | null>(null)
   // When set, the clinical evolution form opens pre-linked to a turno ("Cerrar
   // sesión"). Reuses the ficha's EvolucionForm (agenda ↔ ficha integration).
@@ -1745,6 +1826,8 @@ export function CalendarView() {
           rules={availRules}
           exclusions={availExclusions}
           catalogSlugs={catalogSlugs}
+          backDate={toDateInput(date)}
+          backView={view}
           onClose={() => setDraft(null)}
           onSaved={() => {
             setDraft(null)

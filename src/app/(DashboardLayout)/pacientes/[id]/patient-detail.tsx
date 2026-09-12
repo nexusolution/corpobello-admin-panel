@@ -1141,14 +1141,28 @@ export function PatientDetail({ id }: { id: string }) {
 
   const c = detail.contact
 
+  // Where "back" goes: if we arrived from a turno (?from=agenda) return to the
+  // agenda at the same date/view; otherwise to the patients list (Andrés 2026-09-12).
+  const backNav = (() => {
+    if (typeof window === 'undefined') return { href: '/pacientes', label: t('patientDetail.breadcrumb') }
+    const p = new URLSearchParams(window.location.search)
+    if (p.get('from') === 'agenda') {
+      const d = p.get('date') ?? ''
+      const v = p.get('view') ?? 'month'
+      return { href: `/agenda?date=${encodeURIComponent(d)}&view=${encodeURIComponent(v)}`, label: t('patientDetail.backToAgenda') }
+    }
+    return { href: '/pacientes', label: t('patientDetail.breadcrumb') }
+  })()
+
   return (
     <div className='space-y-6'>
       {/* Header */}
       <div className='flex items-center gap-3'>
         <button
           type='button'
-          onClick={() => router.push('/pacientes')}
-          aria-label={t('patientDetail.back')}
+          onClick={() => router.push(backNav.href)}
+          aria-label={backNav.label}
+          title={backNav.label}
           className='h-10 w-10 inline-flex items-center justify-center rounded-md border border-border dark:border-darkborder text-link dark:text-darklink hover:text-primary hover:border-primary transition-colors'>
           <Icon icon='tabler:arrow-left' height={18} width={18} />
         </button>
@@ -1158,7 +1172,7 @@ export function PatientDetail({ id }: { id: string }) {
         <div className='min-w-0'>
           <h1 className='text-xl font-semibold text-dark dark:text-white leading-tight truncate'>{c.fullName}</h1>
           <div className='flex items-center gap-1.5 text-xs text-link dark:text-darklink mt-1'>
-            <Link href='/pacientes' className='hover:text-primary transition-colors'>{t('patientDetail.breadcrumb')}</Link>
+            <Link href={backNav.href} className='hover:text-primary transition-colors'>{backNav.label}</Link>
             <Icon icon='tabler:chevron-right' height={12} width={12} />
             <span className='text-dark dark:text-white font-medium truncate'>{c.fullName}</span>
           </div>
