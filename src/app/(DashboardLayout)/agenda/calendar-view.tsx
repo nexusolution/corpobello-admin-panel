@@ -970,8 +970,10 @@ export function CalendarView() {
   moment.locale(locale)
   const localizer = useMemo(() => momentLocalizer(moment), [locale])
 
+  // Refresh events in place. Does NOT flip `loading` (only the initial mount
+  // shows the spinner) — otherwise every save/drag unmounted the calendar and
+  // flashed the spinner, which looked like a full page reload.
   const reload = useCallback(() => {
-    setLoading(true)
     void fetchCalendarEvents().then(({ data, error }) => {
       setEvents(data)
       setLoadError(error)
@@ -1395,6 +1397,9 @@ export function CalendarView() {
             confirmButtonText: t('autoGestion.availability.save'),
             cancelButtonText: t('autoGestion.availability.cancel'),
             confirmButtonColor: '#5d87ff',
+            width: '360px',
+            padding: '1rem',
+            customClass: { title: '!text-base', htmlContainer: '!text-sm' },
           })
           if (res.isConfirmed && res.value) void persistMove(event, s, e, !!isAllDay, String(res.value))
           return // cancel → no move (reverts)
@@ -1404,6 +1409,15 @@ export function CalendarView() {
           title: t('agenda.noAvailabilityTitle'),
           text: t('agenda.noAvailabilityBody'),
           confirmButtonColor: '#5d87ff',
+          width: '360px',
+          padding: '1rem',
+          customClass: {
+            title: '!text-base !pb-0',
+            htmlContainer: '!text-sm !mt-1',
+            icon: '!w-12 !h-12 !mt-2 !mb-1 [&_.swal2-icon-content]:!text-2xl',
+            confirmButton: '!text-sm !px-4 !py-1.5',
+            popup: '!rounded-lg',
+          },
         })
         return // invalid combination → do not save
       }
@@ -1488,7 +1502,7 @@ export function CalendarView() {
             }}
           />
           <div className='flex flex-col leading-tight min-w-0 flex-1 overflow-hidden'>
-            <span className='flex items-center justify-between gap-1'>
+            <span className='flex items-center justify-between gap-1 pr-3'>
               <span className='truncate font-medium'>
                 {isExpiredReserva(event) && <span title={t('agendaCal.expiredMark')}>⏳ </span>}
                 {event.title}
