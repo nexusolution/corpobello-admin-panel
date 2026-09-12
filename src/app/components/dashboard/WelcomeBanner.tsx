@@ -130,16 +130,6 @@ export function WelcomeBanner({
           )}
         </div>
 
-        {/* Discrete brand mark instead of the old decorative illustration —
-            keeps the dashboard clean/operative (Andrés' ask) while still
-            carrying Corpo Bello's identity. Hidden on small screens. */}
-        <div className='hidden lg:flex items-center justify-center shrink-0 w-[200px] xl:w-[240px] px-6'>
-          <img
-            src='/images/logos/logo.webp'
-            alt='Corpo Bello'
-            className='w-full max-w-[160px] h-auto opacity-70 dark:opacity-90 dark:brightness-0 dark:invert'
-          />
-        </div>
       </div>
     </Card>
   )

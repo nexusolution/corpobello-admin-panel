@@ -125,7 +125,19 @@ const QuickAccess = () => {
 
   return (
     <CardBox className='h-full w-full'>
-      <div className='grid grid-cols-2 gap-2'>
+      <div className='flex items-stretch gap-5 h-full'>
+        {/* Brand half — discrete Corpo Bello mark (Andrés: clean/operative, keep
+            the identity). Hidden on narrow screens so the tiles get the width. */}
+        <div className='hidden md:flex items-center justify-center shrink-0 w-[180px] xl:w-[220px] border-r border-border dark:border-darkborder pr-5'>
+          <img
+            src='/images/logos/logo.webp'
+            alt='Corpo Bello'
+            className='w-full max-w-[150px] h-auto opacity-80 dark:brightness-0 dark:invert'
+          />
+        </div>
+
+        {/* Actions half */}
+        <div className='grid grid-cols-2 gap-2 flex-1 content-center'>
         {tiles.map((tile) => {
           const label = t(tile.labelKey)
           // Statistics is the highlighted CTA — span both columns so it stays
@@ -172,6 +184,7 @@ const QuickAccess = () => {
             </Link>
           )
         })}
+        </div>
       </div>
     </CardBox>
   )
