@@ -125,32 +125,39 @@ const QuickAccess = () => {
 
   return (
     <CardBox className='h-full w-full'>
-      <div className='grid grid-cols-2 gap-2'>
+      {/* Header — title + subtitle, mirroring the sample card. */}
+      <div className='mb-4'>
+        <h5 className='card-title'>{t('quickAccess.title')}</h5>
+        <p className='text-sm text-link dark:text-darklink mt-0.5'>{t('quickAccess.subtitle')}</p>
+      </div>
+
+      {/* Square tiles — icon on top, label below, dashed border; the CTA tile
+          (Estadísticas) is highlighted with a solid border + accent bar. */}
+      <div className='flex flex-wrap gap-3'>
         {tiles.map((tile) => {
           const label = t(tile.labelKey)
-          // Statistics is the highlighted CTA — span both columns so it stays
-          // visually distinct AND fills the otherwise-orphan last row (7 tiles
-          // in a 2-col grid would leave it alone otherwise).
-          const colSpan = tile.key === 'stats' ? 'col-span-2' : ''
+          const active = tile.key === 'stats'
           const inner = (
-            // title = full label so truncated names ("Inventario", "Reportes"…)
-            // reveal on hover (Andrés 2026-08-08, point #4).
+            // title = full label so a wrapped/long name reveals on hover.
             <div
               title={label}
-              className='flex items-center gap-3 px-3 py-2.5 rounded-md border border-border dark:border-darkborder hover:border-primary hover:bg-lightprimary/40 dark:hover:bg-lightprimary/20 transition-colors cursor-pointer'>
-              <div
-                className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${tile.iconBg} ${tile.iconColor}`}>
-                <Icon icon={tile.icon} height={18} width={18} />
-              </div>
-              <span className='text-sm font-medium text-dark dark:text-white flex-1 truncate'>
+              className={`relative flex flex-col items-center justify-center gap-2 w-[104px] h-[96px] p-2 rounded-lg text-center transition-colors cursor-pointer ${
+                active
+                  ? 'border border-solid border-primary/50 bg-lightprimary/30 dark:bg-lightprimary/10'
+                  : 'border border-dashed border-border dark:border-darkborder hover:border-solid hover:border-primary hover:bg-lightprimary/30 dark:hover:bg-lightprimary/10'
+              }`}>
+              <Icon
+                icon={tile.icon}
+                height={26}
+                width={26}
+                className={active ? 'text-primary' : tile.iconColor}
+              />
+              <span className='text-[11px] font-medium leading-tight text-dark dark:text-white'>
                 {label}
               </span>
-              <Icon
-                icon='tabler:chevron-right'
-                height={16}
-                width={16}
-                className='text-link dark:text-darklink opacity-60 shrink-0'
-              />
+              {active && (
+                <span className='absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-10 rounded-full bg-primary' />
+              )}
             </div>
           )
 
@@ -160,14 +167,14 @@ const QuickAccess = () => {
                 type='button'
                 key={tile.key}
                 onClick={() => showUnderDevelopmentAlert(label, t)}
-                className={`text-left ${colSpan}`}>
+                className='text-left'>
                 {inner}
               </button>
             )
           }
 
           return (
-            <Link key={tile.key} href={tile.url} className={`block ${colSpan}`}>
+            <Link key={tile.key} href={tile.url} className='block'>
               {inner}
             </Link>
           )
