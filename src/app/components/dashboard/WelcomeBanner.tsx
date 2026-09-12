@@ -38,7 +38,7 @@ function Dots({ color }: { color: string }) {
 function StatRow({ value, label }: { value: string; label: string }) {
   return (
     <div className='flex items-center gap-2 min-w-0'>
-      <span className='inline-flex items-center justify-center h-5 w-5 rounded bg-white/70 dark:bg-white/10 shrink-0'>
+      <span className='inline-flex items-center justify-center h-5 w-5 rounded bg-muted dark:bg-darkmuted/40 shrink-0'>
         <Icon icon='tabler:chevron-right' height={13} width={13} className='text-link dark:text-darklink' />
       </span>
       <span className='truncate text-sm text-dark dark:text-white'>
@@ -66,10 +66,10 @@ export function WelcomeBanner({
   const totalTurnos = treatmentChips.reduce((sum, slug) => sum + (TODAYS_LOAD[slug] ?? 0), 0)
 
   return (
-    <Card className='!rounded-md !p-0 bg-lightprimary dark:bg-lightprimary border-0 relative overflow-hidden h-full'>
+    <Card className='card !rounded-md !p-0 border border-defaultBorder shadow-sm relative overflow-hidden h-full'>
       <div className='flex flex-col md:flex-row items-stretch h-full'>
         {/* Left panel — Today at a glance */}
-        <div className='flex-1 min-w-0 p-6 flex flex-col border-b md:border-b-0 md:border-r border-white/40 dark:border-white/10'>
+        <div className='flex-1 min-w-0 p-6 flex flex-col border-b md:border-b-0 md:border-r border-border dark:border-darkborder'>
           <div className='flex items-start justify-between gap-2 mb-4'>
             <div className='min-w-0'>
               <h2 className='text-lg font-semibold text-dark dark:text-white'>{t('welcome.title')}</h2>
@@ -97,7 +97,7 @@ export function WelcomeBanner({
           <div className='flex items-center gap-2 mt-5'>
             <Link
               href='/agenda'
-              className='px-3 py-1.5 rounded-md text-sm font-medium bg-white/70 dark:bg-white/10 text-dark dark:text-white hover:bg-white transition-colors'>
+              className='px-3 py-1.5 rounded-md text-sm font-medium border border-border dark:border-darkborder text-dark dark:text-white hover:bg-muted/40 transition-colors'>
               {t('welcome.viewAgenda')}
             </Link>
             {showFinancials && (
