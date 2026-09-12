@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Icon } from '@iconify/react'
 import Swal from 'sweetalert2'
 import {
@@ -573,6 +574,22 @@ function SucursalSelect({
 
 const COLUMNS_PER_PAGE = 4
 
+// Dashboard "Requiere tu atención" deep-links land here with ?stage=<key>. Map
+// each attention key (or a raw lead status) to the Kanban column to focus, so a
+// click opens exactly those leads with a removable filter instead of the whole
+// board. Keys match TasksAttention's rows in components/dashboard/TasksAttention.
+const STAGE_PARAM_TO_STATUS: Record<string, LeadStatus> = {
+  awaitingDeposit: 'reservado',
+  followUp: 'sin_respuesta',
+  reservado: 'reservado',
+  sin_respuesta: 'sin_respuesta',
+  nuevo: 'nuevo',
+  en_conversacion: 'en_conversacion',
+  cotizado: 'cotizado',
+  comprobante: 'comprobante',
+  confirmado: 'confirmado',
+}
+
 // Centered board-level state: loading spinner, load error, or the friendly
 // "no leads yet" empty message shown when the bot hasn't produced any.
 function BoardMessage({
@@ -611,6 +628,14 @@ function BoardMessage({
 
 export function KanbanBoard() {
   const { t } = useTranslation()
+  const searchParams = useSearchParams()
+  // Focus a single stage when arrived from the dashboard's "Requiere tu
+  // atención" deep-link (?stage=…). Removable via the chip below the filters.
+  const [stageFilter, setStageFilter] = useState<LeadStatus | null>(null)
+  useEffect(() => {
+    const raw = searchParams.get('stage')
+    setStageFilter(raw ? STAGE_PARAM_TO_STATUS[raw] ?? null : null)
+  }, [searchParams])
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -706,7 +731,12 @@ export function KanbanBoard() {
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   )
 
-  const visibleColumns = COLUMNS.filter((c) => showSecondary || c.primary)
+  // When a stage deep-link is active, show only that column; otherwise the
+  // usual primary (+ secondary when toggled) columns.
+  const stageColumn = stageFilter ? COLUMNS.find((c) => c.id === stageFilter) ?? null : null
+  const visibleColumns = stageColumn
+    ? [stageColumn]
+    : COLUMNS.filter((c) => showSecondary || c.primary)
 
   // Paginate: show COLUMNS_PER_PAGE columns at a time
   const totalPages = Math.max(1, Math.ceil(visibleColumns.length / COLUMNS_PER_PAGE))
@@ -834,6 +864,23 @@ export function KanbanBoard() {
           </div>
         )}
       </div>
+
+      {/* Active stage filter chip (from a dashboard deep-link) — removable. */}
+      {stageColumn && (
+        <div className='flex items-center gap-2'>
+          <span className='text-xs text-link dark:text-darklink'>{t('kanban.filteredBy')}</span>
+          <span className='inline-flex items-center gap-2 pl-3 pr-2 py-1 rounded-full bg-lightprimary text-primary text-sm font-medium'>
+            {t(stageColumn.nameKey)}
+            <button
+              type='button'
+              aria-label={t('kanban.clearFilter')}
+              onClick={() => setStageFilter(null)}
+              className='h-5 w-5 flex items-center justify-center rounded-full hover:bg-primary/20 transition-colors'>
+              <Icon icon='tabler:x' height={13} width={13} />
+            </button>
+          </span>
+        </div>
+      )}
 
       {/* Board */}
       {loading ? (

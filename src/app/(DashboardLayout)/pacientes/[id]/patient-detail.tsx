@@ -20,6 +20,24 @@ import {
   type Evolucion,
 } from '@/lib/data/evoluciones'
 import { EvolucionForm } from './evolucion-form'
+import {
+  fetchPatientPacks,
+  fetchPackTurnos,
+  fetchPackConfigs,
+  createPatientPack,
+  updatePatientPack,
+  deletePatientPack,
+  packProgress,
+  turnoConsumesSession,
+  type PatientPack,
+  type PackTurno,
+  type TreatmentPackConfig,
+} from '@/lib/data/packs'
+import { fetchMenuOverrides } from '@/lib/data/menu-overrides'
+import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
+import { STATUS_LABEL_KEY, type TurnoStatus } from '@/lib/data/calendar-events'
+import { useCurrentUser } from '@/lib/auth/useCurrentUser'
+import Swal from 'sweetalert2'
 import { fetchPatientConsents, type Consent } from '@/lib/data/consents'
 import { ConsentForm } from './consent-form'
 import { ConsentSignDialog } from './consent-sign-dialog'
@@ -47,7 +65,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
-type TabKey = 'contact' | 'conversation' | 'quotes' | 'reservations' | 'ficha' | 'consents' | 'notes'
+type TabKey = 'contact' | 'conversation' | 'quotes' | 'reservations' | 'ficha' | 'packs' | 'consents' | 'notes'
 
 const TABS: { key: TabKey; labelKey: TranslationKey; icon: string }[] = [
   { key: 'contact', labelKey: 'patientDetail.tab.contact', icon: 'solar:user-circle-line-duotone' },
@@ -55,6 +73,7 @@ const TABS: { key: TabKey; labelKey: TranslationKey; icon: string }[] = [
   { key: 'quotes', labelKey: 'patientDetail.tab.quotes', icon: 'solar:bill-list-line-duotone' },
   { key: 'reservations', labelKey: 'patientDetail.tab.reservations', icon: 'solar:calendar-mark-line-duotone' },
   { key: 'ficha', labelKey: 'patientDetail.tab.ficha', icon: 'solar:notebook-line-duotone' },
+  { key: 'packs', labelKey: 'patientDetail.tab.packs', icon: 'solar:box-line-duotone' },
   { key: 'consents', labelKey: 'patientDetail.tab.consents', icon: 'solar:document-add-line-duotone' },
   { key: 'notes', labelKey: 'patientDetail.tab.notes', icon: 'solar:notes-line-duotone' },
 ]
@@ -792,6 +811,324 @@ function FichaTab({
   )
 }
 
+// ---------- Packs tab (Etapa 2 · 4x3 / 5x4) ----------
+
+function PacksTab({
+  patientId,
+  t,
+  locale,
+}: {
+  patientId: string
+  t: TFn
+  locale: string
+}) {
+  const { role } = useCurrentUser()
+  const isAdmin = role === 'admin'
+  const [packs, setPacks] = useState<PatientPack[]>([])
+  const [turnosByPack, setTurnosByPack] = useState<Record<string, PackTurno[]>>({})
+  const [configs, setConfigs] = useState<TreatmentPackConfig[]>([])
+  const [names, setNames] = useState<Map<string, string>>(new Map())
+  const [loading, setLoading] = useState(true)
+  const [addSlug, setAddSlug] = useState('')
+
+  const reload = useCallback(async () => {
+    setLoading(true)
+    const { data } = await fetchPatientPacks(patientId)
+    setPacks(data)
+    const entries = await Promise.all(
+      data.map(async (p) => [p.id, await fetchPackTurnos(p.id)] as const),
+    )
+    setTurnosByPack(Object.fromEntries(entries))
+    setLoading(false)
+  }, [patientId])
+
+  useEffect(() => {
+    void reload()
+  }, [reload])
+  useEffect(() => {
+    void fetchPackConfigs().then(({ data }) => setConfigs(data.filter((c) => c.active)))
+    void Promise.all([fetchMenuOverrides(), fetchTreatmentPrices()]).then(([mo, tp]) => {
+      const m = new Map<string, string>()
+      for (const x of mo.data) m.set(x.slug, x.displayName)
+      for (const x of tp.data) if (!m.has(x.slug)) m.set(x.slug, x.displayName)
+      setNames(m)
+    })
+  }, [])
+
+  const nameFor = useCallback((slug: string) => names.get(slug) ?? slug, [names])
+  const fmtDate = useCallback(
+    (iso: string) => new Date(iso).toLocaleDateString(locale === 'es' ? 'es-AR' : 'en-US'),
+    [locale],
+  )
+
+  async function addPack() {
+    if (!addSlug) return
+    const cfg = configs.find((c) => c.treatmentSlug === addSlug)
+    if (!cfg) return
+    const { error } = await createPatientPack({
+      patientId,
+      treatmentSlug: cfg.treatmentSlug,
+      totalSessions: cfg.totalSessions,
+      label: cfg.label,
+    })
+    if (error) {
+      await Swal.fire({ icon: 'error', title: t('patientDetail.packs.error'), text: error })
+      return
+    }
+    setAddSlug('')
+    await reload()
+  }
+
+  async function patch(id: string, p: Parameters<typeof updatePatientPack>[1]) {
+    const err = await updatePatientPack(id, p)
+    if (err) {
+      await Swal.fire({ icon: 'error', title: t('patientDetail.packs.error'), text: err })
+      return
+    }
+    await reload()
+  }
+
+  async function remove(id: string) {
+    const res = await Swal.fire({
+      icon: 'warning',
+      title: t('patientDetail.packs.deleteTitle'),
+      text: t('patientDetail.packs.deleteBody'),
+      showCancelButton: true,
+      confirmButtonText: t('patientDetail.packs.deleteConfirm'),
+      cancelButtonText: t('patientDetail.contact.cancel'),
+      confirmButtonColor: '#fa896b',
+    })
+    if (!res.isConfirmed) return
+    const err = await deletePatientPack(id)
+    if (err) {
+      await Swal.fire({ icon: 'error', title: t('patientDetail.packs.error'), text: err })
+      return
+    }
+    await reload()
+  }
+
+  if (loading) {
+    return <p className='text-sm text-link dark:text-darklink'>{t('patientDetail.packs.loading')}</p>
+  }
+
+  return (
+    <div className='space-y-5'>
+      {/* Assign a new pack */}
+      {configs.length > 0 && (
+        <div className='flex flex-wrap items-end gap-3 rounded-lg border border-border dark:border-darkborder p-4'>
+          <div className='flex flex-col gap-1'>
+            <label className='text-xs font-medium text-link dark:text-darklink'>
+              {t('patientDetail.packs.assign')}
+            </label>
+            <select
+              value={addSlug}
+              onChange={(e) => setAddSlug(e.target.value)}
+              className='h-10 min-w-[220px] rounded-md border border-border dark:border-darkborder bg-transparent px-3 text-sm text-dark dark:text-white'>
+              <option value=''>{t('patientDetail.packs.pickTreatment')}</option>
+              {configs.map((c) => (
+                <option key={c.treatmentSlug} value={c.treatmentSlug}>
+                  {nameFor(c.treatmentSlug)} · {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            type='button'
+            onClick={addPack}
+            disabled={!addSlug}
+            className='inline-flex items-center gap-2 h-10 px-4 rounded-md bg-primary text-white text-sm font-medium disabled:opacity-40'>
+            <Icon icon='tabler:plus' height={16} width={16} />
+            {t('patientDetail.packs.assignButton')}
+          </button>
+        </div>
+      )}
+
+      {packs.length === 0 ? (
+        <p className='text-sm text-link dark:text-darklink italic'>{t('patientDetail.packs.empty')}</p>
+      ) : (
+        <div className='space-y-4'>
+          {packs.map((pack) => {
+            const turnos = turnosByPack[pack.id] ?? []
+            const attended = turnos.filter((x) => turnoConsumesSession(x.status)).length
+            const prog = packProgress(pack.totalSessions, attended, pack.manualAdjustment)
+            return (
+              <div
+                key={pack.id}
+                className='rounded-lg border border-border dark:border-darkborder p-4 space-y-3'>
+                {/* Header + summary */}
+                <div className='flex flex-wrap items-center justify-between gap-2'>
+                  <div className='flex items-center gap-2'>
+                    <Icon icon='solar:box-line-duotone' height={18} width={18} className='text-secondary' />
+                    <span className='text-sm font-semibold text-dark dark:text-white'>
+                      {nameFor(pack.treatmentSlug)} · {pack.label}
+                    </span>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full ${
+                        pack.status === 'active'
+                          ? 'bg-lightsuccess text-success'
+                          : pack.status === 'completed'
+                            ? 'bg-lightprimary text-primary'
+                            : 'bg-lighterror text-error'
+                      }`}>
+                      {t(`patientDetail.packs.status.${pack.status}` as TranslationKey)}
+                    </span>
+                  </div>
+                  {isAdmin && (
+                    <button
+                      type='button'
+                      onClick={() => remove(pack.id)}
+                      aria-label={t('patientDetail.packs.deleteConfirm')}
+                      className='h-8 w-8 flex items-center justify-center rounded-md text-error hover:bg-lighterror transition-colors'>
+                      <Icon icon='tabler:trash' height={16} width={16} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Counter */}
+                <div className='flex flex-wrap gap-x-6 gap-y-2 text-sm'>
+                  <div>
+                    <div className='text-lg font-bold text-dark dark:text-white'>{pack.totalSessions}</div>
+                    <div className='text-xs text-link dark:text-darklink'>{t('patientDetail.packs.total')}</div>
+                  </div>
+                  <div>
+                    <div className='text-lg font-bold text-success'>{prog.done}</div>
+                    <div className='text-xs text-link dark:text-darklink'>{t('patientDetail.packs.done')}</div>
+                  </div>
+                  <div>
+                    <div className='text-lg font-bold text-warning'>{prog.remaining}</div>
+                    <div className='text-xs text-link dark:text-darklink'>{t('patientDetail.packs.remaining')}</div>
+                  </div>
+                  <div>
+                    <div className='text-lg font-bold text-secondary'>
+                      {prog.next != null
+                        ? t('patientDetail.packs.sessionOf', {
+                            n: String(prog.next),
+                            total: String(pack.totalSessions),
+                          })
+                        : t('patientDetail.packs.complete')}
+                    </div>
+                    <div className='text-xs text-link dark:text-darklink'>{t('patientDetail.packs.next')}</div>
+                  </div>
+                </div>
+
+                {/* History */}
+                <div>
+                  <div className='text-xs font-semibold text-dark dark:text-white mb-1'>
+                    {t('patientDetail.packs.history')}
+                  </div>
+                  {turnos.length === 0 ? (
+                    <p className='text-xs text-link dark:text-darklink italic'>
+                      {t('patientDetail.packs.noTurnos')}
+                    </p>
+                  ) : (
+                    <ul className='space-y-1'>
+                      {turnos.map((turno, i) => {
+                        const statusKey = STATUS_LABEL_KEY[turno.status as TurnoStatus] as
+                          | TranslationKey
+                          | undefined
+                        return (
+                          <li
+                            key={turno.id}
+                            className='flex items-center justify-between gap-2 text-xs text-link dark:text-darklink'>
+                            <span>
+                              <span className='font-medium text-dark dark:text-white'>#{i + 1}</span>{' '}
+                              {fmtDate(turno.startsAt)}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded-full ${
+                                turnoConsumesSession(turno.status)
+                                  ? 'bg-lightsuccess text-success'
+                                  : 'bg-muted/60 dark:bg-darkmuted/40'
+                              }`}>
+                              {statusKey ? t(statusKey) : turno.status}
+                            </span>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </div>
+
+                {pack.notes && !isAdmin && (
+                  <p className='text-xs text-link dark:text-darklink'>
+                    {t('patientDetail.packs.notes')}: {pack.notes}
+                  </p>
+                )}
+
+                {/* Admin correction */}
+                {isAdmin && (
+                  <div className='rounded-md bg-muted/40 dark:bg-darkmuted/20 p-3 space-y-2'>
+                    <div className='text-xs font-semibold text-dark dark:text-white'>
+                      {t('patientDetail.packs.adminTitle')}
+                    </div>
+                    <div className='flex flex-wrap items-end gap-3'>
+                      <label className='flex flex-col gap-1'>
+                        <span className='text-xs text-link dark:text-darklink'>{t('patientDetail.packs.total')}</span>
+                        <input
+                          type='number'
+                          min={1}
+                          defaultValue={pack.totalSessions}
+                          onBlur={(e) => {
+                            const n = Math.max(1, Number(e.target.value) || pack.totalSessions)
+                            if (n !== pack.totalSessions) void patch(pack.id, { totalSessions: n })
+                          }}
+                          className='h-9 w-20 rounded-md border border-border dark:border-darkborder bg-transparent px-2 text-sm text-dark dark:text-white'
+                        />
+                      </label>
+                      <label className='flex flex-col gap-1'>
+                        <span className='text-xs text-link dark:text-darklink'>
+                          {t('patientDetail.packs.adjustment')}
+                        </span>
+                        <input
+                          type='number'
+                          defaultValue={pack.manualAdjustment}
+                          onBlur={(e) => {
+                            const n = Number(e.target.value) || 0
+                            if (n !== pack.manualAdjustment) void patch(pack.id, { manualAdjustment: n })
+                          }}
+                          className='h-9 w-20 rounded-md border border-border dark:border-darkborder bg-transparent px-2 text-sm text-dark dark:text-white'
+                        />
+                      </label>
+                      <label className='flex flex-col gap-1'>
+                        <span className='text-xs text-link dark:text-darklink'>{t('patientDetail.packs.statusLabel')}</span>
+                        <select
+                          defaultValue={pack.status}
+                          onChange={(e) =>
+                            void patch(pack.id, { status: e.target.value as PatientPack['status'] })
+                          }
+                          className='h-9 rounded-md border border-border dark:border-darkborder bg-transparent px-2 text-sm text-dark dark:text-white'>
+                          <option value='active'>{t('patientDetail.packs.status.active')}</option>
+                          <option value='completed'>{t('patientDetail.packs.status.completed')}</option>
+                          <option value='cancelled'>{t('patientDetail.packs.status.cancelled')}</option>
+                        </select>
+                      </label>
+                    </div>
+                    <label className='flex flex-col gap-1'>
+                      <span className='text-xs text-link dark:text-darklink'>{t('patientDetail.packs.notes')}</span>
+                      <input
+                        type='text'
+                        defaultValue={pack.notes ?? ''}
+                        onBlur={(e) => {
+                          const v = e.target.value.trim() || null
+                          if (v !== (pack.notes ?? null)) void patch(pack.id, { notes: v })
+                        }}
+                        className='h-9 rounded-md border border-border dark:border-darkborder bg-transparent px-2 text-sm text-dark dark:text-white'
+                      />
+                    </label>
+                    <p className='text-[11px] text-link dark:text-darklink'>
+                      {t('patientDetail.packs.adminHint')}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ---------- Consentimientos tab (Etapa 4) ----------
 
 function ConsentsTab({
@@ -1218,6 +1555,7 @@ export function PatientDetail({ id }: { id: string }) {
           {tab === 'quotes' && <QuotesTab detail={detail} t={t} locale={locale} />}
           {tab === 'reservations' && <ReservationsTab detail={detail} t={t} locale={locale} />}
           {tab === 'ficha' && <FichaTab patientId={c.id} t={t} locale={locale} />}
+          {tab === 'packs' && <PacksTab patientId={c.id} t={t} locale={locale} />}
           {tab === 'consents' && <ConsentsTab patientId={c.id} t={t} locale={locale} />}
           {tab === 'notes' && (
             <NotesTab patientId={c.id} notes={detail.notes} onAdded={handleNoteAdded} t={t} locale={locale} />

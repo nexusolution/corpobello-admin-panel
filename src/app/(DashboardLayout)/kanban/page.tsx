@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 
 import { KanbanBoard } from './kanban-board'
 import { HeroBanner } from '@/app/components/shared/HeroBanner'
@@ -19,7 +20,9 @@ export default function KanbanPage() {
           subtitleKey='kanban.pageSubtitle'
           icon='solar:layers-minimalistic-line-duotone'
         />
-        <KanbanBoard />
+        <Suspense fallback={null}>
+          <KanbanBoard />
+        </Suspense>
       </div>
     </RoleGate>
   )

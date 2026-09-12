@@ -61,6 +61,17 @@ import {
   type AvailabilityExclusion,
 } from '@/lib/scheduling/availability'
 import { suggestDurationMinutes } from '@/lib/scheduling/duration'
+import {
+  fetchPackConfigs,
+  fetchActivePacks,
+  createPatientPack,
+  fetchPackTurnos,
+  fetchPackTotals,
+  packProgress,
+  turnoConsumesSession,
+  type TreatmentPackConfig,
+  type PatientPack,
+} from '@/lib/data/packs'
 import { getTreatmentColorBySlug } from '@/lib/treatment-colors'
 import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
 import { fetchAgendaBlocks, type AgendaBlock } from '@/lib/data/agenda-blocks'
@@ -421,6 +432,7 @@ type Draft = {
   startTime: string
   endTime: string
   observaciones: string
+  packId: string | null
 }
 
 const SELECT_CLS =
@@ -573,6 +585,14 @@ function EventDialog({
   const [observaciones, setObservaciones] = useState(draft.observaciones)
   // Primera sesión: bumps the auto-suggested duration (charla/explicación previa).
   const [firstSession, setFirstSession] = useState(false)
+  // Pack linking (Andrés' 4x3 / 5x4). A turno can be tied to a patient's pack
+  // for the selected treatment; the session counter is derived elsewhere from
+  // the turno statuses (a session is consumed only when 'atendido').
+  const [packId, setPackId] = useState<string | null>(draft.packId)
+  const [packConfigs, setPackConfigs] = useState<TreatmentPackConfig[]>([])
+  const [activePacks, setActivePacks] = useState<PatientPack[]>([])
+  const [packAttended, setPackAttended] = useState(0)
+  const [creatingPack, setCreatingPack] = useState(false)
   const router = useRouter()
   // Basic patient data shown read-only when an existing turno is opened.
   const [basics, setBasics] = useState<PatientBasics | null>(null)
@@ -589,6 +609,44 @@ function EventDialog({
       active = false
     }
   }, [patientId])
+  // Pack config catalog (which treatments are packs) — load once.
+  useEffect(() => {
+    let active = true
+    void fetchPackConfigs().then(({ data }) => {
+      if (active) setPackConfigs(data)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+  // The patient's active packs for the selected treatment (for the linker).
+  useEffect(() => {
+    if (!patientId || !treatmentSlug) {
+      setActivePacks([])
+      return
+    }
+    let active = true
+    void fetchActivePacks(patientId, treatmentSlug).then((packs) => {
+      if (active) setActivePacks(packs)
+    })
+    return () => {
+      active = false
+    }
+  }, [patientId, treatmentSlug])
+  // Attended-session count of the linked pack (drives the progress line).
+  useEffect(() => {
+    if (!packId) {
+      setPackAttended(0)
+      return
+    }
+    let active = true
+    void fetchPackTurnos(packId).then((turnos) => {
+      if (active) setPackAttended(turnos.filter((x) => turnoConsumesSession(x.status)).length)
+    })
+    return () => {
+      active = false
+    }
+  }, [packId])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -611,6 +669,32 @@ function EventDialog({
     setEndTime(toTimeInput(end))
   }
   const isEdit = draft.id !== null
+
+  // Pack context for the selected treatment + patient.
+  const packConfig = packConfigs.find((c) => c.treatmentSlug === treatmentSlug && c.active) ?? null
+  const selectedPack = activePacks.find((p) => p.id === packId) ?? null
+  const packStats = selectedPack
+    ? packProgress(selectedPack.totalSessions, packAttended, selectedPack.manualAdjustment)
+    : null
+
+  async function createPack() {
+    if (!patientId || !packConfig || creatingPack) return
+    setCreatingPack(true)
+    const { data, error: err } = await createPatientPack({
+      patientId,
+      treatmentSlug,
+      totalSessions: packConfig.totalSessions,
+      label: packConfig.label,
+    })
+    setCreatingPack(false)
+    if (err || !data) {
+      setError(err)
+      return
+    }
+    setActivePacks((prev) => [data, ...prev])
+    setPackId(data.id)
+  }
+
   const valid =
     !!patientId &&
     !!startStr &&
@@ -676,6 +760,7 @@ function EventDialog({
       sucursal: sucursal || null,
       treatmentSlug: treatmentSlug || null,
       observaciones: observaciones.trim() || null,
+      packId: packId || null,
     }
     const err = isEdit
       ? await updateCalendarEvent(draft.id as string, input)
@@ -818,6 +903,59 @@ function EventDialog({
               <StatusSelect value={status} onChange={setStatus} t={t} />
             </label>
           </div>
+
+          {/* Pack linker — shown only when the treatment is sold as a pack. */}
+          {packConfig && patientId && (
+            <div className='rounded-md border border-secondary/30 bg-secondary/5 px-3 py-2.5 space-y-2'>
+              <div className='flex items-center gap-1.5 text-xs font-semibold text-dark dark:text-white'>
+                <Icon icon='solar:box-line-duotone' height={15} width={15} className='text-secondary' />
+                {t('turno.pack.title')} · {packConfig.label}
+              </div>
+              {activePacks.length > 0 ? (
+                <select
+                  value={packId ?? ''}
+                  onChange={(e) => setPackId(e.target.value || null)}
+                  className={SELECT_CLS}>
+                  <option value=''>{t('turno.pack.none')}</option>
+                  {activePacks.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label} · {new Date(p.createdAt).toLocaleDateString()}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className='text-xs text-link dark:text-darklink'>{t('turno.pack.noneYet')}</p>
+              )}
+              {packStats && (
+                <p className='text-xs text-link dark:text-darklink'>
+                  {t('turno.pack.progress', {
+                    done: String(packStats.done),
+                    total: String(selectedPack?.totalSessions ?? 0),
+                    remaining: String(packStats.remaining),
+                  })}
+                  {packStats.next != null && (
+                    <>
+                      {' · '}
+                      <span className='font-medium text-secondary'>
+                        {t('turno.pack.next', {
+                          n: String(packStats.next),
+                          total: String(selectedPack?.totalSessions ?? 0),
+                        })}
+                      </span>
+                    </>
+                  )}
+                </p>
+              )}
+              <button
+                type='button'
+                onClick={createPack}
+                disabled={creatingPack}
+                className='inline-flex items-center gap-1.5 text-xs font-medium text-secondary hover:underline disabled:opacity-50'>
+                <Icon icon='tabler:plus' height={13} width={13} />
+                {t('turno.pack.create', { label: packConfig.label })}
+              </button>
+            </div>
+          )}
 
           <label className='flex items-center gap-2 cursor-pointer select-none'>
             <input
@@ -1047,6 +1185,10 @@ export function CalendarView() {
   const [catalogSlugs, setCatalogSlugs] = useState<string[]>([])
   const [treatmentFilterSlugs, setTreatmentFilterSlugs] = useState<string[]>([])
   const [blocks, setBlocks] = useState<AgendaBlock[]>([])
+  // Pack totals (id -> {total,label}) to render "Sesión N/M" on turno cards.
+  const [packTotals, setPackTotals] = useState<Map<string, { total: number; label: string }>>(
+    new Map(),
+  )
 
   moment.locale(locale)
   const localizer = useMemo(() => momentLocalizer(moment), [locale])
@@ -1103,6 +1245,7 @@ export function CalendarView() {
       setAvailRules(rules)
       setAvailExclusions(exclusions)
     })
+    void fetchPackTotals().then(setPackTotals)
     void fetchAppUsers().then(({ data }) =>
       setProfessionals(
         data
@@ -1273,6 +1416,27 @@ export function CalendarView() {
   const professionalNameRef = useRef(professionalName)
   professionalNameRef.current = professionalName
 
+  // "Sesión N/M" per turno: order a pack's non-cancelled turnos by date and
+  // label each with its position + the pack total. Shown discreetly on the card.
+  const packSessionLabels = useMemo(() => {
+    const byPack = new Map<string, CalendarEvent[]>()
+    for (const e of events) {
+      if (!e.packId || e.status === 'cancelado') continue
+      const arr = byPack.get(e.packId) ?? []
+      arr.push(e)
+      byPack.set(e.packId, arr)
+    }
+    const labels = new Map<string, string>()
+    for (const [pid, arr] of byPack) {
+      arr.sort((a, b) => a.start.getTime() - b.start.getTime())
+      const total = packTotals.get(pid)?.total ?? arr.length
+      arr.forEach((e, i) => labels.set(e.id, `${i + 1}/${total}`))
+    }
+    return labels
+  }, [events, packTotals])
+  const packSessionLabelsRef = useRef(packSessionLabels)
+  packSessionLabelsRef.current = packSessionLabels
+
   // Week/Day column header: default label + a coloured dot per open sucursal.
   const dayHeader = useCallback(
     ({ date, label }: { date: Date; label: string }) => {
@@ -1357,6 +1521,7 @@ export function CalendarView() {
         startTime: toTimeInput(s),
         endTime: toTimeInput(e),
         observaciones: '',
+        packId: null,
       })
     },
     [isProfesional, myUserId],
@@ -1427,6 +1592,7 @@ export function CalendarView() {
         sucursal,
         treatmentSlug: event.treatmentSlug,
         observaciones: event.observaciones,
+        packId: event.packId,
       })
       reload()
     },
@@ -1528,6 +1694,7 @@ export function CalendarView() {
       startTime: toTimeInput(ev.start),
       endTime: toTimeInput(ev.end),
       observaciones: ev.observaciones ?? '',
+      packId: ev.packId,
     })
   }, [])
 
@@ -1600,7 +1767,14 @@ export function CalendarView() {
               )}
             </span>
             {event.treatmentSlug && (
-              <span className='truncate opacity-90 text-[11px]'>{treatmentNameRef.current(event.treatmentSlug)}</span>
+              <span className='truncate opacity-90 text-[11px] flex items-center gap-1'>
+                {treatmentNameRef.current(event.treatmentSlug)}
+                {packSessionLabelsRef.current.get(event.id) && (
+                  <span className='shrink-0 rounded bg-white/25 px-1 text-[10px] font-medium leading-tight'>
+                    {t('turno.pack.sessionShort', { n: packSessionLabelsRef.current.get(event.id) as string })}
+                  </span>
+                )}
+              </span>
             )}
             {proSuc && <span className='truncate opacity-75 text-[11px]'>{proSuc}</span>}
           </div>
@@ -1652,6 +1826,11 @@ export function CalendarView() {
           )}
           <span className='font-medium'>{event.title}</span>
           {parts.length > 0 && <span className='text-link dark:text-darklink'>· {parts.join(' · ')}</span>}
+          {packSessionLabelsRef.current.get(event.id) && (
+            <span className='rounded bg-secondary/15 text-secondary px-1 text-[11px] font-medium'>
+              {t('turno.pack.sessionShort', { n: packSessionLabelsRef.current.get(event.id) as string })}
+            </span>
+          )}
           {event.charged && <span className='font-bold text-success' title={t('agenda.charged')}>$</span>}
         </span>
       )

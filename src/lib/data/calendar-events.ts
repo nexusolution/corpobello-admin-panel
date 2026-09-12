@@ -84,6 +84,7 @@ export type CalendarEvent = {
   sucursal: string | null
   treatmentSlug: string | null
   observaciones: string | null
+  packId: string | null
   createdAt: Date
 }
 
@@ -100,6 +101,7 @@ type Row = {
   sucursal: string | null
   treatment_slug: string | null
   observaciones: string | null
+  pack_id: string | null
   created_at: string
   patient: { full_name: string | null } | { full_name: string | null }[] | null
 }
@@ -128,6 +130,7 @@ function rowToEvent(r: Row): CalendarEvent {
     sucursal: r.sucursal,
     treatmentSlug: r.treatment_slug,
     observaciones: r.observaciones,
+    packId: r.pack_id,
     createdAt: new Date(r.created_at),
   }
 }
@@ -164,7 +167,7 @@ export async function autoCancelExpiredReservas(): Promise<{
 }
 
 const SELECT =
-  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, observaciones, created_at, patient:patient_id (full_name)'
+  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, observaciones, pack_id, created_at, patient:patient_id (full_name)'
 
 export async function fetchCalendarEvents(): Promise<{
   data: CalendarEvent[]
@@ -191,6 +194,7 @@ export type CalendarEventInput = {
   sucursal: string | null
   treatmentSlug: string | null
   observaciones: string | null
+  packId: string | null
 }
 
 function toPayload(input: CalendarEventInput) {
@@ -206,6 +210,7 @@ function toPayload(input: CalendarEventInput) {
     sucursal: input.sucursal,
     treatment_slug: input.treatmentSlug,
     observaciones: input.observaciones,
+    pack_id: input.packId,
     color: STATUS_COLORS[input.status],
   }
 }

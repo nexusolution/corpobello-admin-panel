@@ -1,6 +1,5 @@
 'use client'
 
-import dynamic from 'next/dynamic'
 import { Icon } from '@iconify/react'
 
 import { Card } from '@/components/ui/card'
@@ -10,12 +9,6 @@ import {
   TREATMENT_SLUGS_ORDERED,
   getTreatmentColorBySlug,
 } from '@/lib/treatment-colors'
-
-// Lottie player — touches DOM APIs, must be client-only
-const DotLottieReact = dynamic(
-  () => import('@lottiefiles/dotlottie-react').then((m) => m.DotLottieReact),
-  { ssr: false }
-)
 
 // MOCK STATE: today's count per treatment category. When agenda + Supabase
 // land, derive from today's confirmed/pending turnos grouped by treatment_id.
@@ -137,18 +130,15 @@ export function WelcomeBanner({
           )}
         </div>
 
-        {/* Right illustration — Lottie animation, hidden on small screens.
-            items-end on the wrapper + explicit Lottie height = bottom anchor.
-            (Without the fixed inner height, the Lottie would fill the column
-            and items-end would have nothing to push.) */}
-        <div className='hidden lg:flex items-end justify-center shrink-0 w-[280px] xl:w-[340px]'>
-          <div className='w-full h-[200px] xl:h-[240px]'>
-            <DotLottieReact
-              src='https://lottie.host/31c92a4c-ac39-4320-8646-3348fa21cffe/JnGZyldzlm.lottie'
-              loop
-              autoplay
-            />
-          </div>
+        {/* Discrete brand mark instead of the old decorative illustration —
+            keeps the dashboard clean/operative (Andrés' ask) while still
+            carrying Corpo Bello's identity. Hidden on small screens. */}
+        <div className='hidden lg:flex items-center justify-center shrink-0 w-[200px] xl:w-[240px] px-6'>
+          <img
+            src='/images/logos/logo.webp'
+            alt='Corpo Bello'
+            className='w-full max-w-[160px] h-auto opacity-70 dark:opacity-90 dark:brightness-0 dark:invert'
+          />
         </div>
       </div>
     </Card>
