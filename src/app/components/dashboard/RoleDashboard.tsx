@@ -68,10 +68,10 @@ export function RoleDashboard() {
       <div className='col-span-12'>
         <TopCards />
       </div>
-      <div className='col-span-12 lg:col-span-6'>
+      <div className='col-span-12 lg:col-span-8'>
         <WelcomeBanner />
       </div>
-      <div className='col-span-12 lg:col-span-6'>
+      <div className='col-span-12 lg:col-span-4'>
         <QuickAccess />
       </div>
       <div className='col-span-12 lg:col-span-6'>
