@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { Icon } from '@iconify/react'
 
-import { Card } from '@/components/ui/card'
+import CardBox from '../shared/CardBox'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 import {
@@ -52,6 +52,9 @@ function StatRow({ value, label }: { value: string; label: string }) {
 // showFinancials gates the economic KPIs (daily income + pending charges) so
 // non-admin roles never see clinic billing (Andrés' rule: Operador/Profesional
 // must not see facturación). Default true (admin/superset view).
+//
+// Renders TWO standalone cards as direct grid items (a fragment), so RoleDashboard
+// places them in their own columns. Items are listed vertically (one per row).
 export function WelcomeBanner({
   showFinancials = true,
 }: {
@@ -66,97 +69,103 @@ export function WelcomeBanner({
   const totalTurnos = treatmentChips.reduce((sum, slug) => sum + (TODAYS_LOAD[slug] ?? 0), 0)
 
   return (
-    <Card className='card !rounded-md !p-0 border border-defaultBorder shadow-sm relative overflow-hidden h-full'>
-      <div className='flex flex-col md:flex-row items-stretch h-full'>
-        {/* Left panel — Today at a glance */}
-        <div className='flex-1 min-w-0 p-6 flex flex-col border-b md:border-b-0 md:border-r border-border dark:border-darkborder'>
-          <div className='flex items-start justify-between gap-2 mb-4'>
-            <div className='min-w-0'>
-              <h2 className='text-lg font-semibold text-dark dark:text-white'>{t('welcome.title')}</h2>
-              <p className='text-xs text-link dark:text-darklink mt-0.5'>{t('welcome.subtitle')}</p>
+    <>
+      {/* Card 1 — Today at a glance */}
+      <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+        <CardBox className='h-full w-full'>
+          <div className='flex flex-col h-full'>
+            <div className='flex items-start justify-between gap-2 mb-4'>
+              <div className='min-w-0'>
+                <h2 className='text-lg font-semibold text-dark dark:text-white'>{t('welcome.title')}</h2>
+                <p className='text-xs text-link dark:text-darklink mt-0.5'>{t('welcome.subtitle')}</p>
+              </div>
+              <Dots color='bg-primary' />
             </div>
-            <Dots color='bg-primary' />
-          </div>
 
-          <div className='flex items-center gap-4 flex-1'>
-            <div className='flex items-center justify-center shrink-0'>
-              <Icon icon='solar:chart-square-line-duotone' height={48} width={48} className='text-primary' />
+            <div className='flex items-center gap-4 flex-1'>
+              <div className='flex items-center justify-center shrink-0'>
+                <Icon icon='solar:chart-square-line-duotone' height={48} width={48} className='text-primary' />
+              </div>
+              <div className='flex flex-col gap-2 min-w-0'>
+                <StatRow value='2' label={t('welcome.patientsAttended')} />
+                <StatRow value='1' label={t('welcome.cancellations')} />
+                {showFinancials && (
+                  <>
+                    <StatRow value='$84.500' label={t('welcome.dailyIncome')} />
+                    <StatRow value='$31.000' label={t('welcome.pendingCharges')} />
+                  </>
+                )}
+              </div>
             </div>
-            <div className='grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 min-w-0'>
-              <StatRow value='2' label={t('welcome.patientsAttended')} />
-              <StatRow value='1' label={t('welcome.cancellations')} />
+
+            <div className='flex items-center gap-2 mt-5'>
+              <Link
+                href='/agenda'
+                className='px-3 py-1.5 rounded-md text-sm font-medium border border-border dark:border-darkborder text-dark dark:text-white hover:bg-muted/40 transition-colors'>
+                {t('welcome.viewAgenda')}
+              </Link>
               {showFinancials && (
-                <>
-                  <StatRow value='$84.500' label={t('welcome.dailyIncome')} />
-                  <StatRow value='$31.000' label={t('welcome.pendingCharges')} />
-                </>
+                <Link
+                  href='/caja'
+                  className='px-3 py-1.5 rounded-md text-sm font-medium bg-primary text-white hover:bg-primaryemphasis transition-colors'>
+                  {t('welcome.viewCaja')}
+                </Link>
               )}
             </div>
           </div>
-
-          <div className='flex items-center gap-2 mt-5'>
-            <Link
-              href='/agenda'
-              className='px-3 py-1.5 rounded-md text-sm font-medium border border-border dark:border-darkborder text-dark dark:text-white hover:bg-muted/40 transition-colors'>
-              {t('welcome.viewAgenda')}
-            </Link>
-            {showFinancials && (
-              <Link
-                href='/caja'
-                className='px-3 py-1.5 rounded-md text-sm font-medium bg-primary text-white hover:bg-primaryemphasis transition-colors'>
-                {t('welcome.viewCaja')}
-              </Link>
-            )}
-          </div>
-        </div>
-
-        {/* Right panel — Today's workload */}
-        <div className='flex-1 min-w-0 p-6 flex flex-col'>
-          <div className='flex items-start justify-between gap-2 mb-4'>
-            <div className='min-w-0'>
-              <h2 className='text-lg font-semibold text-dark dark:text-white'>
-                {t('treatments.summary.title')}
-              </h2>
-              <p className='text-xs text-link dark:text-darklink mt-0.5'>
-                {t('treatments.summary.subtitle', { n: String(totalTurnos) })}
-              </p>
-            </div>
-            <Dots color='bg-secondary' />
-          </div>
-
-          {treatmentChips.length === 0 ? (
-            <p className='text-sm text-link dark:text-darklink italic flex-1'>
-              {t('treatments.summary.empty')}
-            </p>
-          ) : (
-            <div className='flex items-center gap-4 flex-1'>
-              <div className='flex items-center justify-center shrink-0'>
-                <Icon icon='solar:stethoscope-line-duotone' height={48} width={48} className='text-secondary' />
-              </div>
-              <div className='grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 min-w-0'>
-                {treatmentChips.map((slug) => {
-                  const color = getTreatmentColorBySlug(slug)
-                  return (
-                    <StatRow
-                      key={slug}
-                      value={String(TODAYS_LOAD[slug])}
-                      label={t(color.labelKey as TranslationKey)}
-                    />
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className='flex items-center gap-2 mt-5'>
-            <Link
-              href='/agenda'
-              className='px-3 py-1.5 rounded-md text-sm font-medium bg-secondary text-white hover:brightness-95 transition-colors'>
-              {t('treatments.summary.openAgenda')}
-            </Link>
-          </div>
-        </div>
+        </CardBox>
       </div>
-    </Card>
+
+      {/* Card 2 — Today's workload */}
+      <div className='col-span-12 md:col-span-6 lg:col-span-4'>
+        <CardBox className='h-full w-full'>
+          <div className='flex flex-col h-full'>
+            <div className='flex items-start justify-between gap-2 mb-4'>
+              <div className='min-w-0'>
+                <h2 className='text-lg font-semibold text-dark dark:text-white'>
+                  {t('treatments.summary.title')}
+                </h2>
+                <p className='text-xs text-link dark:text-darklink mt-0.5'>
+                  {t('treatments.summary.subtitle', { n: String(totalTurnos) })}
+                </p>
+              </div>
+              <Dots color='bg-secondary' />
+            </div>
+
+            {treatmentChips.length === 0 ? (
+              <p className='text-sm text-link dark:text-darklink italic flex-1'>
+                {t('treatments.summary.empty')}
+              </p>
+            ) : (
+              <div className='flex items-center gap-4 flex-1'>
+                <div className='flex items-center justify-center shrink-0'>
+                  <Icon icon='solar:stethoscope-line-duotone' height={48} width={48} className='text-secondary' />
+                </div>
+                <div className='flex flex-col gap-2 min-w-0'>
+                  {treatmentChips.map((slug) => {
+                    const color = getTreatmentColorBySlug(slug)
+                    return (
+                      <StatRow
+                        key={slug}
+                        value={String(TODAYS_LOAD[slug])}
+                        label={t(color.labelKey as TranslationKey)}
+                      />
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className='flex items-center gap-2 mt-5'>
+              <Link
+                href='/agenda'
+                className='px-3 py-1.5 rounded-md text-sm font-medium bg-secondary text-white hover:brightness-95 transition-colors'>
+                {t('treatments.summary.openAgenda')}
+              </Link>
+            </div>
+          </div>
+        </CardBox>
+      </div>
+    </>
   )
 }

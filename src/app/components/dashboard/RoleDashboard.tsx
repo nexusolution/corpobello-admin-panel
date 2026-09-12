@@ -68,10 +68,10 @@ export function RoleDashboard() {
       <div className='col-span-12'>
         <TopCards />
       </div>
-      <div className='col-span-12 lg:col-span-6'>
-        <WelcomeBanner />
-      </div>
-      <div className='col-span-12 lg:col-span-6'>
+      {/* WelcomeBanner emits two standalone cards (glance + workload) as grid
+          items; QuickAccess is the third card in the row. */}
+      <WelcomeBanner />
+      <div className='col-span-12 md:col-span-6 lg:col-span-4'>
         <QuickAccess />
       </div>
       <div className='col-span-12 lg:col-span-6'>
