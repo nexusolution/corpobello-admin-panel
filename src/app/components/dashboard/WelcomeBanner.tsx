@@ -79,8 +79,8 @@ export function WelcomeBanner({
           </div>
 
           <div className='flex items-center gap-4 flex-1'>
-            <div className='h-14 w-14 rounded-full bg-white/70 dark:bg-white/10 flex items-center justify-center shrink-0'>
-              <Icon icon='solar:chart-square-line-duotone' height={28} width={28} className='text-primary' />
+            <div className='flex items-center justify-center shrink-0'>
+              <Icon icon='solar:chart-square-line-duotone' height={48} width={48} className='text-primary' />
             </div>
             <div className='grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 min-w-0'>
               <StatRow value='2' label={t('welcome.patientsAttended')} />
@@ -130,8 +130,8 @@ export function WelcomeBanner({
             </p>
           ) : (
             <div className='flex items-center gap-4 flex-1'>
-              <div className='h-14 w-14 rounded-full bg-white/70 dark:bg-white/10 flex items-center justify-center shrink-0'>
-                <Icon icon='solar:stethoscope-line-duotone' height={28} width={28} className='text-secondary' />
+              <div className='flex items-center justify-center shrink-0'>
+                <Icon icon='solar:stethoscope-line-duotone' height={48} width={48} className='text-secondary' />
               </div>
               <div className='grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 min-w-0'>
                 {treatmentChips.map((slug) => {
