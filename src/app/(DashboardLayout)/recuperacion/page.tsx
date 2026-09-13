@@ -7,14 +7,19 @@ import { HeroBanner } from '@/app/components/shared/HeroBanner'
 import { RoleGate } from '@/lib/auth/RoleGate'
 import { fetchLeads } from '@/app/(DashboardLayout)/kanban/data'
 import type { Lead, LeadStatus } from '@/app/(DashboardLayout)/kanban/mock-data'
+import {
+  fetchAppSettingNumber,
+  RECOVERY_STALE_HOURS_KEY,
+  RECOVERY_STALE_HOURS_DEFAULT,
+} from '@/lib/data/app-settings'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 
 // A lead is "recoverable" when it's still in the early/mid funnel (not booked,
-// not closed) and has gone quiet for at least this long.
-const STALE_HOURS = 48
+// not closed) and has gone quiet for at least the configured window (hours) —
+// panel-editable in Autogestión → Horarios, default 22h (Andrés' spec).
 const PAGE_SIZE = 15
 const IN_FUNNEL: LeadStatus[] = ['nuevo', 'en_conversacion', 'cotizado', 'sin_respuesta']
 
@@ -102,15 +107,20 @@ function Row({ lead, t }: { lead: Lead; t: TFn }) {
 export default function RecuperacionPage() {
   const { t } = useTranslation()
   const [leads, setLeads] = useState<Lead[]>([])
+  const [staleHours, setStaleHours] = useState(RECOVERY_STALE_HOURS_DEFAULT)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
-    void fetchLeads().then(({ data, error }) => {
+    void Promise.all([
+      fetchLeads(),
+      fetchAppSettingNumber(RECOVERY_STALE_HOURS_KEY, RECOVERY_STALE_HOURS_DEFAULT),
+    ]).then(([leadsRes, hours]) => {
       if (!active) return
-      setLeads(data)
-      setError(error)
+      setLeads(leadsRes.data)
+      setError(leadsRes.error)
+      setStaleHours(hours)
       setLoading(false)
     })
     return () => {
@@ -125,10 +135,10 @@ export default function RecuperacionPage() {
           (l) =>
             IN_FUNNEL.includes(l.status) &&
             l.lastActivityHoursAgo != null &&
-            l.lastActivityHoursAgo >= STALE_HOURS,
+            l.lastActivityHoursAgo >= staleHours,
         )
         .sort((a, b) => (b.lastActivityHoursAgo ?? 0) - (a.lastActivityHoursAgo ?? 0)),
-    [leads],
+    [leads, staleHours],
   )
 
   const [query, setQuery] = useState('')
@@ -267,7 +277,7 @@ export default function RecuperacionPage() {
 
           <p className='text-xs text-link dark:text-darklink mt-5 flex items-start gap-1.5'>
             <Icon icon='solar:info-circle-line-duotone' height={14} width={14} className='mt-0.5 shrink-0' />
-            {t('recovery.note')}
+            {t('recovery.note', { h: String(staleHours) })}
           </p>
         </div>
       </div>

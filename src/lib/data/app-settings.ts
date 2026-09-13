@@ -5,6 +5,12 @@ import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 
 export const PRE_RESERVA_HOLD_KEY = 'auto_reserva_hold_minutes'
 
+// Lead-recovery inactivity window (hours): a lead with no activity for longer
+// than this shows up in Recuperación (and, once automated, triggers follow-up).
+// Panel-editable; signed default 22h.
+export const RECOVERY_STALE_HOURS_KEY = 'recovery_stale_hours'
+export const RECOVERY_STALE_HOURS_DEFAULT = 22
+
 /** Read a numeric setting, falling back when absent/unconfigured. */
 export async function fetchAppSettingNumber(
   key: string,

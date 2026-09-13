@@ -14,6 +14,8 @@ import {
   fetchAppSettingNumber,
   saveAppSetting,
   PRE_RESERVA_HOLD_KEY,
+  RECOVERY_STALE_HOURS_KEY,
+  RECOVERY_STALE_HOURS_DEFAULT,
 } from '@/lib/data/app-settings'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
@@ -117,6 +119,103 @@ function PreReservaTtlCard({ t }: { t: TFn }) {
   )
 }
 
+// Panel-editable lead-recovery inactivity window (hours). A lead idle longer
+// than this surfaces in Recuperación (Andrés: configurable, default 22h).
+function RecoveryWindowCard({ t }: { t: TFn }) {
+  const [hours, setHours] = useState(String(RECOVERY_STALE_HOURS_DEFAULT))
+  const [base, setBase] = useState(String(RECOVERY_STALE_HOURS_DEFAULT))
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    void fetchAppSettingNumber(RECOVERY_STALE_HOURS_KEY, RECOVERY_STALE_HOURS_DEFAULT).then((n) => {
+      if (!active) return
+      setHours(String(n))
+      setBase(String(n))
+      setLoading(false)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const parsed = Number(hours)
+  const valid = Number.isFinite(parsed) && parsed >= 1 && parsed <= 168
+  const dirty = hours !== base && valid
+
+  async function save() {
+    setSaving(true)
+    setError(false)
+    const err = await saveAppSetting(RECOVERY_STALE_HOURS_KEY, parsed)
+    setSaving(false)
+    if (err.error) {
+      setError(true)
+      setTimeout(() => setError(false), 1800)
+      return
+    }
+    setBase(hours)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 1500)
+  }
+
+  return (
+    <div className='rounded-lg border border-border dark:border-darkborder bg-card p-5 sm:p-6'>
+      <div className='mb-4'>
+        <h3 className='text-sm font-semibold text-dark dark:text-white'>{t('autoGestion.recovery.heading')}</h3>
+        <p className='text-xs text-link dark:text-darklink mt-0.5 max-w-lg'>{t('autoGestion.recovery.subtitle')}</p>
+      </div>
+      {loading ? (
+        <div className='py-4 flex justify-center'>
+          <Icon icon='tabler:loader-2' height={22} width={22} className='text-primary animate-spin' />
+        </div>
+      ) : (
+        <div className='flex items-end gap-3 flex-wrap'>
+          <label className='flex flex-col gap-1'>
+            <span className='text-xs font-medium text-dark dark:text-white'>{t('autoGestion.recovery.label')}</span>
+            <div className='flex items-center gap-2'>
+              <input
+                type='number'
+                min={1}
+                max={168}
+                value={hours}
+                onChange={(e) => setHours(e.target.value)}
+                className='w-24 rounded-md border border-border dark:border-darkborder bg-background px-2 py-1.5 text-sm text-dark dark:text-white focus:outline-none focus:border-primary'
+              />
+              <span className='text-sm text-link dark:text-darklink'>{t('autoGestion.recovery.hours')}</span>
+            </div>
+          </label>
+          <button
+            type='button'
+            disabled={!dirty || saving}
+            onClick={save}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              error
+                ? 'bg-lighterror text-error'
+                : saved
+                  ? 'bg-lightsuccess text-success'
+                  : 'bg-primary text-white hover:bg-primaryemphasis disabled:opacity-40 disabled:cursor-not-allowed'
+            }`}>
+            {error
+              ? t('autoGestion.cotizadores.failed')
+              : saved
+                ? t('autoGestion.cotizadores.saved')
+                : saving
+                  ? t('autoGestion.cotizadores.saving')
+                  : t('autoGestion.cotizadores.save')}
+          </button>
+        </div>
+      )}
+      <p className='text-xs text-link dark:text-darklink mt-4 flex items-start gap-1.5'>
+        <Icon icon='solar:info-circle-line-duotone' height={14} width={14} className='mt-0.5 shrink-0' />
+        {t('autoGestion.recovery.note')}
+      </p>
+    </div>
+  )
+}
+
 const WEEKDAY_KEY: Record<number, TranslationKey> = {
   0: 'autoGestion.horarios.sun',
   1: 'autoGestion.horarios.mon',
@@ -179,6 +278,7 @@ export function HorariosSection() {
   return (
     <div className='space-y-6'>
     <PreReservaTtlCard t={t} />
+    <RecoveryWindowCard t={t} />
     <div className='rounded-lg border border-border dark:border-darkborder bg-card p-5 sm:p-6'>
       <div className='mb-4'>
         <h3 className='text-sm font-semibold text-dark dark:text-white'>{t('autoGestion.horarios.heading')}</h3>
