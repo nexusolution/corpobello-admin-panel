@@ -2020,8 +2020,9 @@ export function CalendarView() {
         style={
           {
             height: 720,
-            // Taller rows for finer scales so short turnos stay readable.
-            ['--rbc-group-h' as string]: `${Math.max(1, Math.round(60 / scaleMin)) * 24}px`,
+            // Taller rows so even short turnos show their full content (nombre +
+            // tratamiento + profesional). 36px per slot (Andrés 2026-09-14).
+            ['--rbc-group-h' as string]: `${Math.max(1, Math.round(60 / scaleMin)) * 36}px`,
           } as CSSProperties
         }
         eventPropGetter={(event: CalendarEvent) => ({
