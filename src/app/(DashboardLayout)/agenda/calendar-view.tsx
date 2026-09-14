@@ -1759,7 +1759,7 @@ export function CalendarView() {
         // Left bar = treatment colour, full-height straight rectangle (no rounded
         // edges), with the "$" cobro sign INSIDE it (Andrés 2026-09-14); body =
         // paciente / tratamiento / prof·sede. Full background = estado.
-        <div className='flex items-stretch gap-1.5 w-full overflow-hidden'>
+        <div className='flex items-stretch gap-1.5 w-full h-full overflow-hidden'>
           <span
             className='flex items-center justify-center shrink-0 w-4'
             style={{
@@ -1773,7 +1773,7 @@ export function CalendarView() {
               </span>
             )}
           </span>
-          <div className='flex flex-col leading-tight min-w-0 flex-1 overflow-hidden pr-2'>
+          <div className='flex flex-col leading-tight min-w-0 flex-1 overflow-hidden pr-2 py-0.5'>
             <span className='truncate font-medium'>
               {isExpiredReserva(event) && <span title={t('agendaCal.expiredMark')}>⏳ </span>}
               {event.title}

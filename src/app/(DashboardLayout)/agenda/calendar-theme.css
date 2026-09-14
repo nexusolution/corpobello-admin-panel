@@ -100,7 +100,11 @@
 /* Event pills — rounded, modern */
 .rbc-event {
   border-radius: 6px;
-  padding: 2px 8px;
+  /* No inner padding so the treatment colour bar sits flush against the card
+     edges (Andrés 2026-09-14); the event component pads its own text. overflow
+     hidden clips the flush bar to the rounded corners. */
+  padding: 0;
+  overflow: hidden;
   font-size: 0.78rem;
   font-weight: 500;
   border: none;
