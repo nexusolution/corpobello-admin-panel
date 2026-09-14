@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Icon } from '@iconify/react'
 import Swal from 'sweetalert2'
@@ -574,21 +575,30 @@ function SucursalSelect({
 
 const COLUMNS_PER_PAGE = 4
 
-// Dashboard "Requiere tu atención" deep-links land here with ?stage=<key>. Map
-// each attention key (or a raw lead status) to the Kanban column to focus, so a
-// click opens exactly those leads with a removable filter instead of the whole
-// board. Keys match TasksAttention's rows in components/dashboard/TasksAttention.
+// Dashboard deep-links land here with ?stage=<key>. Map each funnel key (from
+// TopCards + TasksAttention) OR a raw lead status to the Kanban column to focus,
+// so a click opens exactly those leads with a removable filter instead of the
+// whole board. Funnel keys mirror dashboard/data.ts STATUS_BUCKETS.
 const STAGE_PARAM_TO_STATUS: Record<string, LeadStatus> = {
+  // Funnel keys (TopCards / TasksAttention)
+  new: 'nuevo',
+  awaitingPhoto: 'en_conversacion',
+  quoteSent: 'cotizado',
   awaitingDeposit: 'reservado',
+  preReservation: 'comprobante',
+  confirmed: 'confirmado',
   followUp: 'sin_respuesta',
-  reservado: 'reservado',
-  sin_respuesta: 'sin_respuesta',
+  // Raw lead statuses (also accepted)
   nuevo: 'nuevo',
   en_conversacion: 'en_conversacion',
   cotizado: 'cotizado',
+  reservado: 'reservado',
   comprobante: 'comprobante',
   confirmado: 'confirmado',
+  sin_respuesta: 'sin_respuesta',
 }
+// 'attended' has no Kanban column (those leads are promoted to patients), so it
+// intentionally maps to nothing and opens the full board.
 
 // Centered board-level state: loading spinner, load error, or the friendly
 // "no leads yet" empty message shown when the bot hasn't produced any.
@@ -632,9 +642,13 @@ export function KanbanBoard() {
   // Focus a single stage when arrived from the dashboard's "Requiere tu
   // atención" deep-link (?stage=…). Removable via the chip below the filters.
   const [stageFilter, setStageFilter] = useState<LeadStatus | null>(null)
+  // Whether we arrived from a dashboard deep-link (?stage=…). Drives the "back
+  // to Inicio" arrow even when the stage has no column (e.g. attended).
+  const [cameFromDashboard, setCameFromDashboard] = useState(false)
   useEffect(() => {
     const raw = searchParams.get('stage')
     setStageFilter(raw ? STAGE_PARAM_TO_STATUS[raw] ?? null : null)
+    setCameFromDashboard(raw != null)
   }, [searchParams])
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
@@ -865,20 +879,32 @@ export function KanbanBoard() {
         )}
       </div>
 
-      {/* Active stage filter chip (from a dashboard deep-link) — removable. */}
-      {stageColumn && (
-        <div className='flex items-center gap-2'>
-          <span className='text-xs text-link dark:text-darklink'>{t('kanban.filteredBy')}</span>
-          <span className='inline-flex items-center gap-2 pl-3 pr-2 py-1 rounded-full bg-lightprimary text-primary text-sm font-medium'>
-            {t(stageColumn.nameKey)}
-            <button
-              type='button'
-              aria-label={t('kanban.clearFilter')}
-              onClick={() => setStageFilter(null)}
-              className='h-5 w-5 flex items-center justify-center rounded-full hover:bg-primary/20 transition-colors'>
-              <Icon icon='tabler:x' height={13} width={13} />
-            </button>
-          </span>
+      {/* Back-to-Inicio arrow + (when the stage has a column) a removable filter
+          chip, shown when arrived from a dashboard deep-link (Andrés 2026-09-14). */}
+      {cameFromDashboard && (
+        <div className='flex items-center gap-2 flex-wrap'>
+          <Link
+            href='/'
+            className='inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline'>
+            <Icon icon='tabler:arrow-left' height={16} width={16} />
+            {t('kanban.backToHome')}
+          </Link>
+          {stageColumn && (
+            <>
+              <span className='text-link dark:text-darklink'>·</span>
+              <span className='text-xs text-link dark:text-darklink'>{t('kanban.filteredBy')}</span>
+              <span className='inline-flex items-center gap-2 pl-3 pr-2 py-1 rounded-full bg-lightprimary text-primary text-sm font-medium'>
+                {t(stageColumn.nameKey)}
+                <button
+                  type='button'
+                  aria-label={t('kanban.clearFilter')}
+                  onClick={() => setStageFilter(null)}
+                  className='h-5 w-5 flex items-center justify-center rounded-full hover:bg-primary/20 transition-colors'>
+                  <Icon icon='tabler:x' height={13} width={13} />
+                </button>
+              </span>
+            </>
+          )}
         </div>
       )}
 
