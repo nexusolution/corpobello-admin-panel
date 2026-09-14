@@ -1756,25 +1756,23 @@ export function CalendarView() {
         .filter(Boolean)
         .join(' · ')
       return (
-        // Left bar = treatment colour (wider so it reads clearly); then the "$"
-        // cobro sign in its OWN left column (Andrés 2026-09-14); body = paciente /
-        // tratamiento / prof·sede. Full background (via eventPropGetter) = estado.
+        // Left bar = treatment colour, full-height straight rectangle (no rounded
+        // edges), with the "$" cobro sign INSIDE it (Andrés 2026-09-14); body =
+        // paciente / tratamiento / prof·sede. Full background = estado.
         <div className='flex items-stretch gap-1.5 w-full overflow-hidden'>
           <span
-            className='w-2 rounded-sm shrink-0'
+            className='flex items-center justify-center shrink-0 w-4'
             style={{
               backgroundColor: event.treatmentSlug
                 ? treatmentColorFor(event.treatmentSlug, treatmentNameRef.current(event.treatmentSlug)).hex
                 : 'rgba(255,255,255,0.6)',
-            }}
-          />
-          {event.charged && (
-            <span
-              className='flex items-center justify-center shrink-0 font-bold pr-1.5 border-r border-white/40'
-              title={t('agenda.charged')}>
-              $
-            </span>
-          )}
+            }}>
+            {event.charged && (
+              <span className='text-white font-bold text-[11px] leading-none' title={t('agenda.charged')}>
+                $
+              </span>
+            )}
+          </span>
           <div className='flex flex-col leading-tight min-w-0 flex-1 overflow-hidden pr-2'>
             <span className='truncate font-medium'>
               {isExpiredReserva(event) && <span title={t('agendaCal.expiredMark')}>⏳ </span>}
