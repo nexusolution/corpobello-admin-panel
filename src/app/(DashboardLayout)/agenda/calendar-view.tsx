@@ -1745,26 +1745,29 @@ export function CalendarView() {
         .filter(Boolean)
         .join(' · ')
       return (
-        // Left bar = treatment colour; body = paciente / tratamiento / prof·sede;
-        // "$" = cobro. Full background (via eventPropGetter) = estado.
+        // Left bar = treatment colour (wider so it reads clearly); then the "$"
+        // cobro sign in its OWN left column (Andrés 2026-09-14); body = paciente /
+        // tratamiento / prof·sede. Full background (via eventPropGetter) = estado.
         <div className='flex items-stretch gap-1.5 w-full overflow-hidden'>
           <span
-            className='w-1 rounded-sm shrink-0'
+            className='w-2 rounded-sm shrink-0'
             style={{
               backgroundColor: event.treatmentSlug
                 ? getTreatmentColorBySlug(event.treatmentSlug).hex
                 : 'rgba(255,255,255,0.6)',
             }}
           />
-          <div className='flex flex-col leading-tight min-w-0 flex-1 overflow-hidden'>
-            <span className='flex items-center justify-between gap-1 pr-3'>
-              <span className='truncate font-medium'>
-                {isExpiredReserva(event) && <span title={t('agendaCal.expiredMark')}>⏳ </span>}
-                {event.title}
-              </span>
-              {event.charged && (
-                <span className='font-bold shrink-0' title={t('agenda.charged')}>$</span>
-              )}
+          {event.charged && (
+            <span
+              className='flex items-center justify-center shrink-0 font-bold pr-1.5 border-r border-white/40'
+              title={t('agenda.charged')}>
+              $
+            </span>
+          )}
+          <div className='flex flex-col leading-tight min-w-0 flex-1 overflow-hidden pr-2'>
+            <span className='truncate font-medium'>
+              {isExpiredReserva(event) && <span title={t('agendaCal.expiredMark')}>⏳ </span>}
+              {event.title}
             </span>
             {event.treatmentSlug && (
               <span className='truncate opacity-90 text-[11px] flex items-center gap-1'>
