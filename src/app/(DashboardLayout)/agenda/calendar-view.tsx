@@ -72,7 +72,7 @@ import {
   type TreatmentPackConfig,
   type PatientPack,
 } from '@/lib/data/packs'
-import { getTreatmentColorBySlug } from '@/lib/treatment-colors'
+import { getTreatmentColorBySlug, getTreatmentColor } from '@/lib/treatment-colors'
 import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
 import { fetchAgendaBlocks, type AgendaBlock } from '@/lib/data/agenda-blocks'
 import { EvolucionForm } from '@/app/(DashboardLayout)/pacientes/[id]/evolucion-form'
@@ -103,6 +103,17 @@ function hexToRgba(hex: string, a: number): string {
   const g = parseInt(h.slice(2, 4), 16)
   const b = parseInt(h.slice(4, 6), 16)
   return `rgba(${r}, ${g}, ${b}, ${a})`
+}
+
+// Turno treatment colour. The palette is keyed by CATEGORY slugs (depilacion,
+// endolift…), but a turno stores the MENU slug (depilacion-laser, verrugas-
+// lunares…), so a direct lookup misses and falls back to grey. Try the direct
+// slug first, then infer the category from the slug/name (substring match).
+function treatmentColorFor(slug: string | null | undefined, name?: string) {
+  if (!slug) return getTreatmentColorBySlug('other')
+  const direct = getTreatmentColorBySlug(slug)
+  if (direct.slug !== 'other') return direct
+  return getTreatmentColor(`${slug} ${name ?? ''}`)
 }
 
 // Checkbox multi-select in a popover (empty selection = Todos). Used for the
@@ -504,7 +515,7 @@ function TreatmentSelect({
             {value && (
               <span
                 className='h-2.5 w-2.5 rounded-sm shrink-0'
-                style={{ backgroundColor: getTreatmentColorBySlug(value).hex }}
+                style={{ backgroundColor: treatmentColorFor(value, current?.label).hex }}
               />
             )}
             <span className='truncate'>{current ? current.label : t('turno.none')}</span>
@@ -526,7 +537,7 @@ function TreatmentSelect({
               type='button'
               onClick={() => { onChange(o.value); setOpen(false) }}
               className={`w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded text-sm hover:bg-lightprimary text-dark dark:text-white ${o.value === value ? 'bg-lightprimary/60' : ''}`}>
-              <span className='h-2.5 w-2.5 rounded-sm shrink-0' style={{ backgroundColor: getTreatmentColorBySlug(o.value).hex }} />
+              <span className='h-2.5 w-2.5 rounded-sm shrink-0' style={{ backgroundColor: treatmentColorFor(o.value, o.label).hex }} />
               <span className='truncate'>{o.label}</span>
             </button>
           ))}
@@ -1753,7 +1764,7 @@ export function CalendarView() {
             className='w-2 rounded-sm shrink-0'
             style={{
               backgroundColor: event.treatmentSlug
-                ? getTreatmentColorBySlug(event.treatmentSlug).hex
+                ? treatmentColorFor(event.treatmentSlug, treatmentNameRef.current(event.treatmentSlug)).hex
                 : 'rgba(255,255,255,0.6)',
             }}
           />
@@ -1824,7 +1835,7 @@ export function CalendarView() {
           {event.treatmentSlug && (
             <span
               className='inline-block h-2.5 w-2.5 rounded-sm shrink-0'
-              style={{ backgroundColor: getTreatmentColorBySlug(event.treatmentSlug).hex }}
+              style={{ backgroundColor: treatmentColorFor(event.treatmentSlug, treatmentNameRef.current(event.treatmentSlug)).hex }}
             />
           )}
           <span className='font-medium'>{event.title}</span>
