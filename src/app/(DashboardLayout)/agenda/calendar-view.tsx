@@ -762,7 +762,10 @@ function EventDialog({
     const input = {
       title: patientName ?? 'Turno',
       start: allDay ? startOfDay(startStr) : dateTime(startStr, startTime),
-      end: allDay ? endOfDay(endStr) : dateTime(endStr, endTime),
+      // A timed turno is always the SAME day (single "Fecha del turno"); use
+      // startStr for the end too so a stale endStr can't leave it spanning two
+      // days. Only all-day turnos use the separate end date (a real range).
+      end: allDay ? endOfDay(endStr) : dateTime(startStr, endTime),
       allDay,
       status,
       charged,
@@ -1581,7 +1584,14 @@ export function CalendarView() {
         e = endOfDay(endStr)
       } else {
         s = start
-        e = end
+        // Timed turno: force the end onto the SAME calendar day as the start
+        // (keep the end clock time). Guards month-view drags where RBC can hand
+        // back a next-day / all-day-ish end, which made a 1-turno span two days.
+        e = new Date(s.getFullYear(), s.getMonth(), s.getDate(), end.getHours(), end.getMinutes(), end.getSeconds())
+        if (e.getTime() <= s.getTime()) {
+          const durMs = Math.max(30 * 60_000, event.end.getTime() - event.start.getTime())
+          e = new Date(s.getTime() + durMs)
+        }
       }
       const sucursal = newSucursal !== undefined ? newSucursal : event.sucursal
       const professionalId =
@@ -1701,7 +1711,10 @@ export function CalendarView() {
       charged: ev.charged,
       allDay: ev.allDay,
       startStr: toDateInput(ev.start),
-      endStr: toDateInput(ev.end),
+      // Timed turnos are same-day: pin endStr to the start date so the single
+      // "Fecha del turno" and the save stay consistent (self-heals bad data on
+      // the next save). All-day turnos keep their real end date (a range).
+      endStr: ev.allDay ? toDateInput(ev.end) : toDateInput(ev.start),
       startTime: toTimeInput(ev.start),
       endTime: toTimeInput(ev.end),
       observaciones: ev.observaciones ?? '',
