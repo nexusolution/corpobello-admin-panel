@@ -107,7 +107,9 @@ type Row = {
 }
 
 function normalizeStatus(s: string): TurnoStatus {
-  return (TURNO_STATUSES as readonly string[]).includes(s) ? (s as TurnoStatus) : 'pendiente'
+  // Keep the raw stored value so autogestionable/custom statuses (migration 0048)
+  // round-trip; only empty falls back. Presentation resolves via the status config.
+  return (s ? s : 'pendiente') as TurnoStatus
 }
 
 function embeddedName(rel: Row['patient']): string | null {

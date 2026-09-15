@@ -13,6 +13,7 @@ import { PromocionesSection } from './promociones-section'
 import { HorariosSection } from './horarios-section'
 import { DisponibilidadSection } from './disponibilidad-section'
 import { PacksSection } from './packs-section'
+import { EstadosSection } from './estados-section'
 import { FeriadosSection } from './feriados-section'
 import { ConsentimientosSection } from './consentimientos-section'
 import { useTranslation } from '@/lib/i18n/context'
@@ -29,6 +30,7 @@ type TabKey =
   | 'horarios'
   | 'disponibilidad'
   | 'packs'
+  | 'estados'
   | 'feriados'
   | 'consents'
 
@@ -40,6 +42,7 @@ const TABS: { key: TabKey; labelKey: TranslationKey; icon: string }[] = [
   { key: 'horarios', labelKey: 'autoGestion.horarios.heading', icon: 'solar:clock-circle-line-duotone' },
   { key: 'disponibilidad', labelKey: 'autoGestion.availability.heading', icon: 'solar:calendar-mark-line-duotone' },
   { key: 'packs', labelKey: 'autoGestion.packs.heading', icon: 'solar:box-line-duotone' },
+  { key: 'estados', labelKey: 'autoGestion.statuses.heading', icon: 'solar:tag-line-duotone' },
   { key: 'feriados', labelKey: 'autoGestion.feriados.heading', icon: 'solar:calendar-line-duotone' },
   { key: 'texts', labelKey: 'autoGestion.texts.heading', icon: 'solar:document-text-line-duotone' },
   { key: 'intros', labelKey: 'autoGestion.intros.heading', icon: 'solar:chat-square-like-line-duotone' },
@@ -85,6 +88,7 @@ export function AutoGestionTabs() {
       {tab === 'horarios' && <HorariosSection />}
       {tab === 'disponibilidad' && <DisponibilidadSection />}
       {tab === 'packs' && <PacksSection />}
+      {tab === 'estados' && <EstadosSection />}
       {tab === 'feriados' && <FeriadosSection />}
       {tab === 'texts' && <TextsSection />}
       {tab === 'intros' && <IntrosSection />}

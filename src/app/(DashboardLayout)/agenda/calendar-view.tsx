@@ -59,6 +59,7 @@ import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
 import { fetchMenuOverrides } from '@/lib/data/menu-overrides'
 import { fetchAvailability } from '@/lib/data/availability'
 import { logTurnoAudit } from '@/lib/data/turno-audit'
+import { fetchTurnoStatusConfig, type TurnoStatusConfig } from '@/lib/data/turno-statuses'
 import {
   availabilityFor,
   anyTreatmentAvailability,
@@ -494,11 +495,17 @@ const SELECT_CLS =
 function StatusSelect({
   value,
   onChange,
-  t,
+  options,
+  labelFor,
+  colorFor,
 }: {
-  value: TurnoStatus
-  onChange: (v: TurnoStatus) => void
-  t: TFn
+  value: string
+  onChange: (v: string) => void
+  // Selectable statuses (active ones, from config), in order.
+  options: { key: string; label: string; color: string }[]
+  // Resolve label/colour for ANY key (incl. the current one even if inactive).
+  labelFor: (key: string) => string
+  colorFor: (key: string) => string
 }) {
   const [open, setOpen] = useState(false)
   return (
@@ -506,25 +513,25 @@ function StatusSelect({
       <PopoverTrigger asChild>
         <button type='button' className={`${SELECT_CLS} flex items-center justify-between gap-2 text-left`}>
           <span className='flex items-center gap-2 truncate'>
-            <span className='h-2.5 w-2.5 rounded-full shrink-0' style={{ backgroundColor: STATUS_COLORS[value] }} />
-            <span className='truncate'>{t(STATUS_LABEL_KEY[value])}</span>
+            <span className='h-2.5 w-2.5 rounded-full shrink-0' style={{ backgroundColor: colorFor(value) }} />
+            <span className='truncate'>{labelFor(value)}</span>
           </span>
           <Icon icon='tabler:chevron-down' height={15} width={15} className='text-link dark:text-darklink shrink-0' />
         </button>
       </PopoverTrigger>
       <PopoverContent className='w-[240px] p-1' align='start'>
         <div className='max-h-72 overflow-y-auto'>
-          {TURNO_STATUSES.map((s) => (
+          {options.map((s) => (
             <button
-              key={s}
+              key={s.key}
               type='button'
               onClick={() => {
-                onChange(s)
+                onChange(s.key)
                 setOpen(false)
               }}
-              className={`w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded text-sm hover:bg-lightprimary text-dark dark:text-white ${s === value ? 'bg-lightprimary/60' : ''}`}>
-              <span className='h-2.5 w-2.5 rounded-full shrink-0' style={{ backgroundColor: STATUS_COLORS[s] }} />
-              <span className='truncate'>{t(STATUS_LABEL_KEY[s])}</span>
+              className={`w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded text-sm hover:bg-lightprimary text-dark dark:text-white ${s.key === value ? 'bg-lightprimary/60' : ''}`}>
+              <span className='h-2.5 w-2.5 rounded-full shrink-0' style={{ backgroundColor: s.color }} />
+              <span className='truncate'>{s.label}</span>
             </button>
           ))}
         </div>
@@ -600,6 +607,9 @@ function EventDialog({
   canOverrideClosed,
   actorId,
   actorName,
+  statusOptions,
+  statusLabelFor,
+  statusColorFor,
   backDate,
   backView,
   onClose,
@@ -622,6 +632,10 @@ function EventDialog({
   // Acting user (for the audit trail: who made the change).
   actorId: string | null
   actorName: string
+  // Turno status config (autogestionable): selectable options + resolvers.
+  statusOptions: { key: string; label: string; color: string }[]
+  statusLabelFor: (key: string) => string
+  statusColorFor: (key: string) => string
   backDate: string
   backView: string
   onClose: () => void
@@ -930,7 +944,7 @@ function EventDialog({
       packId: packId || null,
     }
     // Build the audit entry (who / when / what) before persisting.
-    const statusLabel = (s: TurnoStatus) => t(STATUS_LABEL_KEY[s])
+    const statusLabel = (s: TurnoStatus) => statusLabelFor(s)
     const profLabel = (id: string) => professionals.find((p) => p.value === id)?.label ?? id
     const sucLabel = (s: string) => (s ? sucursalLabel(s) : t('turno.none'))
     let auditAction: 'created' | 'updated' | 'rescheduled' | 'status_changed' | 'forced_closed'
@@ -1131,7 +1145,13 @@ function EventDialog({
             </label>
             <label className='block'>
               <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.status')}</span>
-              <StatusSelect value={status} onChange={setStatus} t={t} />
+              <StatusSelect
+                value={status}
+                onChange={(v) => setStatus(v as TurnoStatus)}
+                options={statusOptions}
+                labelFor={statusLabelFor}
+                colorFor={statusColorFor}
+              />
             </label>
           </div>
 
@@ -1455,6 +1475,31 @@ export function CalendarView() {
   const [packTotals, setPackTotals] = useState<Map<string, { total: number; label: string }>>(
     new Map(),
   )
+  // Autogestionable turno status config (label/colour/active/order). Empty until
+  // loaded → helpers fall back to the built-in defaults.
+  const [statusConfigs, setStatusConfigs] = useState<TurnoStatusConfig[]>([])
+  const statusColorFor = useCallback(
+    (key: string) =>
+      statusConfigs.find((c) => c.statusKey === key)?.color ??
+      STATUS_COLORS[key as TurnoStatus] ??
+      '#8a94a6',
+    [statusConfigs],
+  )
+  const statusLabelFor = useCallback(
+    (key: string) => {
+      const cfg = statusConfigs.find((c) => c.statusKey === key)
+      if (cfg) return cfg.label
+      const k = STATUS_LABEL_KEY[key as TurnoStatus]
+      return k ? t(k) : key
+    },
+    [statusConfigs, t],
+  )
+  const statusOptions = useMemo(() => {
+    const list = statusConfigs.length
+      ? statusConfigs.filter((c) => c.active).map((c) => ({ key: c.statusKey, label: c.label, color: c.color }))
+      : TURNO_STATUSES.map((s) => ({ key: s, label: t(STATUS_LABEL_KEY[s]), color: STATUS_COLORS[s] }))
+    return list
+  }, [statusConfigs, t])
 
   moment.locale(locale)
   const localizer = useMemo(() => momentLocalizer(moment), [locale])
@@ -1512,6 +1557,7 @@ export function CalendarView() {
       setAvailExclusions(exclusions)
     })
     void fetchPackTotals().then(setPackTotals)
+    void fetchTurnoStatusConfig().then(({ data }) => setStatusConfigs(data))
     void fetchAppUsers().then(({ data }) =>
       setProfessionals(
         data
@@ -1714,6 +1760,8 @@ export function CalendarView() {
   treatmentNameRef.current = treatmentName
   const professionalNameRef = useRef(professionalName)
   professionalNameRef.current = professionalName
+  const statusColorRef = useRef(statusColorFor)
+  statusColorRef.current = statusColorFor
 
   // "Sesión N/M" per turno: order a pack's non-cancelled turnos by date and
   // label each with its position + the pack total. Shown discreetly on the card.
@@ -2155,7 +2203,7 @@ export function CalendarView() {
           {event.charged && (
             <span
               className='cb-list-cobro'
-              style={{ backgroundColor: darkenHex(STATUS_COLORS[event.status]) }}
+              style={{ backgroundColor: darkenHex(statusColorRef.current(event.status)) }}
               title={t('agenda.charged')}>
               $
             </span>
@@ -2344,10 +2392,10 @@ export function CalendarView() {
           style: {
             // Card = a LIGHT shade of the estado colour with black text; the left
             // bar and the cobro "$" block use a DARKER shade of it (Andrés 2026-09-15).
-            backgroundColor: lightenHex(STATUS_COLORS[event.status]),
+            backgroundColor: lightenHex(statusColorFor(event.status)),
             color: '#1f2937',
             border: 'none',
-            ['--cb-treat' as string]: darkenHex(STATUS_COLORS[event.status]),
+            ['--cb-treat' as string]: darkenHex(statusColorFor(event.status)),
           } as CSSProperties,
         })}
         components={calendarComponents}
@@ -2366,6 +2414,9 @@ export function CalendarView() {
           canOverrideClosed={role === 'admin' || role === 'operador'}
           actorId={actorId}
           actorName={actorName}
+          statusOptions={statusOptions}
+          statusLabelFor={statusLabelFor}
+          statusColorFor={statusColorFor}
           backDate={toDateInput(date)}
           backView={view}
           onClose={() => setDraft(null)}
