@@ -190,8 +190,12 @@
   background-color: #ffffff;
   font-weight: 600;
   padding: 0;
-  /* Anchor the absolutely-filled content below (rowSpan cell). */
+  /* Anchor the absolutely-filled content below (rowSpan cell). A fixed width is
+     required because the absolute content adds no width, so the column would
+     otherwise collapse and the date would overlap the Time column. */
   position: relative;
+  width: 120px;
+  min-width: 120px;
 }
 .dark .rbc-agenda-view .rbc-agenda-date-cell {
   background-color: #2a3547;
