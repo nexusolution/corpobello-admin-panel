@@ -57,11 +57,11 @@
    month calendar container so the whole month expands vertically. */
 .rbc-month-view {
   height: auto;
-  min-height: 640px;
 }
 .rbc-month-row {
   overflow: visible;
-  flex: 1 0 auto;
+  /* Size to content (grows with 2+ turnos) but do NOT stretch to fill height. */
+  flex: 0 0 auto;
   min-height: 116px;
 }
 .rbc-month-row .rbc-row-content {
