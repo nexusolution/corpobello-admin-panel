@@ -190,9 +190,18 @@
   background-color: #ffffff;
   font-weight: 600;
   vertical-align: top;
+  padding: 0;
 }
 .dark .rbc-agenda-view .rbc-agenda-date-cell {
   background-color: #2a3547;
+}
+/* The date cell content fills the whole cell so the per-sucursal availability
+   stripes (same as the Month) cover it edge to edge (Andrés 2026-09-15). */
+.cb-agenda-date {
+  height: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  box-sizing: border-box;
 }
 
 .rbc-current-time-indicator {

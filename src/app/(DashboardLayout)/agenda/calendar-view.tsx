@@ -109,6 +109,21 @@ function hexToRgba(hex: string, a: number): string {
   return `rgba(${r}, ${g}, ${b}, ${a})`
 }
 
+// Soft availability background for a day, from its open-sucursal markers: 1 sede
+// = full tint, 2+ = equal HORIZONTAL stripes (180deg). Shared by the Month cells
+// and the Week-list date column so both show the same per-sucursal colours.
+function stripesBackground(markers: readonly { color: string }[]): string {
+  if (markers.length === 0) return ''
+  const n = markers.length
+  if (n === 1) return hexToRgba(markers[0]!.color, 0.16)
+  return `linear-gradient(180deg, ${markers
+    .map(
+      (m, i) =>
+        `${hexToRgba(m.color, 0.16)} ${Math.round((i / n) * 100)}% ${Math.round(((i + 1) / n) * 100)}%`,
+    )
+    .join(', ')})`
+}
+
 // Darker shade of a hex colour (factor < 1). Used for the turno's left bar + the
 // cobro "$" block: the card (estado) colour, a bit darker to stand out.
 function darkenHex(hex: string, factor = 0.72): string {
@@ -1884,22 +1899,26 @@ export function CalendarView() {
       title?: string
     }>
     if (markers.length === 0) return el
-    const n = markers.length
     // Equal HORIZONTAL stripes per open sede (Andrés 2026-09-14): 1 = full soft
-    // colour, 2 = 50/50 top/bottom, 3 = equal thirds. 180deg = top-to-bottom.
-    const background =
-      n === 1
-        ? hexToRgba(markers[0]!.color, 0.16)
-        : `linear-gradient(180deg, ${markers
-            .map(
-              (m, i) =>
-                `${hexToRgba(m.color, 0.16)} ${Math.round((i / n) * 100)}% ${Math.round(((i + 1) / n) * 100)}%`,
-            )
-            .join(', ')})`
+    // colour, 2 = 50/50 top/bottom, 3 = equal thirds.
     return cloneElement(el, {
-      style: { ...(el.props.style ?? {}), background },
+      style: { ...(el.props.style ?? {}), background: stripesBackground(markers) },
       title: markers.map((m) => sucursalLabel(m.sucursal)).join(' · '),
     })
+  }, [])
+  // Week-list / Agenda date column: same per-sucursal availability colours as the
+  // Month, so both views match (Andrés 2026-09-15). Fills the date cell.
+  const agendaDateComp = useCallback(({ day, label }: { day: Date; label: string }) => {
+    const markers = dayMarkersRef.current(day)
+    const bg = stripesBackground(markers)
+    return (
+      <div
+        className='cb-agenda-date'
+        style={bg ? { background: bg } : undefined}
+        title={markers.map((m) => sucursalLabel(m.sucursal)).join(' · ') || undefined}>
+        {label}
+      </div>
+    )
   }, [])
   // Agenda (list) view: one clear line — paciente · tratamiento · prof · sede.
   const agendaEventComp = useCallback(
@@ -1949,9 +1968,10 @@ export function CalendarView() {
       dateCellWrapper,
       week: { header: dayHeader },
       day: { header: dayHeader },
-      agenda: { event: agendaEventComp },
+      // RBC types agenda.date as a props-less component; ours reads day/label.
+      agenda: { event: agendaEventComp, date: agendaDateComp as unknown as () => ReactElement },
     }),
-    [toolbarComp, eventComp, dateCellWrapper, dayHeader, agendaEventComp],
+    [toolbarComp, eventComp, dateCellWrapper, dayHeader, agendaEventComp, agendaDateComp],
   )
 
   if (loading) {
