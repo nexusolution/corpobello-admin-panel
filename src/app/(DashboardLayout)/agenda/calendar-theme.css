@@ -339,10 +339,10 @@
   background: rgba(100, 116, 139, 0.16);
 }
 
-/* Plain Day view: hide the whole top header row (date + all-day band) so the
-   time grid sits right under the toolbar (Andrés 2026-09-16). Scoped to the
-   single-column Day; columns mode keeps its header for the column labels. */
-.cb-day-noheader .rbc-time-header {
+/* Plain Day view (Columns: None): remove the whole time-grid table, leaving only
+   the toolbar + filters above (Andrés 2026-09-16). The Day keeps its grid when in
+   columns mode (sucursal/profesional), where the detail actually lives. */
+.cb-day-hidegrid .rbc-time-view {
   display: none !important;
 }
 
