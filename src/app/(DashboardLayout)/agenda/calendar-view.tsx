@@ -1936,6 +1936,21 @@ export function CalendarView() {
       </div>
     )
   }, [])
+  // Agenda/Week-list TIME cell: a full-height treatment-colour bar on the left +
+  // the (bold) time label (Andrés 2026-09-15).
+  const agendaTimeComp = useCallback(({ event, label }: { event: CalendarEvent; label: string }) => (
+    <>
+      <span
+        className='cb-list-bar'
+        style={{
+          backgroundColor: event.treatmentSlug
+            ? treatmentColorFor(event.treatmentSlug, treatmentNameRef.current(event.treatmentSlug)).hex
+            : darkenHex(STATUS_COLORS[event.status]),
+        }}
+      />
+      <span className='font-bold'>{label}</span>
+    </>
+  ), [])
   // Agenda (list) view: one clear line — paciente · tratamiento · prof · sede.
   const agendaEventComp = useCallback(
     ({ event }: { event: CalendarEvent }) => {
@@ -1946,9 +1961,9 @@ export function CalendarView() {
       ].filter(Boolean)
       return (
         // Agenda: treatment = a CIRCLE at the left; info runs inline; cobro "$"
-        // is a solid green block pushed to the right, only when charged (Andrés
-        // 2026-09-14). Row background = estado (eventPropGetter).
-        <span className='flex items-center gap-2 w-full'>
+        // is a solid full-height block at the right, only when charged (Andrés
+        // 2026-09-14/15). Row background = estado (eventPropGetter).
+        <span className={`flex items-center gap-2 w-full ${event.charged ? 'pr-12' : ''}`}>
           {event.treatmentSlug && (
             <span
               className='inline-block h-3 w-3 rounded-full shrink-0'
@@ -1956,7 +1971,7 @@ export function CalendarView() {
             />
           )}
           <span className='min-w-0 truncate'>
-            <span className='font-medium'>{event.title}</span>
+            <span className='font-bold'>{event.title}</span>
             {parts.length > 0 && <span className='text-link dark:text-darklink'> · {parts.join(' · ')}</span>}
             {packSessionLabelsRef.current.get(event.id) && (
               <span className='ml-1.5 rounded bg-secondary/15 text-secondary px-1 text-[11px] font-medium'>
@@ -1966,7 +1981,7 @@ export function CalendarView() {
           </span>
           {event.charged && (
             <span
-              className='ml-auto shrink-0 inline-flex items-center justify-center rounded-md text-white font-bold px-2.5 py-0.5 text-sm'
+              className='cb-list-cobro'
               style={{ backgroundColor: darkenHex(STATUS_COLORS[event.status]) }}
               title={t('agenda.charged')}>
               $
@@ -1985,12 +2000,16 @@ export function CalendarView() {
       // "Semana" is a custom agenda-list view (WeekAgendaView); RBC feeds it
       // components.week, so it needs the agenda event + date components here too
       // (otherwise it falls back to the grid event and an uncoloured date).
-      week: { event: agendaEventComp, date: agendaDateComp } as never,
+      week: { event: agendaEventComp, date: agendaDateComp, time: agendaTimeComp } as never,
       day: { header: dayHeader },
       // RBC types agenda.date as a props-less component; ours reads day/label.
-      agenda: { event: agendaEventComp, date: agendaDateComp as unknown as () => ReactElement },
+      agenda: {
+        event: agendaEventComp,
+        date: agendaDateComp as unknown as () => ReactElement,
+        time: agendaTimeComp as unknown as () => ReactElement,
+      },
     }),
-    [toolbarComp, eventComp, dateCellWrapper, dayHeader, agendaEventComp, agendaDateComp],
+    [toolbarComp, eventComp, dateCellWrapper, dayHeader, agendaEventComp, agendaDateComp, agendaTimeComp],
   )
 
   if (loading) {
