@@ -52,11 +52,63 @@
   border-color: #333f55;
 }
 
-/* Month: give every turno the SAME height so react-big-calendar counts how many
-   fit correctly and shows a clean "+N más" for the rest, instead of overlapping
-   (Andrés 2026-09-15). Only affects the month grid, not week/day/agenda. */
-.rbc-month-view .rbc-event {
-  height: 46px;
+/* Month (Andrés 2026-09-15 redesign): the month is a quick OVERVIEW, not a list
+   of clickable turnos. Hide RBC's event pills + "show more"; instead each day
+   cell paints per-sucursal bands with a circle per turno (treatment colour) and
+   a per-band "+N" overflow, rendered as an overlay in the day background cell.
+   Clicking anywhere on the day drills into the Day view. */
+.rbc-month-view .rbc-event,
+.rbc-month-view .rbc-show-more {
+  display: none !important;
+}
+.rbc-month-view .rbc-day-bg {
+  position: relative;
+}
+/* Vertical stack of equal per-sucursal bands filling the day cell. */
+.cb-month-bands {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+.cb-month-band {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  padding: 3px 5px;
+  overflow: hidden;
+}
+/* Leave room on the first band for the date number (top corner of the cell). */
+.cb-month-band:first-child {
+  padding-top: 22px;
+}
+.cb-month-circles {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  gap: 3px;
+  width: 100%;
+}
+.cb-month-dot {
+  height: 11px;
+  width: 11px;
+  border-radius: 9999px;
+  flex: 0 0 auto;
+}
+.cb-month-more {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.06);
+  color: #2a3547;
+}
+.dark .cb-month-more {
+  background: rgba(255, 255, 255, 0.14);
+  color: #e5eaef;
 }
 
 /* Weekday header row */

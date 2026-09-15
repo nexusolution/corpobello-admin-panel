@@ -1604,41 +1604,6 @@ export function CalendarView() {
     [events, effectiveProfessionalIds, sucursalFilter, treatmentFilterSlugs],
   )
 
-  // "Columns by branch" resources: one column per sucursal + a "Sin asignar"
-  // bucket for turnos with none. Events carry a `resourceId` so RBC places them
-  // in the right column; dragging to another column changes that sucursal.
-  const sucursalResources = useMemo(
-    () => [
-      ...SUCURSALES.map((s) => ({ resourceId: s, resourceTitle: sucursalLabel(s) })),
-      { resourceId: NONE_RESOURCE, resourceTitle: t('agenda.noSucursal') },
-    ],
-    [t],
-  )
-  // One column per (active) profesional + a "Sin asignar" bucket.
-  const professionalResources = useMemo(
-    () => [
-      ...professionals.map((p) => ({ resourceId: p.value, resourceTitle: p.label })),
-      { resourceId: NONE_RESOURCE, resourceTitle: t('turno.none') },
-    ],
-    [professionals, t],
-  )
-  const resources = columnMode === 'professional' ? professionalResources : sucursalResources
-  const calendarEvents = useMemo(
-    () =>
-      columnMode === 'professional'
-        ? visibleEvents.map((e) => ({ ...e, resourceId: e.professionalId || NONE_RESOURCE }))
-        : columnMode === 'sucursal'
-          ? visibleEvents.map((e) => ({ ...e, resourceId: e.sucursal || NONE_RESOURCE }))
-          : visibleEvents,
-    [columnMode, visibleEvents],
-  )
-
-  // Pre-reservas past the TTL (highlight only — no auto-cancel in v1).
-  const expiredCount = useMemo(
-    () => visibleEvents.filter((e) => isExpiredReserva(e)).length,
-    [visibleEvents],
-  )
-
   // Load feriados / branch-closure blocks (0037) once, for day shading.
   useEffect(() => {
     let active = true
@@ -1748,6 +1713,76 @@ export function CalendarView() {
     [sucursalFilter, sucursalOpen, isSucursalClosed],
   )
 
+  // Turnos of each day grouped by sucursal (for the Month overview circles).
+  // dateStr -> sucursal(or NONE) -> turnos. Excludes cancelled.
+  const turnosByDaySucursal = useMemo(() => {
+    const m = new Map<string, Map<string, CalendarEvent[]>>()
+    for (const e of visibleEvents) {
+      if (e.status === 'cancelado') continue
+      const ds = toDateInput(e.start)
+      const suc = e.sucursal || NONE_RESOURCE
+      let inner = m.get(ds)
+      if (!inner) {
+        inner = new Map()
+        m.set(ds, inner)
+      }
+      const arr = inner.get(suc)
+      if (arr) arr.push(e)
+      else inner.set(suc, [e])
+    }
+    return m
+  }, [visibleEvents])
+
+  // "Columns by branch" resources for the Day/Week view: one column per sucursal
+  // that is OPEN on the current date OR has turnos that day (Andrés 2026-09-15 —
+  // opening a day shows only the branches that work that day), + a "Sin asignar"
+  // bucket when some turno that day has no sucursal.
+  const sucursalResources = useMemo(() => {
+    const ds = toDateInput(date)
+    const relevant = new Set<string>()
+    for (const m of sedeMarkers(date)) relevant.add(m.sucursal)
+    const dayMap = turnosByDaySucursal.get(ds)
+    let hasNone = false
+    if (dayMap) {
+      for (const suc of dayMap.keys()) {
+        if (suc === NONE_RESOURCE) hasNone = true
+        else relevant.add(suc)
+      }
+    }
+    const cols = SUCURSALES.filter((s) => relevant.has(s))
+    const base = (cols.length ? cols : [...SUCURSALES]).map((s) => ({
+      resourceId: s as string,
+      resourceTitle: sucursalLabel(s),
+    }))
+    if (hasNone) base.push({ resourceId: NONE_RESOURCE, resourceTitle: t('agenda.noSucursal') })
+    return base
+  }, [date, sedeMarkers, turnosByDaySucursal, t])
+  // One column per (active) profesional + a "Sin asignar" bucket.
+  const professionalResources = useMemo(
+    () => [
+      ...professionals.map((p) => ({ resourceId: p.value, resourceTitle: p.label })),
+      { resourceId: NONE_RESOURCE, resourceTitle: t('turno.none') },
+    ],
+    [professionals, t],
+  )
+  const resources = columnMode === 'professional' ? professionalResources : sucursalResources
+  const calendarEvents = useMemo(
+    () =>
+      columnMode === 'professional'
+        ? visibleEvents.map((e) => ({ ...e, resourceId: e.professionalId || NONE_RESOURCE }))
+        : columnMode === 'sucursal'
+          ? visibleEvents.map((e) => ({ ...e, resourceId: e.sucursal || NONE_RESOURCE }))
+          : visibleEvents,
+    [columnMode, visibleEvents],
+  )
+
+  // Pre-reservas past the TTL (highlight only — no auto-cancel in v1).
+  const expiredCount = useMemo(
+    () => visibleEvents.filter((e) => isExpiredReserva(e)).length,
+    [visibleEvents],
+  )
+
+
   // Treatment slug → display name, for the event card's second line.
   const treatmentName = useCallback(
     (slug?: string | null) => {
@@ -1782,6 +1817,8 @@ export function CalendarView() {
   statusColorRef.current = statusColorFor
   const treatmentColorRef = useRef(treatmentColorResolved)
   treatmentColorRef.current = treatmentColorResolved
+  const turnosByDaySucursalRef = useRef(turnosByDaySucursal)
+  turnosByDaySucursalRef.current = turnosByDaySucursal
 
   // "Sesión N/M" per turno: order a pack's non-cancelled turnos by date and
   // label each with its position + the pack total. Shown discreetly on the card.
@@ -1894,6 +1931,22 @@ export function CalendarView() {
     [isProfesional, myUserId],
   )
 
+  // From the Month, open a day in the Day view; if 2+ sucursales work/have turnos
+  // that day, open it split into columns per sucursal (Andrés 2026-09-15).
+  const openDayFromMonth = useCallback(
+    (d: Date) => {
+      const ds = toDateInput(d)
+      const sucs = new Set<string>()
+      for (const m of sedeMarkers(d)) sucs.add(m.sucursal)
+      const dayMap = turnosByDaySucursal.get(ds)
+      if (dayMap) for (const s of dayMap.keys()) if (s !== NONE_RESOURCE) sucs.add(s)
+      setDate(d)
+      setColumnMode(sucs.size >= 2 ? 'sucursal' : 'none')
+      setView(Views.DAY)
+    },
+    [sedeMarkers, turnosByDaySucursal],
+  )
+
   const onSelectSlot = useCallback(
     (slot: SlotInfo) => {
       // Clicking a column pre-fills that column's sucursal or profesional.
@@ -1901,16 +1954,15 @@ export function CalendarView() {
       const picked = rid != null && rid !== NONE_RESOURCE ? String(rid) : undefined
       const sucursalDefault = columnMode === 'sucursal' ? picked : undefined
       const professionalDefault = columnMode === 'professional' ? picked : undefined
-      // Month: clicking a free area drills into that day's Day view (Andrés
-      // 2026-09-12) — creating a turno is via "Nuevo evento" or from Day/Week.
+      // Month: clicking anywhere on a day drills into that day's Day view, split
+      // into columns per sucursal when more than one works that day.
       if (view === Views.MONTH) {
-        setDate(slot.start)
-        setView(Views.DAY)
+        openDayFromMonth(slot.start)
         return
       }
       openAdd(slot.start, slot.end, false, sucursalDefault, professionalDefault)
     },
-    [openAdd, view, columnMode],
+    [openAdd, view, columnMode, openDayFromMonth],
   )
 
   // Persist a drag/resize. Timed turnos keep their exact times; all-day ones
@@ -2162,20 +2214,59 @@ export function CalendarView() {
     },
     [t],
   )
+  // Month day cell = overview (Andrés 2026-09-15): per-sucursal bands (a band for
+  // every sede OPEN that day OR with turnos), each tinted with the sede colour and
+  // filled with one circle per turno (treatment colour), capped with a per-band
+  // "+N". Not clickable individually — the whole cell drills into the Day view.
   const dateCellWrapper = useCallback((props: { children: ReactElement; value: Date }) => {
-    const markers = dayMarkersRef.current(props.value)
     const el = props.children as ReactElement<{
       style?: CSSProperties
       children?: ReactNode
       title?: string
     }>
-    if (markers.length === 0) return el
-    // Equal HORIZONTAL stripes per open sede (Andrés 2026-09-14): 1 = full soft
-    // colour, 2 = 50/50 top/bottom, 3 = equal thirds.
-    return cloneElement(el, {
-      style: { ...(el.props.style ?? {}), background: stripesBackground(markers) },
-      title: markers.map((m) => sucursalLabel(m.sucursal)).join(' · '),
-    })
+    const ds = toDateInput(props.value)
+    const dayMap = turnosByDaySucursalRef.current.get(ds)
+    const openSucs = new Set(sedeMarkersRef.current(props.value).map((m) => m.sucursal))
+    const bandSucs = SUCURSALES.filter((s) => openSucs.has(s) || dayMap?.has(s))
+    if (bandSucs.length === 0) return el
+    const cap = bandSucs.length === 1 ? 9 : bandSucs.length === 2 ? 5 : 3
+    const overlay = (
+      <div className='cb-month-bands'>
+        {bandSucs.map((suc) => {
+          const turnos = dayMap?.get(suc) ?? []
+          const shown = turnos.slice(0, cap)
+          const extra = turnos.length - shown.length
+          return (
+            <div
+              key={suc}
+              className='cb-month-band'
+              style={{ background: hexToRgba(sucursalColor(suc), 0.16) }}
+              title={sucursalLabel(suc)}>
+              <div className='cb-month-circles'>
+                {shown.map((tt) => (
+                  <span
+                    key={tt.id}
+                    className='cb-month-dot'
+                    style={{
+                      backgroundColor: treatmentColorRef.current(
+                        tt.treatmentSlug,
+                        treatmentNameRef.current(tt.treatmentSlug),
+                      ),
+                    }}
+                  />
+                ))}
+                {extra > 0 && <span className='cb-month-more'>+{extra}</span>}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+    return cloneElement(
+      el,
+      { title: bandSucs.map((s) => sucursalLabel(s)).join(' · ') },
+      overlay,
+    )
   }, [])
   // Week-list / Agenda date column: same per-sucursal availability colours as the
   // Month, so both views match (Andrés 2026-09-15). Fills the date cell.
@@ -2365,11 +2456,9 @@ export function CalendarView() {
         onView={setView}
         date={date}
         onNavigate={setDate}
-        // Clicking a day number in Month opens that day's Day view.
-        onDrillDown={(d: Date) => {
-          setDate(d)
-          setView(Views.DAY)
-        }}
+        // Clicking a day number in Month opens that day's Day view (split into
+        // columns per sucursal when more than one works that day).
+        onDrillDown={(d: Date) => openDayFromMonth(d)}
         // Week/Day start scrolled to the morning so turnos are visible at once.
         scrollToTime={scrollToTime}
         views={{ month: true, week: WeekAgendaView, day: true, agenda: true } as never}
