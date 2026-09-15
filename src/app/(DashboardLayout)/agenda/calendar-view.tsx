@@ -1800,9 +1800,9 @@ export function CalendarView() {
     [professionals],
   )
 
-  // Treatment-colour legend (Andrés 2026-09-15): the month circles are coloured
-  // by treatment, so show what each colour means. Only the treatments actually
-  // present in the current (filtered) events, one swatch each, sorted by name.
+  // Treatment-colour legend: the time-grid views (Week/Day/Agenda) colour the
+  // treatment bar + agenda circle by treatment, so show what each colour means.
+  // Only the treatments actually present in the current (filtered) events.
   const treatmentLegend = useMemo(() => {
     const seen = new Map<string, { label: string; color: string }>()
     for (const e of visibleEvents) {
@@ -1815,6 +1815,18 @@ export function CalendarView() {
     }
     return Array.from(seen.values()).sort((a, b) => a.label.localeCompare(b.label))
   }, [visibleEvents, treatmentName, treatmentColorResolved])
+
+  // Status-colour legend (Andrés 2026-09-15): the Month circles are coloured by
+  // the patient STATUS, so the Month view shows what each circle colour means.
+  // Only the estados present among the month's (non-cancelled) turnos.
+  const statusLegend = useMemo(() => {
+    const seen = new Map<string, { label: string; color: string }>()
+    for (const e of visibleEvents) {
+      if (e.status === 'cancelado' || seen.has(e.status)) continue
+      seen.set(e.status, { label: statusLabelFor(e.status), color: statusColorFor(e.status) })
+    }
+    return Array.from(seen.values()).sort((a, b) => a.label.localeCompare(b.label))
+  }, [visibleEvents, statusLabelFor, statusColorFor])
 
   // Refs to the volatile lookups so the RBC `components` can be STABLE (never
   // change identity). If the components object changed each render, RBC remounted
@@ -1831,6 +1843,8 @@ export function CalendarView() {
   professionalNameRef.current = professionalName
   const statusColorRef = useRef(statusColorFor)
   statusColorRef.current = statusColorFor
+  const statusLabelRef = useRef(statusLabelFor)
+  statusLabelRef.current = statusLabelFor
   const treatmentColorRef = useRef(treatmentColorResolved)
   treatmentColorRef.current = treatmentColorResolved
   const turnosByDaySucursalRef = useRef(turnosByDaySucursal)
@@ -2232,8 +2246,12 @@ export function CalendarView() {
   )
   // Month day cell = overview (Andrés 2026-09-15): per-sucursal bands (a band for
   // every sede OPEN that day OR with turnos), each tinted with the sede colour and
-  // filled with one circle per turno (treatment colour), capped with a per-band
-  // "+N". Not clickable individually — the whole cell drills into the Day view.
+  // filled with one circle per turno, coloured by the PATIENT STATUS (estado).
+  // The circles are only a visual read of how many patients/turnos each sucursal
+  // has that day — NOT identifiable, NOT individually clickable. Each band caps at
+  // 9/5/3 circles (1/2/3 sedes) and overflows into its OWN "+N" so the number
+  // reflects that sucursal, not the whole day. The whole cell (bands, circles and
+  // "+N" included) drills into the Day view (see openDayFromMonth).
   const dateCellWrapper = useCallback((props: { children: ReactElement; value: Date }) => {
     const el = props.children as ReactElement<{
       style?: CSSProperties
@@ -2245,7 +2263,7 @@ export function CalendarView() {
     const openSucs = new Set(sedeMarkersRef.current(props.value).map((m) => m.sucursal))
     const bandSucs = SUCURSALES.filter((s) => openSucs.has(s) || dayMap?.has(s))
     if (bandSucs.length === 0) return el
-    const cap = bandSucs.length === 1 ? 6 : bandSucs.length === 2 ? 4 : 2
+    const cap = bandSucs.length === 1 ? 9 : bandSucs.length === 2 ? 5 : 3
     const overlay = (
       <div className='cb-month-bands'>
         {bandSucs.map((suc) => {
@@ -2259,28 +2277,14 @@ export function CalendarView() {
               style={{ background: hexToRgba(sucursalColor(suc), 0.16) }}
               title={sucursalLabel(suc)}>
               <div className='cb-month-circles'>
-                {shown.map((tt) => {
-                  const tip = [
-                    tt.allDay ? '' : toTimeInput(tt.start),
-                    tt.patientName || tt.title,
-                    tt.treatmentSlug ? treatmentNameRef.current(tt.treatmentSlug) : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')
-                  return (
-                    <span
-                      key={tt.id}
-                      className='cb-month-dot'
-                      title={tip}
-                      style={{
-                        backgroundColor: treatmentColorRef.current(
-                          tt.treatmentSlug,
-                          treatmentNameRef.current(tt.treatmentSlug),
-                        ),
-                      }}
-                    />
-                  )
-                })}
+                {shown.map((tt) => (
+                  <span
+                    key={tt.id}
+                    className='cb-month-dot'
+                    title={statusLabelRef.current(tt.status)}
+                    style={{ backgroundColor: statusColorRef.current(tt.status) }}
+                  />
+                ))}
                 {extra > 0 && (
                   <span className='cb-month-more' title={t('agenda.moreTurnos', { n: String(extra) })}>
                     +{extra}
@@ -2477,19 +2481,32 @@ export function CalendarView() {
         </div>
       )}
 
-      {/* Treatment-colour legend (Andrés 2026-09-15): explains the circle colours
-          shown per turno. Only the treatments present in the current view. */}
-      {treatmentLegend.length > 0 && (
-        <div className='flex items-center gap-3 flex-wrap mb-3 text-xs text-link dark:text-darklink'>
-          <span className='font-medium'>{t('agenda.treatmentLegend')}:</span>
-          {treatmentLegend.map((tl) => (
-            <span key={tl.label} className='inline-flex items-center gap-1.5'>
-              <span className='h-3 w-3 rounded-full' style={{ backgroundColor: tl.color }} />
-              {tl.label}
-            </span>
-          ))}
-        </div>
-      )}
+      {/* Colour legend for the circles/cards. In Month the circles are coloured by
+          the patient ESTADO (Andrés 2026-09-15), so show the estado legend there;
+          in the time-grid views the treatment colour is what needs explaining. */}
+      {view === Views.MONTH
+        ? statusLegend.length > 0 && (
+            <div className='flex items-center gap-3 flex-wrap mb-3 text-xs text-link dark:text-darklink'>
+              <span className='font-medium'>{t('agenda.statusLegend')}:</span>
+              {statusLegend.map((sl) => (
+                <span key={sl.label} className='inline-flex items-center gap-1.5'>
+                  <span className='h-3 w-3 rounded-full' style={{ backgroundColor: sl.color }} />
+                  {sl.label}
+                </span>
+              ))}
+            </div>
+          )
+        : treatmentLegend.length > 0 && (
+            <div className='flex items-center gap-3 flex-wrap mb-3 text-xs text-link dark:text-darklink'>
+              <span className='font-medium'>{t('agenda.treatmentLegend')}:</span>
+              {treatmentLegend.map((tl) => (
+                <span key={tl.label} className='inline-flex items-center gap-1.5'>
+                  <span className='h-3 w-3 rounded-full' style={{ backgroundColor: tl.color }} />
+                  {tl.label}
+                </span>
+              ))}
+            </div>
+          )}
 
       <DnDCalendar
         localizer={localizer}
