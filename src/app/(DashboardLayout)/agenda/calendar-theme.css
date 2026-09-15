@@ -92,8 +92,8 @@
   width: 100%;
 }
 .cb-month-dot {
-  height: 16px;
-  width: 16px;
+  height: 22px;
+  width: 22px;
   border-radius: 9999px;
   flex: 0 0 auto;
   /* Receive hover so the native tooltip shows; the click still bubbles to the

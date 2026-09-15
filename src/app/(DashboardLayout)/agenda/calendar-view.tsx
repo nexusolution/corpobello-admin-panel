@@ -1800,6 +1800,22 @@ export function CalendarView() {
     [professionals],
   )
 
+  // Treatment-colour legend (Andrés 2026-09-15): the month circles are coloured
+  // by treatment, so show what each colour means. Only the treatments actually
+  // present in the current (filtered) events, one swatch each, sorted by name.
+  const treatmentLegend = useMemo(() => {
+    const seen = new Map<string, { label: string; color: string }>()
+    for (const e of visibleEvents) {
+      if (!e.treatmentSlug || seen.has(e.treatmentSlug)) continue
+      const label = treatmentName(e.treatmentSlug)
+      seen.set(e.treatmentSlug, {
+        label,
+        color: treatmentColorResolved(e.treatmentSlug, label),
+      })
+    }
+    return Array.from(seen.values()).sort((a, b) => a.label.localeCompare(b.label))
+  }, [visibleEvents, treatmentName, treatmentColorResolved])
+
   // Refs to the volatile lookups so the RBC `components` can be STABLE (never
   // change identity). If the components object changed each render, RBC remounted
   // the toolbar + cells → the "Nuevo evento" button, month label and cells blinked
@@ -2229,7 +2245,7 @@ export function CalendarView() {
     const openSucs = new Set(sedeMarkersRef.current(props.value).map((m) => m.sucursal))
     const bandSucs = SUCURSALES.filter((s) => openSucs.has(s) || dayMap?.has(s))
     if (bandSucs.length === 0) return el
-    const cap = bandSucs.length === 1 ? 9 : bandSucs.length === 2 ? 5 : 3
+    const cap = bandSucs.length === 1 ? 6 : bandSucs.length === 2 ? 4 : 2
     const overlay = (
       <div className='cb-month-bands'>
         {bandSucs.map((suc) => {
@@ -2461,6 +2477,20 @@ export function CalendarView() {
         </div>
       )}
 
+      {/* Treatment-colour legend (Andrés 2026-09-15): explains the circle colours
+          shown per turno. Only the treatments present in the current view. */}
+      {treatmentLegend.length > 0 && (
+        <div className='flex items-center gap-3 flex-wrap mb-3 text-xs text-link dark:text-darklink'>
+          <span className='font-medium'>{t('agenda.treatmentLegend')}:</span>
+          {treatmentLegend.map((tl) => (
+            <span key={tl.label} className='inline-flex items-center gap-1.5'>
+              <span className='h-3 w-3 rounded-full' style={{ backgroundColor: tl.color }} />
+              {tl.label}
+            </span>
+          ))}
+        </div>
+      )}
+
       <DnDCalendar
         localizer={localizer}
         events={calendarEvents}
@@ -2497,9 +2527,10 @@ export function CalendarView() {
         messages={messages}
         style={
           {
-            // Fixed height (RBC needs one to render). Month is taller so 2+
-            // turnos per day fit; very busy days fall back to "+N más" (popup).
-            height: view === Views.MONTH ? 960 : 720,
+            // Fixed height (RBC needs one to render). Month is a compact overview
+            // (bands + circles), so it needs less height than the time grids
+            // (Andrés 2026-09-15: reduce the month table height).
+            height: view === Views.MONTH ? 680 : 720,
             // Taller rows so even short turnos show their full content (nombre +
             // tratamiento + profesional) without clipping. 50px per slot (Andrés
             // 2026-09-15).
