@@ -595,6 +595,8 @@ function EventDialog({
   exclusions,
   catalogSlugs,
   allEvents,
+  isSucursalClosed,
+  canOverrideClosed,
   backDate,
   backView,
   onClose,
@@ -610,6 +612,10 @@ function EventDialog({
   catalogSlugs: string[]
   // All loaded turnos, to warn about overlaps (sobre-turnos) on save.
   allEvents: CalendarEvent[]
+  // Is (date, sucursal) closed by a feriado/branch-closure block? + whether the
+  // current user may FORCE a turno on a closed day (admin/operador only).
+  isSucursalClosed: (ds: string, sucursal: string) => boolean
+  canOverrideClosed: boolean
   backDate: string
   backView: string
   onClose: () => void
@@ -778,8 +784,57 @@ function EventDialog({
 
   async function save() {
     if (!valid || saving) return
-    // Availability guard: warn (but allow override) if the branch is closed.
-    if (hasClosedDay) {
+    const isDarkNow =
+      typeof document !== 'undefined' &&
+      document.documentElement.classList.contains('dark')
+    // Feriado / branch-closure ENFORCEMENT (Andrés 2026-09-15): a day closed via
+    // Autogestión → Feriados must not simply warn. Users without permission are
+    // BLOCKED; admin/operador may FORCE with a confirmation (logged once the
+    // audit trail exists). Checked per day in the range, for the turno's sucursal.
+    const closedByFeriado = (() => {
+      if (!sucursal || !startStr) return false
+      const endBound = allDay ? endStr || startStr : startStr
+      const end = new Date(`${endBound}T00:00:00`)
+      for (const d = new Date(`${startStr}T00:00:00`); d <= end; d.setDate(d.getDate() + 1)) {
+        if (isSucursalClosed(toDateInput(d), sucursal)) return true
+      }
+      return false
+    })()
+    if (closedByFeriado) {
+      if (!canOverrideClosed) {
+        await Swal.fire({
+          icon: 'error',
+          title: t('turno.closedBlockedTitle'),
+          text: t('turno.closedBlockedBody'),
+          confirmButtonText: t('turno.closedBlockedOk'),
+          confirmButtonColor: '#5d87ff',
+          background: isDarkNow ? '#2a3547' : '#ffffff',
+          color: isDarkNow ? '#ffffff' : '#2a3547',
+          width: '360px',
+          customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
+        })
+        return
+      }
+      const res = await Swal.fire({
+        icon: 'warning',
+        iconColor: '#fa896b',
+        title: t('turno.closedForceTitle'),
+        text: t('turno.closedForceBody'),
+        showCancelButton: true,
+        confirmButtonText: t('turno.closedForceYes'),
+        cancelButtonText: t('agendaCal.cancel'),
+        confirmButtonColor: '#fa896b',
+        cancelButtonColor: isDarkNow ? '#3f4a5d' : '#e5e7eb',
+        background: isDarkNow ? '#2a3547' : '#ffffff',
+        color: isDarkNow ? '#ffffff' : '#2a3547',
+        width: '380px',
+        customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
+      })
+      if (!res.isConfirmed) return
+    }
+    // Availability guard: warn (but allow override) if the branch is closed by the
+    // schedule rules (softer than a feriado). Skipped when already handled above.
+    if (hasClosedDay && !closedByFeriado) {
       const isDark =
         typeof document !== 'undefined' &&
         document.documentElement.classList.contains('dark')
@@ -2227,6 +2282,8 @@ export function CalendarView() {
           exclusions={availExclusions}
           catalogSlugs={catalogSlugs}
           allEvents={events}
+          isSucursalClosed={isSucursalClosed}
+          canOverrideClosed={role === 'admin' || role === 'operador'}
           backDate={toDateInput(date)}
           backView={view}
           onClose={() => setDraft(null)}
