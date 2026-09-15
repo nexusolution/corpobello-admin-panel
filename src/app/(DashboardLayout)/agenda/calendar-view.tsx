@@ -2060,9 +2060,9 @@ export function CalendarView() {
         messages={messages}
         style={
           {
-            // Month grows with its content (rows expand to fit 2+ turnos, no
-            // overlap); Week/Day keep a fixed scrollable height (Andrés 2026-09-15).
-            height: view === Views.MONTH ? 'auto' : 720,
+            // Fixed height (RBC needs one to render). Month is taller so 2+
+            // turnos per day fit; very busy days fall back to "+N más" (popup).
+            height: view === Views.MONTH ? 960 : 720,
             // Taller rows so even short turnos show their full content (nombre +
             // tratamiento + profesional). 36px per slot (Andrés 2026-09-14).
             ['--rbc-group-h' as string]: `${Math.max(1, Math.round(60 / scaleMin)) * 36}px`,

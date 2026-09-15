@@ -52,24 +52,6 @@
   border-color: #333f55;
 }
 
-/* Month rows grow to fit ALL turnos of the day instead of clipping/overlapping
-   when there are 2+ (Andrés 2026-09-15). Works together with height:auto on the
-   month calendar container so the whole month expands vertically. */
-.rbc-month-view {
-  height: auto;
-}
-.rbc-month-row {
-  overflow: visible;
-  /* Grow with content (2+ turnos) but, since the month container is height:auto
-     with no min-height, flex-grow has no extra space to stretch into — so rows
-     size to their content (>= min-height), not to fill the viewport. */
-  flex: 1 0 auto;
-  min-height: 116px;
-}
-.rbc-month-row .rbc-row-content {
-  height: auto;
-}
-
 /* Weekday header row */
 .rbc-header {
   padding: 10px 6px;
