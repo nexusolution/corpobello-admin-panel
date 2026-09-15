@@ -58,6 +58,7 @@ import {
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
 import { fetchMenuOverrides } from '@/lib/data/menu-overrides'
 import { fetchAvailability } from '@/lib/data/availability'
+import { logTurnoAudit } from '@/lib/data/turno-audit'
 import {
   availabilityFor,
   anyTreatmentAvailability,
@@ -597,6 +598,8 @@ function EventDialog({
   allEvents,
   isSucursalClosed,
   canOverrideClosed,
+  actorId,
+  actorName,
   backDate,
   backView,
   onClose,
@@ -616,6 +619,9 @@ function EventDialog({
   // current user may FORCE a turno on a closed day (admin/operador only).
   isSucursalClosed: (ds: string, sucursal: string) => boolean
   canOverrideClosed: boolean
+  // Acting user (for the audit trail: who made the change).
+  actorId: string | null
+  actorName: string
   backDate: string
   backView: string
   onClose: () => void
@@ -923,14 +929,66 @@ function EventDialog({
       observaciones: observaciones.trim() || null,
       packId: packId || null,
     }
-    const err = isEdit
-      ? await updateCalendarEvent(draft.id as string, input)
-      : (await createCalendarEvent(input)).error
+    // Build the audit entry (who / when / what) before persisting.
+    const statusLabel = (s: TurnoStatus) => t(STATUS_LABEL_KEY[s])
+    const profLabel = (id: string) => professionals.find((p) => p.value === id)?.label ?? id
+    const sucLabel = (s: string) => (s ? sucursalLabel(s) : t('turno.none'))
+    let auditAction: 'created' | 'updated' | 'rescheduled' | 'status_changed' | 'forced_closed'
+    let auditDetail: string
+    if (!isEdit) {
+      auditAction = closedByFeriado ? 'forced_closed' : 'created'
+      auditDetail = `${t('turnoAudit.created')}: ${statusLabel(status)}`
+    } else {
+      const changes: string[] = []
+      const dateChanged =
+        draft.startStr !== startStr ||
+        draft.endStr !== endStr ||
+        draft.startTime !== startTime ||
+        draft.endTime !== endTime ||
+        draft.allDay !== allDay
+      if (dateChanged)
+        changes.push(`${t('turnoAudit.rescheduledTo')} ${startStr}${allDay ? '' : ' ' + startTime}`)
+      if (draft.status !== status)
+        changes.push(`${t('turnoAudit.status')}: ${statusLabel(draft.status)} → ${statusLabel(status)}`)
+      if (draft.sucursal !== sucursal)
+        changes.push(`${t('turnoAudit.sucursal')}: ${sucLabel(draft.sucursal)} → ${sucLabel(sucursal)}`)
+      if (draft.professionalId !== professionalId)
+        changes.push(
+          `${t('turnoAudit.professional')}: ${draft.professionalId ? profLabel(draft.professionalId) : t('turno.none')} → ${professionalId ? profLabel(professionalId) : t('turno.none')}`,
+        )
+      if (draft.charged !== charged)
+        changes.push(charged ? t('turnoAudit.charged') : t('turnoAudit.uncharged'))
+      auditAction = dateChanged
+        ? 'rescheduled'
+        : draft.status !== status
+          ? 'status_changed'
+          : 'updated'
+      auditDetail = changes.length ? changes.join(' · ') : t('turnoAudit.updated')
+    }
+    if (closedByFeriado) auditDetail += ` · ${t('turnoAudit.forcedNote')}`
+
+    let savedId: string | null = draft.id
+    let err: string | null
+    if (isEdit) {
+      err = await updateCalendarEvent(draft.id as string, input)
+    } else {
+      const res = await createCalendarEvent(input)
+      err = res.error
+      savedId = res.data?.id ?? null
+    }
     setSaving(false)
     if (err) {
       setError(err)
       return
     }
+    void logTurnoAudit({
+      calendarEventId: savedId,
+      patientId,
+      action: auditAction,
+      detail: auditDetail,
+      changedBy: actorId,
+      changedByName: actorName,
+    })
     onSaved()
   }
 
@@ -962,6 +1020,14 @@ function EventDialog({
       setError(err)
       return
     }
+    void logTurnoAudit({
+      calendarEventId: null,
+      patientId,
+      action: 'deleted',
+      detail: t('turnoAudit.deleted'),
+      changedBy: actorId,
+      changedByName: actorName,
+    })
     onSaved()
   }
 
@@ -1335,7 +1401,7 @@ WeekAgendaView.title = (date: Date, { localizer }: { localizer: RbcLocalizer }) 
 // ── Main view ─────────────────────────────────────────────────────────────────
 export function CalendarView() {
   const { t, locale } = useTranslation()
-  const { role } = useCurrentUser()
+  const { role, name: actorName, userId: actorId } = useCurrentUser()
   const isProfesional = role === 'profesional'
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -1834,9 +1900,23 @@ export function CalendarView() {
         observaciones: event.observaciones,
         packId: event.packId,
       })
+      // Audit the drag/resize (reschedule + any column reassign).
+      const changes = [`${t('turnoAudit.rescheduledTo')} ${toDateInput(s)}${allDay ? '' : ' ' + toTimeInput(s)}`]
+      if (newSucursal !== undefined && newSucursal !== event.sucursal)
+        changes.push(`${t('turnoAudit.sucursal')}: ${sucursal ? sucursalLabel(sucursal) : t('turno.none')}`)
+      if (newProfessional !== undefined && newProfessional !== event.professionalId)
+        changes.push(`${t('turnoAudit.professional')}: ${professionalName(professionalId)}`)
+      void logTurnoAudit({
+        calendarEventId: event.id,
+        patientId: event.patientId,
+        action: 'rescheduled',
+        detail: changes.join(' · '),
+        changedBy: actorId,
+        changedByName: actorName,
+      })
       reload()
     },
-    [reload],
+    [reload, t, professionalName, actorId, actorName],
   )
 
   const onEventDrop = useCallback<
@@ -2284,6 +2364,8 @@ export function CalendarView() {
           allEvents={events}
           isSucursalClosed={isSucursalClosed}
           canOverrideClosed={role === 'admin' || role === 'operador'}
+          actorId={actorId}
+          actorName={actorName}
           backDate={toDateInput(date)}
           backView={view}
           onClose={() => setDraft(null)}

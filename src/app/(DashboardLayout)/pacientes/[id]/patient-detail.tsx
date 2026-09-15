@@ -36,6 +36,7 @@ import {
 import { fetchMenuOverrides } from '@/lib/data/menu-overrides'
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
 import { STATUS_LABEL_KEY, type TurnoStatus } from '@/lib/data/calendar-events'
+import { fetchPatientTurnoAudit, type TurnoAuditEntry } from '@/lib/data/turno-audit'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 import Swal from 'sweetalert2'
 import { fetchPatientConsents, type Consent } from '@/lib/data/consents'
@@ -461,30 +462,73 @@ function QuotesTab({ detail, t, locale }: { detail: PatientDetailData; t: TFn; l
 // ---------- Reservations tab ----------
 
 function ReservationsTab({ detail, t, locale }: { detail: PatientDetailData; t: TFn; locale: string }) {
-  if (detail.reservations.length === 0) {
-    return <EmptyBlock icon='solar:calendar-mark-line-duotone' text={t('patientDetail.reservations.empty')} />
-  }
+  const patientId = detail.contact.id
+  // Agenda activity/audit (who + when + what) for this patient — Andrés 2026-09-15.
+  const [audit, setAudit] = useState<TurnoAuditEntry[]>([])
+  const [auditLoading, setAuditLoading] = useState(true)
+  useEffect(() => {
+    let active = true
+    void fetchPatientTurnoAudit(patientId).then(({ data }) => {
+      if (!active) return
+      setAudit(data)
+      setAuditLoading(false)
+    })
+    return () => {
+      active = false
+    }
+  }, [patientId])
+
+  const hasReservations = detail.reservations.length > 0
   return (
-    <div className='space-y-3'>
-      <p className='text-xs text-link dark:text-darklink flex items-start gap-1.5'>
-        <Icon icon='solar:info-circle-line-duotone' height={14} width={14} className='mt-0.5 shrink-0' />
-        {t('patientDetail.reservations.note')}
-      </p>
-      {detail.reservations.map((r) => (
-        <div key={r.id} className='flex items-center justify-between gap-3 rounded-md border border-border dark:border-darkborder p-3'>
-          <div className='min-w-0'>
-            <StatusPill status={r.status} />
-            <p className='text-xs text-link dark:text-darklink mt-1.5'>
-              {t('patientDetail.reservations.since', { date: formatDate(r.createdAt, locale) })}
-            </p>
-          </div>
-          {r.lastActivity && (
-            <p className='text-xs text-link dark:text-darklink shrink-0'>
-              {t('patientDetail.reservations.lastActivity', { date: formatDateTime(r.lastActivity, locale) })}
-            </p>
-          )}
+    <div className='space-y-6'>
+      {/* Current reservations */}
+      {hasReservations ? (
+        <div className='space-y-3'>
+          <p className='text-xs text-link dark:text-darklink flex items-start gap-1.5'>
+            <Icon icon='solar:info-circle-line-duotone' height={14} width={14} className='mt-0.5 shrink-0' />
+            {t('patientDetail.reservations.note')}
+          </p>
+          {detail.reservations.map((r) => (
+            <div key={r.id} className='flex items-center justify-between gap-3 rounded-md border border-border dark:border-darkborder p-3'>
+              <div className='min-w-0'>
+                <StatusPill status={r.status} />
+                <p className='text-xs text-link dark:text-darklink mt-1.5'>
+                  {t('patientDetail.reservations.since', { date: formatDate(r.createdAt, locale) })}
+                </p>
+              </div>
+              {r.lastActivity && (
+                <p className='text-xs text-link dark:text-darklink shrink-0'>
+                  {t('patientDetail.reservations.lastActivity', { date: formatDateTime(r.lastActivity, locale) })}
+                </p>
+              )}
+            </div>
+          ))}
         </div>
-      ))}
+      ) : (
+        <EmptyBlock icon='solar:calendar-mark-line-duotone' text={t('patientDetail.reservations.empty')} />
+      )}
+
+      {/* Agenda activity / audit trail */}
+      <div className='space-y-2'>
+        <h3 className='text-sm font-semibold text-dark dark:text-white'>{t('turnoAudit.title')}</h3>
+        {auditLoading ? (
+          <p className='text-sm text-link dark:text-darklink italic'>{t('ficha.loading')}</p>
+        ) : audit.length === 0 ? (
+          <p className='text-sm text-link dark:text-darklink italic'>{t('turnoAudit.empty')}</p>
+        ) : (
+          <ul className='space-y-2'>
+            {audit.map((a) => (
+              <li key={a.id} className='rounded-md border border-border dark:border-darkborder p-3'>
+                <p className='text-sm text-dark dark:text-white'>{a.detail}</p>
+                <p className='text-xs text-link dark:text-darklink mt-1'>
+                  {a.changedByName ? `${t('turnoAudit.by')} ${a.changedByName} · ` : ''}
+                  {formatDateTime(a.createdAt, locale)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   )
 }
