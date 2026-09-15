@@ -820,26 +820,30 @@ function EventDialog({
 
   return (
     <div
-      className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto'
+      className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50'
       onClick={onClose}>
+      {/* Column layout with a fixed header + footer and a scrollable body so a
+          tall form never hides the title or the action buttons (Andrés 2026-09-14). */}
       <div
-        className='w-full max-w-md rounded-xl bg-card p-6 shadow-xl my-8'
+        className='w-full max-w-md rounded-xl bg-card shadow-xl flex flex-col max-h-[90vh]'
         onClick={(e) => e.stopPropagation()}>
-        <div className='flex items-start justify-between mb-1'>
-          <h3 className='text-lg font-semibold text-dark dark:text-white'>
-            {isEdit ? t('turno.editTitle') : t('turno.addTitle')}
-          </h3>
-          <button
-            type='button'
-            onClick={onClose}
-            aria-label={t('agendaCal.cancel')}
-            className='text-link dark:text-darklink hover:text-primary transition-colors'>
-            <Icon icon='tabler:x' height={20} width={20} />
-          </button>
+        <div className='p-6 pb-3 shrink-0'>
+          <div className='flex items-start justify-between mb-1'>
+            <h3 className='text-lg font-semibold text-dark dark:text-white'>
+              {isEdit ? t('turno.editTitle') : t('turno.addTitle')}
+            </h3>
+            <button
+              type='button'
+              onClick={onClose}
+              aria-label={t('agendaCal.cancel')}
+              className='text-link dark:text-darklink hover:text-primary transition-colors'>
+              <Icon icon='tabler:x' height={20} width={20} />
+            </button>
+          </div>
+          <p className='text-xs text-link dark:text-darklink'>{t('turno.subtitle')}</p>
         </div>
-        <p className='text-xs text-link dark:text-darklink mb-4'>{t('turno.subtitle')}</p>
 
-        <div className='space-y-4'>
+        <div className='px-6 pb-4 overflow-y-auto flex-1 space-y-4'>
           <PatientPicker
             valueName={patientName}
             onChange={(id, name) => {
@@ -1089,7 +1093,7 @@ function EventDialog({
           {error && <p className='text-xs text-error'>{t('agendaCal.saveError')}</p>}
         </div>
 
-        <div className='mt-6 flex items-center justify-between gap-2'>
+        <div className='p-6 pt-3 shrink-0 border-t border-border dark:border-darkborder flex items-center justify-between gap-2'>
           {isEdit ? (
             <button
               type='button'
