@@ -2243,19 +2243,33 @@ export function CalendarView() {
               style={{ background: hexToRgba(sucursalColor(suc), 0.16) }}
               title={sucursalLabel(suc)}>
               <div className='cb-month-circles'>
-                {shown.map((tt) => (
-                  <span
-                    key={tt.id}
-                    className='cb-month-dot'
-                    style={{
-                      backgroundColor: treatmentColorRef.current(
-                        tt.treatmentSlug,
-                        treatmentNameRef.current(tt.treatmentSlug),
-                      ),
-                    }}
-                  />
-                ))}
-                {extra > 0 && <span className='cb-month-more'>+{extra}</span>}
+                {shown.map((tt) => {
+                  const tip = [
+                    tt.allDay ? '' : toTimeInput(tt.start),
+                    tt.patientName || tt.title,
+                    tt.treatmentSlug ? treatmentNameRef.current(tt.treatmentSlug) : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')
+                  return (
+                    <span
+                      key={tt.id}
+                      className='cb-month-dot'
+                      title={tip}
+                      style={{
+                        backgroundColor: treatmentColorRef.current(
+                          tt.treatmentSlug,
+                          treatmentNameRef.current(tt.treatmentSlug),
+                        ),
+                      }}
+                    />
+                  )
+                })}
+                {extra > 0 && (
+                  <span className='cb-month-more' title={t('agenda.moreTurnos', { n: String(extra) })}>
+                    +{extra}
+                  </span>
+                )}
               </div>
             </div>
           )
