@@ -183,6 +183,18 @@
   color: #7c8fac;
 }
 
+/* Neutral Date column in the agenda/week list. RBC tints the whole row with the
+   estado colour, and the rowSpan date cell would otherwise take the FIRST turno's
+   colour — making different days look mismatched (Andrés 2026-09-15). */
+.rbc-agenda-view .rbc-agenda-date-cell {
+  background-color: #ffffff;
+  font-weight: 600;
+  vertical-align: top;
+}
+.dark .rbc-agenda-view .rbc-agenda-date-cell {
+  background-color: #2a3547;
+}
+
 .rbc-current-time-indicator {
   background: #fa896b;
 }
