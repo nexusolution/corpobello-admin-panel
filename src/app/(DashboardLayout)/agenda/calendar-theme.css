@@ -214,8 +214,8 @@
    full-height cobro "$" block at the right of the Event cell. */
 .rbc-agenda-view .rbc-agenda-time-cell,
 .rbc-agenda-view .rbc-agenda-event-cell {
-  padding-top: 20px;
-  padding-bottom: 20px;
+  padding-top: 28px;
+  padding-bottom: 28px;
 }
 .rbc-agenda-view .rbc-agenda-time-cell {
   font-weight: 700;
