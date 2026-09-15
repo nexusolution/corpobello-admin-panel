@@ -189,17 +189,19 @@
 .rbc-agenda-view .rbc-agenda-date-cell {
   background-color: #ffffff;
   font-weight: 600;
-  vertical-align: top;
   padding: 0;
+  /* Anchor the absolutely-filled content below (rowSpan cell). */
+  position: relative;
 }
 .dark .rbc-agenda-view .rbc-agenda-date-cell {
   background-color: #2a3547;
 }
-/* The date cell content fills the whole cell so the per-sucursal availability
-   stripes (same as the Month) cover it edge to edge (Andrés 2026-09-15). */
+/* Fill the WHOLE date cell (its rowSpan height) with the per-sucursal
+   availability stripes, edge to edge, like the Month (Andrés 2026-09-15).
+   height:100% doesn't stretch inside a rowSpan <td>, so absolutely fill it. */
 .cb-agenda-date {
-  height: 100%;
-  min-height: 40px;
+  position: absolute;
+  inset: 0;
   padding: 8px 10px;
   box-sizing: border-box;
 }
