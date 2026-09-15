@@ -594,6 +594,7 @@ function EventDialog({
   rules,
   exclusions,
   catalogSlugs,
+  allEvents,
   backDate,
   backView,
   onClose,
@@ -607,6 +608,8 @@ function EventDialog({
   rules: AvailabilityRule[]
   exclusions: AvailabilityExclusion[]
   catalogSlugs: string[]
+  // All loaded turnos, to warn about overlaps (sobre-turnos) on save.
+  allEvents: CalendarEvent[]
   backDate: string
   backView: string
   onClose: () => void
@@ -796,6 +799,55 @@ function EventDialog({
         customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
       })
       if (!res.isConfirmed) return
+    }
+    // Sobre-turno: warn (do NOT block) if this timed turno overlaps another one
+    // of the SAME professional (or same sucursal when no professional). A stronger
+    // warning when it collides exactly (same professional + same start). Andrés
+    // 2026-09-15: allow the overbooking on confirm; never hard-block.
+    if (!allDay && (professionalId || sucursal)) {
+      const s = dateTime(startStr, startTime).getTime()
+      const e = dateTime(startStr, endTime).getTime()
+      const conflicts = allEvents.filter(
+        (ev) =>
+          ev.id !== draft.id &&
+          !ev.allDay &&
+          ev.status !== 'cancelado' &&
+          (professionalId
+            ? ev.professionalId === professionalId
+            : ev.sucursal === sucursal) &&
+          ev.start.getTime() < e &&
+          ev.end.getTime() > s,
+      )
+      if (conflicts.length > 0) {
+        const exact =
+          !!professionalId &&
+          conflicts.some((c) => c.professionalId === professionalId && c.start.getTime() === s)
+        const other = conflicts[0]!
+        const otherName = other.patientName || other.title || t('turno.none')
+        const otherRange = `${toTimeInput(other.start)} - ${toTimeInput(other.end)}`
+        const isDark =
+          typeof document !== 'undefined' &&
+          document.documentElement.classList.contains('dark')
+        const res = await Swal.fire({
+          title: t(exact ? 'turno.overlapExactTitle' : 'turno.overlapTitle'),
+          text: t(exact ? 'turno.overlapExactBody' : 'turno.overlapBody', {
+            name: otherName,
+            range: otherRange,
+          }),
+          icon: 'warning',
+          iconColor: exact ? '#fa896b' : '#ffae1f',
+          showCancelButton: true,
+          confirmButtonText: t('turno.overlapConfirm'),
+          cancelButtonText: t('agendaCal.cancel'),
+          confirmButtonColor: exact ? '#fa896b' : '#5d87ff',
+          cancelButtonColor: isDark ? '#3f4a5d' : '#e5e7eb',
+          background: isDark ? '#2a3547' : '#ffffff',
+          color: isDark ? '#ffffff' : '#2a3547',
+          width: '380px',
+          customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
+        })
+        if (!res.isConfirmed) return
+      }
     }
     setSaving(true)
     setError(null)
@@ -2174,6 +2226,7 @@ export function CalendarView() {
           rules={availRules}
           exclusions={availExclusions}
           catalogSlugs={catalogSlugs}
+          allEvents={events}
           backDate={toDateInput(date)}
           backView={view}
           onClose={() => setDraft(null)}
