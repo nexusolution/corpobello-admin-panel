@@ -1496,6 +1496,20 @@ export function CalendarView() {
     },
     [sucursalFilter, inColumns, sucursalOpen, isSucursalClosed],
   )
+  // Same per-sucursal availability, but WITHOUT the "column mode" guard (columns
+  // don't apply to the agenda/week list) — used to colour the list's date column.
+  const sedeMarkers = useCallback(
+    (d: Date): { sucursal: string; color: string }[] => {
+      const ds = toDateInput(d)
+      return SUCURSALES.filter(
+        (suc) =>
+          (!sucursalFilter || suc === sucursalFilter) &&
+          sucursalOpen(ds, suc).open &&
+          !isSucursalClosed(ds, suc),
+      ).map((suc) => ({ sucursal: suc, color: sucursalColor(suc) }))
+    },
+    [sucursalFilter, sucursalOpen, isSucursalClosed],
+  )
 
   // Treatment slug → display name, for the event card's second line.
   const treatmentName = useCallback(
@@ -1521,6 +1535,8 @@ export function CalendarView() {
   // latest data via these refs; the calendar re-renders cells when `events` change.
   const dayMarkersRef = useRef(dayMarkers)
   dayMarkersRef.current = dayMarkers
+  const sedeMarkersRef = useRef(sedeMarkers)
+  sedeMarkersRef.current = sedeMarkers
   const treatmentNameRef = useRef(treatmentName)
   treatmentNameRef.current = treatmentName
   const professionalNameRef = useRef(professionalName)
@@ -1909,7 +1925,7 @@ export function CalendarView() {
   // Week-list / Agenda date column: same per-sucursal availability colours as the
   // Month, so both views match (Andrés 2026-09-15). Fills the date cell.
   const agendaDateComp = useCallback(({ day, label }: { day: Date; label: string }) => {
-    const markers = dayMarkersRef.current(day)
+    const markers = sedeMarkersRef.current(day)
     const bg = stripesBackground(markers)
     return (
       <div
