@@ -60,8 +60,10 @@
 }
 .rbc-month-row {
   overflow: visible;
-  /* Size to content (grows with 2+ turnos) but do NOT stretch to fill height. */
-  flex: 0 0 auto;
+  /* Grow with content (2+ turnos) but, since the month container is height:auto
+     with no min-height, flex-grow has no extra space to stretch into — so rows
+     size to their content (>= min-height), not to fill the viewport. */
+  flex: 1 0 auto;
   min-height: 116px;
 }
 .rbc-month-row .rbc-row-content {
