@@ -105,6 +105,16 @@ function hexToRgba(hex: string, a: number): string {
   return `rgba(${r}, ${g}, ${b}, ${a})`
 }
 
+// Darker shade of a hex colour (factor < 1). Used for the turno's left bar, which
+// Andrés wants as the card (estado) colour but a bit darker to distinguish it.
+function darkenHex(hex: string, factor = 0.72): string {
+  const h = hex.replace('#', '')
+  const r = Math.round(parseInt(h.slice(0, 2), 16) * factor)
+  const g = Math.round(parseInt(h.slice(2, 4), 16) * factor)
+  const b = Math.round(parseInt(h.slice(4, 6), 16) * factor)
+  return `rgb(${r}, ${g}, ${b})`
+}
+
 // Turno treatment colour. The palette is keyed by CATEGORY slugs (depilacion,
 // endolift…), but a turno stores the MENU slug (depilacion-laser, verrugas-
 // lunares…), so a direct lookup misses and falls back to grey. Try the direct
@@ -2054,9 +2064,8 @@ export function CalendarView() {
             backgroundColor: STATUS_COLORS[event.status],
             color: '#ffffff',
             border: 'none',
-            ['--cb-treat' as string]: event.treatmentSlug
-              ? treatmentColorFor(event.treatmentSlug, treatmentName(event.treatmentSlug)).hex
-              : 'rgba(255,255,255,0.6)',
+            // Left bar = the card (estado) colour, a bit darker (Andrés 2026-09-15).
+            ['--cb-treat' as string]: darkenHex(STATUS_COLORS[event.status]),
           } as CSSProperties,
         })}
         components={calendarComponents}
