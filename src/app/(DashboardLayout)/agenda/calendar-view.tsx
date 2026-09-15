@@ -1936,21 +1936,6 @@ export function CalendarView() {
       </div>
     )
   }, [])
-  // Agenda/Week-list TIME cell: a full-height treatment-colour bar on the left +
-  // the (bold) time label (Andrés 2026-09-15).
-  const agendaTimeComp = useCallback(({ event, label }: { event: CalendarEvent; label: string }) => (
-    <>
-      <span
-        className='cb-list-bar'
-        style={{
-          backgroundColor: event.treatmentSlug
-            ? treatmentColorFor(event.treatmentSlug, treatmentNameRef.current(event.treatmentSlug)).hex
-            : darkenHex(STATUS_COLORS[event.status]),
-        }}
-      />
-      <span className='font-bold'>{label}</span>
-    </>
-  ), [])
   // Agenda (list) view: one clear line — paciente · tratamiento · prof · sede.
   const agendaEventComp = useCallback(
     ({ event }: { event: CalendarEvent }) => {
@@ -2000,16 +1985,12 @@ export function CalendarView() {
       // "Semana" is a custom agenda-list view (WeekAgendaView); RBC feeds it
       // components.week, so it needs the agenda event + date components here too
       // (otherwise it falls back to the grid event and an uncoloured date).
-      week: { event: agendaEventComp, date: agendaDateComp, time: agendaTimeComp } as never,
+      week: { event: agendaEventComp, date: agendaDateComp } as never,
       day: { header: dayHeader },
       // RBC types agenda.date as a props-less component; ours reads day/label.
-      agenda: {
-        event: agendaEventComp,
-        date: agendaDateComp as unknown as () => ReactElement,
-        time: agendaTimeComp as unknown as () => ReactElement,
-      },
+      agenda: { event: agendaEventComp, date: agendaDateComp as unknown as () => ReactElement },
     }),
-    [toolbarComp, eventComp, dateCellWrapper, dayHeader, agendaEventComp, agendaDateComp, agendaTimeComp],
+    [toolbarComp, eventComp, dateCellWrapper, dayHeader, agendaEventComp, agendaDateComp],
   )
 
   if (loading) {

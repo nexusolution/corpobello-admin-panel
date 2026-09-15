@@ -210,25 +210,15 @@
   box-sizing: border-box;
 }
 
-/* Agenda/Week list rows (Andrés 2026-09-15): a bit taller, bold time, a
-   full-height treatment bar on the left of the Time cell, and a solid full-height
-   cobro "$" block at the right of the Event cell. */
+/* Agenda/Week list rows (Andrés 2026-09-15): taller rows, bold time, and a solid
+   full-height cobro "$" block at the right of the Event cell. */
 .rbc-agenda-view .rbc-agenda-time-cell,
 .rbc-agenda-view .rbc-agenda-event-cell {
-  padding-top: 12px;
-  padding-bottom: 12px;
+  padding-top: 20px;
+  padding-bottom: 20px;
 }
 .rbc-agenda-view .rbc-agenda-time-cell {
-  position: relative;
-  padding-left: 16px;
   font-weight: 700;
-}
-.cb-list-bar {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 6px;
 }
 .rbc-agenda-view .rbc-agenda-event-cell {
   position: relative;
