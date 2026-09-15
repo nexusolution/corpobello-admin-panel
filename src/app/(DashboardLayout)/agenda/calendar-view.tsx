@@ -1982,7 +1982,10 @@ export function CalendarView() {
       toolbar: toolbarComp,
       event: eventComp,
       dateCellWrapper,
-      week: { header: dayHeader },
+      // "Semana" is a custom agenda-list view (WeekAgendaView); RBC feeds it
+      // components.week, so it needs the agenda event + date components here too
+      // (otherwise it falls back to the grid event and an uncoloured date).
+      week: { event: agendaEventComp, date: agendaDateComp } as never,
       day: { header: dayHeader },
       // RBC types agenda.date as a props-less component; ours reads day/label.
       agenda: { event: agendaEventComp, date: agendaDateComp as unknown as () => ReactElement },
