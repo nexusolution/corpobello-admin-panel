@@ -136,7 +136,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #22c55e;
+  /* Same colour as the card (estado), a bit darker — matches the left bar. */
+  background: var(--cb-treat, #22c55e);
   color: #fff;
   font-weight: 700;
   font-size: 15px;

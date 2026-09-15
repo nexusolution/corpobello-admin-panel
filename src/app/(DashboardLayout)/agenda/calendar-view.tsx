@@ -105,13 +105,24 @@ function hexToRgba(hex: string, a: number): string {
   return `rgba(${r}, ${g}, ${b}, ${a})`
 }
 
-// Darker shade of a hex colour (factor < 1). Used for the turno's left bar, which
-// Andrés wants as the card (estado) colour but a bit darker to distinguish it.
+// Darker shade of a hex colour (factor < 1). Used for the turno's left bar + the
+// cobro "$" block: the card (estado) colour, a bit darker to stand out.
 function darkenHex(hex: string, factor = 0.72): string {
   const h = hex.replace('#', '')
   const r = Math.round(parseInt(h.slice(0, 2), 16) * factor)
   const g = Math.round(parseInt(h.slice(2, 4), 16) * factor)
   const b = Math.round(parseInt(h.slice(4, 6), 16) * factor)
+  return `rgb(${r}, ${g}, ${b})`
+}
+
+// Lighter shade of a hex colour (factor = amount toward white, 0..1). The turno
+// card uses a light shade of its estado colour with black text (Andrés 2026-09-15).
+function lightenHex(hex: string, factor = 0.6): string {
+  const h = hex.replace('#', '')
+  const mix = (c: number) => Math.round(c + (255 - c) * factor)
+  const r = mix(parseInt(h.slice(0, 2), 16))
+  const g = mix(parseInt(h.slice(2, 4), 16))
+  const b = mix(parseInt(h.slice(4, 6), 16))
   return `rgb(${r}, ${g}, ${b})`
 }
 
@@ -1881,7 +1892,8 @@ export function CalendarView() {
           </span>
           {event.charged && (
             <span
-              className='ml-auto shrink-0 inline-flex items-center justify-center rounded-md bg-success text-white font-bold px-2.5 py-0.5 text-sm'
+              className='ml-auto shrink-0 inline-flex items-center justify-center rounded-md text-white font-bold px-2.5 py-0.5 text-sm'
+              style={{ backgroundColor: darkenHex(STATUS_COLORS[event.status]) }}
               title={t('agenda.charged')}>
               $
             </span>
@@ -2061,10 +2073,11 @@ export function CalendarView() {
           // the whole block including the time-label zone (Andrés 2026-09-14).
           className: event.charged ? 'cb-charged' : undefined,
           style: {
-            backgroundColor: STATUS_COLORS[event.status],
-            color: '#ffffff',
+            // Card = a LIGHT shade of the estado colour with black text; the left
+            // bar and the cobro "$" block use a DARKER shade of it (Andrés 2026-09-15).
+            backgroundColor: lightenHex(STATUS_COLORS[event.status]),
+            color: '#1f2937',
             border: 'none',
-            // Left bar = the card (estado) colour, a bit darker (Andrés 2026-09-15).
             ['--cb-treat' as string]: darkenHex(STATUS_COLORS[event.status]),
           } as CSSProperties,
         })}
