@@ -60,6 +60,7 @@ import { fetchMenuOverrides } from '@/lib/data/menu-overrides'
 import { fetchAvailability } from '@/lib/data/availability'
 import { logTurnoAudit } from '@/lib/data/turno-audit'
 import { fetchTurnoStatusConfig, type TurnoStatusConfig } from '@/lib/data/turno-statuses'
+import { fetchTreatmentColors } from '@/lib/data/treatment-colors-config'
 import {
   availabilityFor,
   anyTreatmentAvailability,
@@ -546,11 +547,13 @@ function TreatmentSelect({
   value,
   options,
   onChange,
+  colorFor,
   t,
 }: {
   value: string
   options: Option[]
   onChange: (v: string) => void
+  colorFor: (slug: string, name?: string) => string
   t: TFn
 }) {
   const [open, setOpen] = useState(false)
@@ -563,7 +566,7 @@ function TreatmentSelect({
             {value && (
               <span
                 className='h-2.5 w-2.5 rounded-sm shrink-0'
-                style={{ backgroundColor: treatmentColorFor(value, current?.label).hex }}
+                style={{ backgroundColor: colorFor(value, current?.label) }}
               />
             )}
             <span className='truncate'>{current ? current.label : t('turno.none')}</span>
@@ -585,7 +588,7 @@ function TreatmentSelect({
               type='button'
               onClick={() => { onChange(o.value); setOpen(false) }}
               className={`w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded text-sm hover:bg-lightprimary text-dark dark:text-white ${o.value === value ? 'bg-lightprimary/60' : ''}`}>
-              <span className='h-2.5 w-2.5 rounded-sm shrink-0' style={{ backgroundColor: treatmentColorFor(o.value, o.label).hex }} />
+              <span className='h-2.5 w-2.5 rounded-sm shrink-0' style={{ backgroundColor: colorFor(o.value, o.label) }} />
               <span className='truncate'>{o.label}</span>
             </button>
           ))}
@@ -610,6 +613,7 @@ function EventDialog({
   statusOptions,
   statusLabelFor,
   statusColorFor,
+  treatmentColor,
   backDate,
   backView,
   onClose,
@@ -636,6 +640,8 @@ function EventDialog({
   statusOptions: { key: string; label: string; color: string }[]
   statusLabelFor: (key: string) => string
   statusColorFor: (key: string) => string
+  // Config-aware treatment colour resolver (for the treatment picker dots).
+  treatmentColor: (slug: string, name?: string) => string
   backDate: string
   backView: string
   onClose: () => void
@@ -1122,6 +1128,7 @@ function EventDialog({
                   setTreatmentSlug(v)
                   applyAutoDuration(v, firstSession)
                 }}
+                colorFor={treatmentColor}
                 t={t}
               />
             </label>
@@ -1475,6 +1482,13 @@ export function CalendarView() {
   const [packTotals, setPackTotals] = useState<Map<string, { total: number; label: string }>>(
     new Map(),
   )
+  // Per-treatment colour overrides (Autogestión). Empty → default palette.
+  const [treatmentColorMap, setTreatmentColorMap] = useState<Map<string, string>>(new Map())
+  const treatmentColorResolved = useCallback(
+    (slug: string | null | undefined, name?: string) =>
+      (slug && treatmentColorMap.get(slug)) || treatmentColorFor(slug, name).hex,
+    [treatmentColorMap],
+  )
   // Autogestionable turno status config (label/colour/active/order). Empty until
   // loaded → helpers fall back to the built-in defaults.
   const [statusConfigs, setStatusConfigs] = useState<TurnoStatusConfig[]>([])
@@ -1558,6 +1572,7 @@ export function CalendarView() {
     })
     void fetchPackTotals().then(setPackTotals)
     void fetchTurnoStatusConfig().then(({ data }) => setStatusConfigs(data))
+    void fetchTreatmentColors().then(setTreatmentColorMap)
     void fetchAppUsers().then(({ data }) =>
       setProfessionals(
         data
@@ -1762,6 +1777,8 @@ export function CalendarView() {
   professionalNameRef.current = professionalName
   const statusColorRef = useRef(statusColorFor)
   statusColorRef.current = statusColorFor
+  const treatmentColorRef = useRef(treatmentColorResolved)
+  treatmentColorRef.current = treatmentColorResolved
 
   // "Sesión N/M" per turno: order a pack's non-cancelled turnos by date and
   // label each with its position + the pack total. Shown discreetly on the card.
@@ -2187,7 +2204,7 @@ export function CalendarView() {
           {event.treatmentSlug && (
             <span
               className='inline-block h-3.5 w-3.5 rounded-full shrink-0'
-              style={{ backgroundColor: treatmentColorFor(event.treatmentSlug, treatmentNameRef.current(event.treatmentSlug)).hex }}
+              style={{ backgroundColor: treatmentColorRef.current(event.treatmentSlug, treatmentNameRef.current(event.treatmentSlug)) }}
               title={treatmentNameRef.current(event.treatmentSlug)}
             />
           )}
@@ -2417,6 +2434,7 @@ export function CalendarView() {
           statusOptions={statusOptions}
           statusLabelFor={statusLabelFor}
           statusColorFor={statusColorFor}
+          treatmentColor={treatmentColorResolved}
           backDate={toDateInput(date)}
           backView={view}
           onClose={() => setDraft(null)}
