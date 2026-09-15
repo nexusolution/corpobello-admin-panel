@@ -26,10 +26,10 @@ import {
 import withDragAndDrop, {
   type withDragAndDropProps,
 } from 'react-big-calendar/lib/addons/dragAndDrop'
-// RBC's internal Agenda view — reused for a week-scoped list "Semana" (no types).
+// RBC's internal time-grid — reused for a Monday–Saturday week grid (no types).
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-expect-error no type declarations for the internal view module
-import Agenda from 'react-big-calendar/lib/Agenda'
+import TimeGrid from 'react-big-calendar/lib/TimeGrid'
 import moment from 'moment'
 import 'moment/locale/es'
 import { es } from 'date-fns/locale'
@@ -1404,27 +1404,38 @@ type RbcLocalizer = {
   add: (d: Date, amount: number, unit: string) => Date
   format: (d: Date, fmt: string) => string
 }
-function WeekAgendaView(props: any) {
-  const start = (props.localizer as RbcLocalizer).startOf(props.date, 'week')
-  return <Agenda {...props} date={start} length={7} />
+// Week = a Monday–Saturday time grid (Andrés 2026-09-15): the days are the
+// columns and the hours run vertically, so the height stays constant no matter
+// how many turnos there are, and simultaneous turnos (any sucursal/profesional)
+// render side by side automatically (TimeGrid overlap layout). Sunday is dropped
+// because the clinic does not work that day. Column-by-sucursal/profesional is a
+// Day-only concern here, so this view ignores resources.
+function weekMonToSat(date: Date, localizer: RbcLocalizer): Date[] {
+  const base = localizer.startOf(date, 'day')
+  const back = (base.getDay() + 6) % 7 // days since the Monday of this week
+  const monday = localizer.add(base, -back, 'day')
+  return [0, 1, 2, 3, 4, 5].map((i) => localizer.add(monday, i, 'day'))
 }
-WeekAgendaView.range = (date: Date, { localizer }: { localizer: RbcLocalizer }) => ({
-  start: localizer.startOf(date, 'week'),
-  end: localizer.endOf(date, 'week'),
-})
-WeekAgendaView.navigate = (
+function WorkWeekView(props: any) {
+  const range = weekMonToSat(props.date, props.localizer as RbcLocalizer)
+  return <TimeGrid {...props} range={range} eventOffset={15} />
+}
+WorkWeekView.range = (date: Date, { localizer }: { localizer: RbcLocalizer }) =>
+  weekMonToSat(date, localizer)
+WorkWeekView.navigate = (
   date: Date,
   action: string,
   { localizer }: { localizer: RbcLocalizer },
 ) => {
-  if (action === 'PREV') return localizer.startOf(localizer.add(date, -7, 'day'), 'week')
-  if (action === 'NEXT') return localizer.startOf(localizer.add(date, 7, 'day'), 'week')
-  return localizer.startOf(date, 'week')
+  if (action === 'PREV') return localizer.add(date, -7, 'day')
+  if (action === 'NEXT') return localizer.add(date, 7, 'day')
+  return date
 }
-WeekAgendaView.title = (date: Date, { localizer }: { localizer: RbcLocalizer }) => {
-  const start = localizer.startOf(date, 'week')
-  const end = localizer.endOf(date, 'week')
-  return `${localizer.format(start, 'D MMM')} – ${localizer.format(end, 'D MMM')}`
+WorkWeekView.title = (date: Date, { localizer }: { localizer: RbcLocalizer }) => {
+  const days = weekMonToSat(date, localizer)
+  const start = days[0]
+  const end = days[days.length - 1]
+  return `${localizer.format(start, 'ddd D MMM')} – ${localizer.format(end, 'ddd D MMM YYYY')}`
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -1473,6 +1484,10 @@ export function CalendarView() {
   // profesional (Andrés 2026-09-11: two professionals working simultaneously).
   const [columnMode, setColumnMode] = useState<'none' | 'sucursal' | 'professional'>('none')
   const inColumns = columnMode !== 'none'
+  // Columns are a DAY-view display option only (Andrés 2026-09-15): they must not
+  // block navigation to Week/Month. When leaving Day the columns are ignored, and
+  // the last choice is remembered (columnMode state persists) for when you return.
+  const columnsActive = inColumns && view === Views.DAY
   // Vertical time scale (minutes per slot) for Week/Day — a zoom, not the real
   // duration. Smaller = short turnos read clearly (Andrés 2026-09-11).
   const [scaleMin, setScaleMin] = useState(30)
@@ -1687,7 +1702,7 @@ export function CalendarView() {
   // single-branch view uses the closed-day shading instead.
   const dayMarkers = useCallback(
     (d: Date): { sucursal: string; color: string }[] => {
-      if (sucursalFilter || inColumns) return []
+      if (sucursalFilter || columnsActive) return []
       const ds = toDateInput(d)
       return SUCURSALES.filter(
         (suc) => sucursalOpen(ds, suc).open && !isSucursalClosed(ds, suc),
@@ -1696,7 +1711,7 @@ export function CalendarView() {
         color: sucursalColor(suc),
       }))
     },
-    [sucursalFilter, inColumns, sucursalOpen, isSucursalClosed],
+    [sucursalFilter, columnsActive, sucursalOpen, isSucursalClosed],
   )
   // Same per-sucursal availability, but WITHOUT the "column mode" guard (columns
   // don't apply to the agenda/week list) — used to colour the list's date column.
@@ -1757,24 +1772,95 @@ export function CalendarView() {
     if (hasNone) base.push({ resourceId: NONE_RESOURCE, resourceTitle: t('agenda.noSucursal') })
     return base
   }, [date, sedeMarkers, turnosByDaySucursal, t])
-  // One column per (active) profesional + a "Sin asignar" bucket.
-  const professionalResources = useMemo(
-    () => [
-      ...professionals.map((p) => ({ resourceId: p.value, resourceTitle: p.label })),
-      { resourceId: NONE_RESOURCE, resourceTitle: t('turno.none') },
-    ],
-    [professionals, t],
+  // "Por profesional" columns (Andrés 2026-09-15): DYNAMIC and grouped by sucursal.
+  // For the current date we build one column per (sucursal, profesional) that
+  // actually works that day — a professional "works" at a sucursal if they have a
+  // turno there that day OR the availability rules open a slot for them there. No
+  // fixed/empty columns, no permanent "Sin asignar": that column appears only if
+  // there are turnos that day without a professional. Sucursales with no known
+  // professional (open but unassigned) fall back to a single sucursal column so no
+  // turno is ever homeless. resourceId encodes the pair: sp:<suc>:<profId>,
+  // su:<suc>, or the unassigned bucket.
+  type DayCol = {
+    resourceId: string
+    resourceTitle: string
+    sucursal: string
+    sucColor: string
+  }
+  const dayHybridResources = useMemo<DayCol[]>(() => {
+    const ds = toDateInput(date)
+    const dayMap = turnosByDaySucursal.get(ds)
+    const sucs = new Set<string>()
+    for (const m of sedeMarkers(date)) sucs.add(m.sucursal)
+    if (dayMap) for (const s of dayMap.keys()) if (s !== NONE_RESOURCE) sucs.add(s)
+    const orderedSucs = SUCURSALES.filter((s) => sucs.has(s))
+    const cols: DayCol[] = []
+    let hasUnassigned = false
+    for (const suc of orderedSucs) {
+      const profIds = new Set<string>()
+      for (const p of professionals) {
+        const works = catalogSlugs.some(
+          (slug) => availabilityFor(ds, suc, slug, availRules, availExclusions, p.value).open,
+        )
+        if (works) profIds.add(p.value)
+      }
+      for (const tt of dayMap?.get(suc) ?? []) {
+        if (tt.professionalId) profIds.add(tt.professionalId)
+        else hasUnassigned = true
+      }
+      const profList = professionals.filter((p) => profIds.has(p.value))
+      if (profList.length === 0) {
+        cols.push({
+          resourceId: `su:${suc}`,
+          resourceTitle: sucursalLabel(suc),
+          sucursal: suc,
+          sucColor: sucursalColor(suc),
+        })
+      } else {
+        for (const p of profList)
+          cols.push({
+            resourceId: `sp:${suc}:${p.value}`,
+            resourceTitle: p.label,
+            sucursal: suc,
+            sucColor: sucursalColor(suc),
+          })
+      }
+    }
+    if (hasUnassigned)
+      cols.push({
+        resourceId: NONE_RESOURCE,
+        resourceTitle: t('agenda.noProfessional'),
+        sucursal: '',
+        sucColor: '#94a3b8',
+      })
+    return cols.length
+      ? cols
+      : [{ resourceId: NONE_RESOURCE, resourceTitle: t('turno.none'), sucursal: '', sucColor: '#94a3b8' }]
+  }, [date, sedeMarkers, turnosByDaySucursal, professionals, catalogSlugs, availRules, availExclusions, t])
+
+  // Map a turno to its hybrid column: prefer the exact (sucursal, profesional)
+  // pair, else the sucursal-only column, else the unassigned bucket.
+  const hybridResourceIdFor = useCallback(
+    (e: CalendarEvent, colIds: Set<string>) => {
+      const suc = e.sucursal || ''
+      if (e.professionalId && colIds.has(`sp:${suc}:${e.professionalId}`))
+        return `sp:${suc}:${e.professionalId}`
+      if (colIds.has(`su:${suc}`)) return `su:${suc}`
+      return NONE_RESOURCE
+    },
+    [],
   )
-  const resources = columnMode === 'professional' ? professionalResources : sucursalResources
-  const calendarEvents = useMemo(
-    () =>
-      columnMode === 'professional'
-        ? visibleEvents.map((e) => ({ ...e, resourceId: e.professionalId || NONE_RESOURCE }))
-        : columnMode === 'sucursal'
-          ? visibleEvents.map((e) => ({ ...e, resourceId: e.sucursal || NONE_RESOURCE }))
-          : visibleEvents,
-    [columnMode, visibleEvents],
-  )
+
+  const resources = columnMode === 'professional' ? dayHybridResources : sucursalResources
+  const calendarEvents = useMemo(() => {
+    if (columnMode === 'professional') {
+      const colIds = new Set(dayHybridResources.map((r) => r.resourceId))
+      return visibleEvents.map((e) => ({ ...e, resourceId: hybridResourceIdFor(e, colIds) }))
+    }
+    if (columnMode === 'sucursal')
+      return visibleEvents.map((e) => ({ ...e, resourceId: e.sucursal || NONE_RESOURCE }))
+    return visibleEvents
+  }, [columnMode, visibleEvents, dayHybridResources, hybridResourceIdFor])
 
   // Pre-reservas past the TTL (highlight only — no auto-cancel in v1).
   const expiredCount = useMemo(
@@ -1896,6 +1982,65 @@ export function CalendarView() {
     [],
   )
 
+  // Week grid day header (Andrés 2026-09-15): the date + which sucursales work that
+  // day (coloured dots + names) and how many professionals are scheduled, so the
+  // week reads as an overview even before looking at individual turnos.
+  const weekHeaderComp = useCallback(
+    ({ date: d, label }: { date: Date; label: string }) => {
+      const markers = sedeMarkersRef.current(d)
+      const ds = toDateInput(d)
+      const dayMap = turnosByDaySucursalRef.current.get(ds)
+      const profs = new Set<string>()
+      if (dayMap)
+        for (const arr of dayMap.values())
+          for (const tt of arr) if (tt.professionalId) profs.add(tt.professionalId)
+      return (
+        <div className='cb-week-header'>
+          <span className='cb-week-date'>{label}</span>
+          {markers.length > 0 && (
+            <span className='cb-week-meta'>
+              <span className='cb-week-sucnames'>
+                {markers.map((m) => sucursalLabel(m.sucursal)).join(' + ')}
+                {profs.size > 0 ? ` · ${profs.size} prof.` : ''}
+              </span>
+              <span className='cb-week-dots'>
+                {markers.map((m) => (
+                  <span
+                    key={m.sucursal}
+                    title={sucursalLabel(m.sucursal)}
+                    className='cb-week-dot'
+                    style={{ backgroundColor: m.color }}
+                  />
+                ))}
+              </span>
+            </span>
+          )}
+        </div>
+      )
+    },
+    [],
+  )
+
+  // Day-view "por profesional" column header (Andrés 2026-09-15): shows the
+  // sucursal (coloured) above the professional so the columns read as grouped by
+  // sucursal even though RBC uses a flat resource list.
+  const resourceHeaderComp = useCallback(
+    ({ label, resource }: { label: string; resource?: DayCol }) => {
+      const sucOnly = resource?.resourceId?.startsWith('su:')
+      return (
+        <div className='cb-res-header'>
+          {resource?.sucursal && (
+            <span className='cb-res-suc' style={{ color: resource.sucColor }}>
+              {sucursalLabel(resource.sucursal)}
+            </span>
+          )}
+          {!sucOnly && <span className='cb-res-prof'>{label}</span>}
+        </div>
+      )
+    },
+    [],
+  )
+
   // Shade whole days the branch is closed (per rules) OR blocked (feriado).
   const dayPropGetter = useCallback(
     (d: Date) => {
@@ -1965,27 +2110,39 @@ export function CalendarView() {
   // that day, open it split into columns per sucursal (Andrés 2026-09-15).
   const openDayFromMonth = useCallback(
     (d: Date) => {
-      const ds = toDateInput(d)
-      const sucs = new Set<string>()
-      for (const m of sedeMarkers(d)) sucs.add(m.sucursal)
-      const dayMap = turnosByDaySucursal.get(ds)
-      if (dayMap) for (const s of dayMap.keys()) if (s !== NONE_RESOURCE) sucs.add(s)
+      // Drill into the day already split by the working sucursales and, within
+      // each, the professionals that work there that day (hybrid columns). The
+      // hybrid builder collapses to a single full-width column when only one
+      // sucursal + professional works, so this is safe for quiet days too.
       setDate(d)
-      setColumnMode(sucs.size >= 2 ? 'sucursal' : 'none')
+      setColumnMode('professional')
       setView(Views.DAY)
     },
-    [sedeMarkers, turnosByDaySucursal],
+    [],
   )
 
   const onSelectSlot = useCallback(
     (slot: SlotInfo) => {
-      // Clicking a column pre-fills that column's sucursal or profesional.
+      // Clicking a column pre-fills that column's sucursal / profesional. In the
+      // hybrid "por profesional" mode the resource id encodes both (sp:<suc>:<prof>
+      // or su:<suc>), so parse it back into the two defaults.
       const rid = (slot as { resourceId?: unknown }).resourceId
       const picked = rid != null && rid !== NONE_RESOURCE ? String(rid) : undefined
-      const sucursalDefault = columnMode === 'sucursal' ? picked : undefined
-      const professionalDefault = columnMode === 'professional' ? picked : undefined
+      let sucursalDefault: string | undefined
+      let professionalDefault: string | undefined
+      if (columnMode === 'sucursal') {
+        sucursalDefault = picked
+      } else if (columnMode === 'professional' && picked) {
+        if (picked.startsWith('sp:')) {
+          const idx = picked.indexOf(':', 3)
+          sucursalDefault = picked.slice(3, idx)
+          professionalDefault = picked.slice(idx + 1)
+        } else if (picked.startsWith('su:')) {
+          sucursalDefault = picked.slice(3)
+        }
+      }
       // Month: clicking anywhere on a day drills into that day's Day view, split
-      // into columns per sucursal when more than one works that day.
+      // into columns per sucursal/profesional that work that day.
       if (view === Views.MONTH) {
         openDayFromMonth(slot.start)
         return
@@ -2078,13 +2235,27 @@ export function CalendarView() {
       const rid =
         resourceId != null ? (resourceId === NONE_RESOURCE ? null : String(resourceId)) : undefined
 
-      // Dragging between columns reassigns that dimension.
-      if (columnMode === 'sucursal') {
+      // Dragging between columns reassigns that dimension (Day view only).
+      if (columnsActive && columnMode === 'sucursal') {
         void persistMove(event, s, e, !!isAllDay, rid)
         return
       }
-      if (columnMode === 'professional') {
-        void persistMove(event, s, e, !!isAllDay, undefined, rid)
+      if (columnsActive && columnMode === 'professional') {
+        // Hybrid column id: sp:<suc>:<profId> reassigns both, su:<suc> sets the
+        // sucursal + clears the professional, the unassigned bucket clears it.
+        let newSuc: string | null | undefined
+        let newProf: string | null | undefined
+        if (rid == null) {
+          newProf = null
+        } else if (rid.startsWith('sp:')) {
+          const idx = rid.indexOf(':', 3)
+          newSuc = rid.slice(3, idx)
+          newProf = rid.slice(idx + 1)
+        } else if (rid.startsWith('su:')) {
+          newSuc = rid.slice(3)
+          newProf = null
+        }
+        void persistMove(event, s, e, !!isAllDay, newSuc, newProf)
         return
       }
 
@@ -2141,7 +2312,7 @@ export function CalendarView() {
 
       void persistMove(event, s, e, !!isAllDay)
     },
-    [persistMove, columnMode, availRules, availExclusions, t],
+    [persistMove, columnsActive, columnMode, availRules, availExclusions, t],
   )
 
   const onEventResize = useCallback<
@@ -2193,6 +2364,18 @@ export function CalendarView() {
   const scrollToTime = useMemo(() => {
     const d = new Date()
     d.setHours(8, 0, 0, 0)
+    return d
+  }, [])
+  // Clinic working-hours bounds for the Week/Day time grids (Andrés 2026-09-15):
+  // keep the grid compact so its height reflects the hours, not the turno count.
+  const dayMin = useMemo(() => {
+    const d = new Date()
+    d.setHours(7, 0, 0, 0)
+    return d
+  }, [])
+  const dayMax = useMemo(() => {
+    const d = new Date()
+    d.setHours(21, 0, 0, 0)
     return d
   }, [])
 
@@ -2363,15 +2546,24 @@ export function CalendarView() {
       toolbar: toolbarComp,
       event: eventComp,
       dateCellWrapper,
-      // "Semana" is a custom agenda-list view (WeekAgendaView); RBC feeds it
-      // components.week, so it needs the agenda event + date components here too
-      // (otherwise it falls back to the grid event and an uncoloured date).
-      week: { event: agendaEventComp, date: agendaDateComp } as never,
-      day: { header: dayHeader },
+      // "Semana" is now a Monday–Saturday time grid (WorkWeekView): it reuses the
+      // top-level grid `event` component and only overrides the day header.
+      week: { header: weekHeaderComp } as never,
+      // Day: custom date header + the "por profesional" grouped column header.
+      day: { header: dayHeader, resourceHeader: resourceHeaderComp as never },
       // RBC types agenda.date as a props-less component; ours reads day/label.
       agenda: { event: agendaEventComp, date: agendaDateComp as unknown as () => ReactElement },
     }),
-    [toolbarComp, eventComp, dateCellWrapper, dayHeader, agendaEventComp, agendaDateComp],
+    [
+      toolbarComp,
+      eventComp,
+      dateCellWrapper,
+      dayHeader,
+      weekHeaderComp,
+      resourceHeaderComp,
+      agendaEventComp,
+      agendaDateComp,
+    ],
   )
 
   if (loading) {
@@ -2513,17 +2705,25 @@ export function CalendarView() {
         events={calendarEvents}
         startAccessor='start'
         endAccessor='end'
-        view={inColumns ? Views.DAY : view}
+        // Columns are a Day-only display option, so they no longer force the view
+        // nor block Week/Month navigation (Andrés 2026-09-15). The view is always
+        // whatever the toolbar selects; columns apply only when Day is active.
+        view={view}
         onView={setView}
         date={date}
         onNavigate={setDate}
-        // Clicking a day number in Month opens that day's Day view (split into
-        // columns per sucursal when more than one works that day).
+        // Clicking a day (number, band, circle or "+N") in Month opens that day's
+        // Day view, split into columns per working sucursal/profesional.
         onDrillDown={(d: Date) => openDayFromMonth(d)}
         // Week/Day start scrolled to the morning so turnos are visible at once.
         scrollToTime={scrollToTime}
-        views={{ month: true, week: WeekAgendaView, day: true, agenda: true } as never}
-        {...(inColumns && {
+        // Week = Monday–Saturday time grid (WorkWeekView); Agenda = the list view.
+        views={{ month: true, week: WorkWeekView, day: true, agenda: true } as never}
+        // Bound the time grids to the clinic's working hours so the Week grid stays
+        // compact and its height does not depend on the number of turnos.
+        min={dayMin}
+        max={dayMax}
+        {...(columnsActive && {
           resources,
           resourceIdAccessor: (item: object) =>
             (item as { resourceId?: string }).resourceId ?? NONE_RESOURCE,
@@ -2555,18 +2755,21 @@ export function CalendarView() {
           } as CSSProperties
         }
         eventPropGetter={(event: CalendarEvent) => ({
-          // Full background = STATUS. In Month/Week/Day the treatment-colour bar
-          // (left) and the cobro "$" block (right, only when charged) are painted
-          // as full-height ::before/::after on .rbc-event via these — so they span
-          // the whole block including the time-label zone (Andrés 2026-09-14).
+          // Andrés' visual logic (reaffirmed 2026-09-15): LEFT bar = TREATMENT
+          // colour, card BACKGROUND = ESTADO (light shade, black text), and the
+          // cobro "$" block (right, only when charged) = a darker shade of the
+          // estado. The bar + "$" block are full-height ::before/::after on
+          // .rbc-event, painted from these CSS vars so they span the whole block.
           className: event.charged ? 'cb-charged' : undefined,
           style: {
-            // Card = a LIGHT shade of the estado colour with black text; the left
-            // bar and the cobro "$" block use a DARKER shade of it (Andrés 2026-09-15).
             backgroundColor: lightenHex(statusColorFor(event.status)),
             color: '#1f2937',
             border: 'none',
-            ['--cb-treat' as string]: darkenHex(statusColorFor(event.status)),
+            ['--cb-treat' as string]: treatmentColorResolved(
+              event.treatmentSlug,
+              treatmentName(event.treatmentSlug),
+            ),
+            ['--cb-pay' as string]: darkenHex(statusColorFor(event.status)),
           } as CSSProperties,
         })}
         components={calendarComponents}

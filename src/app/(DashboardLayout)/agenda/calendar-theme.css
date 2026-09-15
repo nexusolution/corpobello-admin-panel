@@ -201,8 +201,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Same colour as the card (estado), a bit darker — matches the left bar. */
-  background: var(--cb-treat, #22c55e);
+  /* Cobro "$" block = a darker shade of the estado (own var, so the left bar can
+     stay the treatment colour). */
+  background: var(--cb-pay, #22c55e);
   color: #fff;
   font-weight: 700;
   font-size: 15px;
@@ -336,6 +337,64 @@
 }
 .dark .rbc-closed-slot {
   background: rgba(100, 116, 139, 0.16);
+}
+
+/* Week grid day header (Andrés 2026-09-15): date + working sucursales (names +
+   coloured dots) + professional count, stacked and centred in the RBC header. */
+.cb-week-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 0;
+  line-height: 1.15;
+}
+.cb-week-date {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.cb-week-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.cb-week-sucnames {
+  font-size: 10px;
+  font-weight: 500;
+  color: #5a6a85;
+}
+.dark .cb-week-sucnames {
+  color: #7c8fac;
+}
+.cb-week-dots {
+  display: flex;
+  gap: 3px;
+}
+.cb-week-dot {
+  height: 7px;
+  width: 7px;
+  border-radius: 9999px;
+}
+
+/* Day-view "por profesional" grouped column header: sucursal (coloured) above
+   the professional name (Andrés 2026-09-15). */
+.cb-res-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 2px 0;
+  line-height: 1.15;
+}
+.cb-res-suc {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.cb-res-prof {
+  font-weight: 600;
 }
 
 /* Time-scale zoom (Andrés 2026-09-11): group height driven by --rbc-group-h,
