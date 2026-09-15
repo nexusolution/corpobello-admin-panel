@@ -216,8 +216,8 @@
    the padding never applies (that was why the row height never changed). */
 .rbc-agenda-view table.rbc-agenda-table tbody > tr > td.rbc-agenda-time-cell,
 .rbc-agenda-view table.rbc-agenda-table tbody > tr > td.rbc-agenda-event-cell {
-  padding-top: 28px;
-  padding-bottom: 28px;
+  padding-top: 14px;
+  padding-bottom: 14px;
 }
 .rbc-agenda-view table.rbc-agenda-table tbody > tr > td.rbc-agenda-date-cell {
   padding: 0;
