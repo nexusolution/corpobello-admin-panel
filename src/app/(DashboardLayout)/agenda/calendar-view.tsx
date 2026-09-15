@@ -26,6 +26,10 @@ import {
 import withDragAndDrop, {
   type withDragAndDropProps,
 } from 'react-big-calendar/lib/addons/dragAndDrop'
+// RBC's internal Agenda view — reused for a week-scoped list "Semana" (no types).
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-expect-error no type declarations for the internal view module
+import Agenda from 'react-big-calendar/lib/Agenda'
 import moment from 'moment'
 import 'moment/locale/es'
 import { es } from 'date-fns/locale'
@@ -1171,6 +1175,41 @@ function EventDialog({
 // module scope so the HOC isn't re-applied on every render.
 const DnDCalendar = withDragAndDrop<CalendarEvent>(Calendar)
 
+// Custom "Semana" view (Andrés 2026-09-15): the agenda LIST scoped to the current
+// week (Dom–Sáb) instead of the time grid — dates on the left, no time gutter.
+// Reuses RBC's Agenda renderer (so the circle + "$" block components apply),
+// forced to 7 days and aligned to the week regardless of the shared `length` prop.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type RbcLocalizer = {
+  startOf: (d: Date, unit: string) => Date
+  endOf: (d: Date, unit: string) => Date
+  add: (d: Date, amount: number, unit: string) => Date
+  format: (d: Date, fmt: string) => string
+}
+function WeekAgendaView(props: any) {
+  const start = (props.localizer as RbcLocalizer).startOf(props.date, 'week')
+  return <Agenda {...props} date={start} length={7} />
+}
+WeekAgendaView.range = (date: Date, { localizer }: { localizer: RbcLocalizer }) => ({
+  start: localizer.startOf(date, 'week'),
+  end: localizer.endOf(date, 'week'),
+})
+WeekAgendaView.navigate = (
+  date: Date,
+  action: string,
+  { localizer }: { localizer: RbcLocalizer },
+) => {
+  if (action === 'PREV') return localizer.startOf(localizer.add(date, -7, 'day'), 'week')
+  if (action === 'NEXT') return localizer.startOf(localizer.add(date, 7, 'day'), 'week')
+  return localizer.startOf(date, 'week')
+}
+WeekAgendaView.title = (date: Date, { localizer }: { localizer: RbcLocalizer }) => {
+  const start = localizer.startOf(date, 'week')
+  const end = localizer.endOf(date, 'week')
+  return `${localizer.format(start, 'D MMM')} – ${localizer.format(end, 'D MMM')}`
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 // ── Main view ─────────────────────────────────────────────────────────────────
 export function CalendarView() {
   const { t, locale } = useTranslation()
@@ -2038,7 +2077,7 @@ export function CalendarView() {
         }}
         // Week/Day start scrolled to the morning so turnos are visible at once.
         scrollToTime={scrollToTime}
-        views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
+        views={{ month: true, week: WeekAgendaView, day: true, agenda: true } as never}
         {...(inColumns && {
           resources,
           resourceIdAccessor: (item: object) =>
