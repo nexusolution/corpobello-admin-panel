@@ -339,6 +339,13 @@
   background: rgba(100, 116, 139, 0.16);
 }
 
+/* Plain Day view: hide the whole top header row (date + all-day band) so the
+   time grid sits right under the toolbar (Andrés 2026-09-16). Scoped to the
+   single-column Day; columns mode keeps its header for the column labels. */
+.cb-day-noheader .rbc-time-header {
+  display: none !important;
+}
+
 /* Week grid day header (Andrés 2026-09-15): date + working sucursales (names +
    coloured dots) + professional count, stacked and centred in the RBC header. */
 .cb-week-header {

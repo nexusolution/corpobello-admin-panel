@@ -2702,6 +2702,10 @@ export function CalendarView() {
 
       <DnDCalendar
         localizer={localizer}
+        // Plain Day view (single column) hides the date/all-day header row (Andrés
+        // 2026-09-16). In columns mode the header carries the sucursal/profesional
+        // column labels, so it is kept there.
+        className={view === Views.DAY && !columnsActive ? 'cb-day-noheader' : undefined}
         events={calendarEvents}
         startAccessor='start'
         endAccessor='end'
