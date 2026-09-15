@@ -1951,8 +1951,9 @@ export function CalendarView() {
         <span className={`flex items-center gap-2 w-full ${event.charged ? 'pr-12' : ''}`}>
           {event.treatmentSlug && (
             <span
-              className='inline-block h-3 w-3 rounded-full shrink-0'
+              className='inline-block h-3.5 w-3.5 rounded-full shrink-0'
               style={{ backgroundColor: treatmentColorFor(event.treatmentSlug, treatmentNameRef.current(event.treatmentSlug)).hex }}
+              title={treatmentNameRef.current(event.treatmentSlug)}
             />
           )}
           <span className='min-w-0 truncate'>
