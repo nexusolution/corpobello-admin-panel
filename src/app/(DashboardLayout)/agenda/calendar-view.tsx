@@ -2064,8 +2064,9 @@ export function CalendarView() {
             // turnos per day fit; very busy days fall back to "+N más" (popup).
             height: view === Views.MONTH ? 960 : 720,
             // Taller rows so even short turnos show their full content (nombre +
-            // tratamiento + profesional). 36px per slot (Andrés 2026-09-14).
-            ['--rbc-group-h' as string]: `${Math.max(1, Math.round(60 / scaleMin)) * 36}px`,
+            // tratamiento + profesional) without clipping. 50px per slot (Andrés
+            // 2026-09-15).
+            ['--rbc-group-h' as string]: `${Math.max(1, Math.round(60 / scaleMin)) * 50}px`,
           } as CSSProperties
         }
         eventPropGetter={(event: CalendarEvent) => ({
