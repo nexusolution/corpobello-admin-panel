@@ -608,6 +608,7 @@ function EventDialog({
   allEvents,
   isSucursalClosed,
   canOverrideClosed,
+  canDelete,
   actorId,
   actorName,
   statusOptions,
@@ -633,6 +634,8 @@ function EventDialog({
   // current user may FORCE a turno on a closed day (admin/operador only).
   isSucursalClosed: (ds: string, sucursal: string) => boolean
   canOverrideClosed: boolean
+  // Only admin/operador (secretaría) may delete turnos; profesional cannot.
+  canDelete: boolean
   // Acting user (for the audit trail: who made the change).
   actorId: string | null
   actorName: string
@@ -1013,7 +1016,7 @@ function EventDialog({
   }
 
   async function remove() {
-    if (!isEdit) return
+    if (!isEdit || !canDelete) return
     const isDark =
       typeof document !== 'undefined' &&
       document.documentElement.classList.contains('dark')
@@ -1334,7 +1337,7 @@ function EventDialog({
         </div>
 
         <div className='p-6 pt-3 shrink-0 border-t border-border dark:border-darkborder flex items-center justify-between gap-2'>
-          {isEdit ? (
+          {isEdit && canDelete ? (
             <button
               type='button'
               onClick={remove}
@@ -2429,6 +2432,7 @@ export function CalendarView() {
           allEvents={events}
           isSucursalClosed={isSucursalClosed}
           canOverrideClosed={role === 'admin' || role === 'operador'}
+          canDelete={role === 'admin' || role === 'operador'}
           actorId={actorId}
           actorName={actorName}
           statusOptions={statusOptions}
