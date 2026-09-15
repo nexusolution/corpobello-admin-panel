@@ -1351,6 +1351,21 @@ export function CalendarView() {
     },
     [closureBlocks],
   )
+  // Is a SPECIFIC sucursal closed on a date by a branch-closure block (feriado /
+  // cierre)? A block with sucursal null closes every branch; professionalId null
+  // = a branch closure (not a professional's vacation). Used by the month stripes
+  // so a closed branch's colour never shows as available (Andrés 2026-09-14).
+  const isSucursalClosed = useCallback(
+    (ds: string, suc: string) =>
+      blocks.some(
+        (b) =>
+          b.professionalId === null &&
+          (b.sucursal === null || b.sucursal === suc) &&
+          b.startDate <= ds &&
+          b.endDate >= ds,
+      ),
+    [blocks],
+  )
 
   // Availability window for a date at the filtered sucursal, per the rules —
   // scoped to the treatment filter when set, else "any treatment". Null when no
@@ -1393,12 +1408,14 @@ export function CalendarView() {
     (d: Date): { sucursal: string; color: string }[] => {
       if (sucursalFilter || inColumns) return []
       const ds = toDateInput(d)
-      return SUCURSALES.filter((suc) => sucursalOpen(ds, suc).open).map((suc) => ({
+      return SUCURSALES.filter(
+        (suc) => sucursalOpen(ds, suc).open && !isSucursalClosed(ds, suc),
+      ).map((suc) => ({
         sucursal: suc,
         color: sucursalColor(suc),
       }))
     },
-    [sucursalFilter, inColumns, sucursalOpen],
+    [sucursalFilter, inColumns, sucursalOpen, isSucursalClosed],
   )
 
   // Treatment slug → display name, for the event card's second line.
@@ -1817,12 +1834,12 @@ export function CalendarView() {
     }>
     if (markers.length === 0) return el
     const n = markers.length
-    // Equal vertical columns per open sede (Andrés 2026-09-12): 1 = full colour,
-    // 2 = 50/50, 3 = 33/33/33 — clearer and scales better than an oblique split.
+    // Equal HORIZONTAL stripes per open sede (Andrés 2026-09-14): 1 = full soft
+    // colour, 2 = 50/50 top/bottom, 3 = equal thirds. 180deg = top-to-bottom.
     const background =
       n === 1
         ? hexToRgba(markers[0]!.color, 0.16)
-        : `linear-gradient(90deg, ${markers
+        : `linear-gradient(180deg, ${markers
             .map(
               (m, i) =>
                 `${hexToRgba(m.color, 0.16)} ${Math.round((i / n) * 100)}% ${Math.round(((i + 1) / n) * 100)}%`,
