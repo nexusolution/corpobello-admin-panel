@@ -1790,24 +1790,12 @@ export function CalendarView() {
         .filter(Boolean)
         .join(' · ')
       return (
-        // Left bar = treatment colour, full-height straight rectangle (no rounded
-        // edges), with the "$" cobro sign INSIDE it (Andrés 2026-09-14); body =
-        // paciente / tratamiento / prof·sede. Full background = estado.
-        <div className='flex items-stretch gap-1.5 w-full h-full overflow-hidden'>
-          <span
-            className='flex items-center justify-center shrink-0 w-4'
-            style={{
-              backgroundColor: event.treatmentSlug
-                ? treatmentColorFor(event.treatmentSlug, treatmentNameRef.current(event.treatmentSlug)).hex
-                : 'rgba(255,255,255,0.6)',
-            }}>
-            {event.charged && (
-              <span className='text-white font-bold text-[11px] leading-none' title={t('agenda.charged')}>
-                $
-              </span>
-            )}
-          </span>
-          <div className='flex flex-col leading-tight min-w-0 flex-1 overflow-hidden pr-2 py-0.5'>
+        // Text only. The treatment colour bar (left) and cobro "$" block (right,
+        // only when charged) are painted as full-height ::before/::after on
+        // .rbc-event (eventPropGetter + calendar-theme.css). Padding clears them:
+        // pl for the bar, pr larger when charged for the "$" block.
+        <div
+          className={`flex flex-col leading-tight min-w-0 h-full overflow-hidden justify-center py-0.5 pl-3 ${event.charged ? 'pr-8' : 'pr-2'}`}>
             <span className='truncate font-medium'>
               {isExpiredReserva(event) && <span title={t('agendaCal.expiredMark')}>⏳ </span>}
               {event.title}
@@ -1823,7 +1811,6 @@ export function CalendarView() {
               </span>
             )}
             {proSuc && <span className='truncate opacity-75 text-[11px]'>{proSuc}</span>}
-          </div>
         </div>
       )
     },
@@ -1863,21 +1850,32 @@ export function CalendarView() {
         event.sucursal ? sucursalLabel(event.sucursal) : '',
       ].filter(Boolean)
       return (
-        <span className='flex items-center gap-1.5'>
+        // Agenda: treatment = a CIRCLE at the left; info runs inline; cobro "$"
+        // is a solid green block pushed to the right, only when charged (Andrés
+        // 2026-09-14). Row background = estado (eventPropGetter).
+        <span className='flex items-center gap-2 w-full'>
           {event.treatmentSlug && (
             <span
-              className='inline-block h-2.5 w-2.5 rounded-sm shrink-0'
+              className='inline-block h-3 w-3 rounded-full shrink-0'
               style={{ backgroundColor: treatmentColorFor(event.treatmentSlug, treatmentNameRef.current(event.treatmentSlug)).hex }}
             />
           )}
-          <span className='font-medium'>{event.title}</span>
-          {parts.length > 0 && <span className='text-link dark:text-darklink'>· {parts.join(' · ')}</span>}
-          {packSessionLabelsRef.current.get(event.id) && (
-            <span className='rounded bg-secondary/15 text-secondary px-1 text-[11px] font-medium'>
-              {t('turno.pack.sessionShort', { n: packSessionLabelsRef.current.get(event.id) as string })}
+          <span className='min-w-0 truncate'>
+            <span className='font-medium'>{event.title}</span>
+            {parts.length > 0 && <span className='text-link dark:text-darklink'> · {parts.join(' · ')}</span>}
+            {packSessionLabelsRef.current.get(event.id) && (
+              <span className='ml-1.5 rounded bg-secondary/15 text-secondary px-1 text-[11px] font-medium'>
+                {t('turno.pack.sessionShort', { n: packSessionLabelsRef.current.get(event.id) as string })}
+              </span>
+            )}
+          </span>
+          {event.charged && (
+            <span
+              className='ml-auto shrink-0 inline-flex items-center justify-center rounded-md bg-success text-white font-bold px-2.5 py-0.5 text-sm'
+              title={t('agenda.charged')}>
+              $
             </span>
           )}
-          {event.charged && <span className='font-bold text-success' title={t('agenda.charged')}>$</span>}
         </span>
       )
     },
@@ -2047,13 +2045,19 @@ export function CalendarView() {
           } as CSSProperties
         }
         eventPropGetter={(event: CalendarEvent) => ({
-          // Full background = STATUS. The treatment-colour left bar is rendered
-          // inside the event card (eventComp) so it shows reliably in every view.
+          // Full background = STATUS. In Month/Week/Day the treatment-colour bar
+          // (left) and the cobro "$" block (right, only when charged) are painted
+          // as full-height ::before/::after on .rbc-event via these — so they span
+          // the whole block including the time-label zone (Andrés 2026-09-14).
+          className: event.charged ? 'cb-charged' : undefined,
           style: {
             backgroundColor: STATUS_COLORS[event.status],
             color: '#ffffff',
             border: 'none',
-          },
+            ['--cb-treat' as string]: event.treatmentSlug
+              ? treatmentColorFor(event.treatmentSlug, treatmentName(event.treatmentSlug)).hex
+              : 'rgba(255,255,255,0.6)',
+          } as CSSProperties,
         })}
         components={calendarComponents}
       />

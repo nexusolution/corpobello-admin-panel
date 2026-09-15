@@ -105,10 +105,49 @@
      hidden clips the flush bar to the rounded corners. */
   padding: 0;
   overflow: hidden;
+  position: relative;
   font-size: 0.78rem;
   font-weight: 500;
   border: none;
   box-shadow: none;
+}
+
+/* Month/Week/Day turno decorations (Andrés 2026-09-14): a full-height treatment
+   colour bar on the LEFT, and a solid cobro "$" block on the RIGHT that only
+   appears when the turno has a payment (class cb-charged). Both span the whole
+   block, including the time-label zone, and are clipped to the rounded corners. */
+.rbc-event::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  background: var(--cb-treat, rgba(255, 255, 255, 0.6));
+  z-index: 1;
+}
+.rbc-event.cb-charged::after {
+  content: '$';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #22c55e;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  z-index: 1;
+}
+/* Keep RBC's time label clear of the left bar / right cobro block. */
+.rbc-event .rbc-event-label {
+  padding-left: 12px;
+}
+.rbc-event.cb-charged .rbc-event-label {
+  padding-right: 30px;
 }
 .rbc-event:focus {
   outline: 2px solid rgba(93, 135, 255, 0.5);
