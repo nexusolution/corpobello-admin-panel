@@ -211,11 +211,16 @@
 }
 
 /* Agenda/Week list rows (Andrés 2026-09-15): taller rows, bold time, and a solid
-   full-height cobro "$" block at the right of the Event cell. */
-.rbc-agenda-view .rbc-agenda-time-cell,
-.rbc-agenda-view .rbc-agenda-event-cell {
+   full-height cobro "$" block at the right of the Event cell. NOTE: the selector
+   must out-specify RBC's own `...tbody > tr > td { padding: 5px 10px }`, otherwise
+   the padding never applies (that was why the row height never changed). */
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td.rbc-agenda-time-cell,
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td.rbc-agenda-event-cell {
   padding-top: 28px;
   padding-bottom: 28px;
+}
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td.rbc-agenda-date-cell {
+  padding: 0;
 }
 .rbc-agenda-view .rbc-agenda-time-cell {
   font-weight: 700;
