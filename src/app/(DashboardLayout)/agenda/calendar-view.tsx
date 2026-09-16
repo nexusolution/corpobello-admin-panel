@@ -2504,7 +2504,9 @@ export function CalendarView() {
     const openSucs = new Set(sedeMarkersRef.current(props.value).map((m) => m.sucursal))
     const bandSucs = SUCURSALES.filter((s) => openSucs.has(s) || dayMap?.has(s))
     if (bandSucs.length === 0) return el
-    const cap = bandSucs.length === 1 ? 9 : bandSucs.length === 2 ? 5 : 3
+    // Show up to 3 circles per band; 4+ collapse into a "+X más" pill so the cell
+    // never gets crowded (Andrés 2026-09-16).
+    const cap = 3
     const overlay = (
       <div className='cb-month-bands'>
         {bandSucs.map((suc) => {
@@ -2528,7 +2530,7 @@ export function CalendarView() {
                 ))}
                 {extra > 0 && (
                   <span className='cb-month-more' title={t('agenda.moreTurnos', { n: String(extra) })}>
-                    +{extra}
+                    {t('agenda.moreShort', { n: String(extra) })}
                   </span>
                 )}
               </div>
