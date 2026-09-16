@@ -2576,7 +2576,7 @@ export function CalendarView() {
         // Agenda: treatment = a CIRCLE at the left; info runs inline; cobro "$"
         // is a solid full-height block at the right, only when charged (Andrés
         // 2026-09-14/15). Row background = estado (eventPropGetter).
-        <span className={`flex items-center gap-2 w-full ${event.charged ? 'pr-12' : ''}`}>
+        <span className={`flex items-center gap-2 w-full ${event.charged ? 'pr-14' : ''}`}>
           {event.treatmentSlug && (
             <span
               className='inline-block h-3.5 w-3.5 rounded-full shrink-0'
@@ -2596,7 +2596,7 @@ export function CalendarView() {
           {event.charged && (
             <span
               className='cb-list-cobro'
-              style={{ backgroundColor: darkenHex(statusColorRef.current(event.status)) }}
+              style={{ backgroundColor: '#16a34a' }}
               title={t('agenda.charged')}>
               $
             </span>

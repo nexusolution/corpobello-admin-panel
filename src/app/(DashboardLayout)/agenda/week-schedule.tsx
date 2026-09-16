@@ -147,8 +147,8 @@ export function WeekSchedule({
         </span>
         {e.charged && (
           <span
-            className='shrink-0 self-stretch flex items-center justify-center text-white font-bold text-sm'
-            style={{ width: 26, backgroundColor: PAY_GREEN }}
+            className='shrink-0 self-stretch flex items-center justify-center text-white font-bold text-base'
+            style={{ width: 30, backgroundColor: PAY_GREEN }}
             title='$'>
             $
           </span>

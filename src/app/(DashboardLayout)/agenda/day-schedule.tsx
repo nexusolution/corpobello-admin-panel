@@ -220,11 +220,11 @@ export function DaySchedule({
                                   </span>
                                 )}
                               </span>
-                              {/* Cobro block: solid green, flush to the edge (no border/gap). */}
+                              {/* Cobro block: solid green, flush to the edge, wide + big $. */}
                               {e.charged && (
                                 <span
-                                  className='shrink-0 self-stretch flex items-center justify-center text-white font-bold text-sm'
-                                  style={{ width: 34, backgroundColor: PAY_GREEN }}
+                                  className='shrink-0 self-stretch flex items-center justify-center text-white font-bold text-lg'
+                                  style={{ width: 44, backgroundColor: PAY_GREEN }}
                                   title='$'>
                                   $
                                 </span>
