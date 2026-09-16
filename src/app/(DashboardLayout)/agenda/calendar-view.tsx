@@ -64,6 +64,7 @@ import { fetchTreatmentColors } from '@/lib/data/treatment-colors-config'
 import {
   availabilityFor,
   anyTreatmentAvailability,
+  professionalsFor,
   type AvailabilityRule,
   type AvailabilityExclusion,
 } from '@/lib/scheduling/availability'
@@ -1802,12 +1803,13 @@ export function CalendarView() {
       const cols: DayCol[] = []
       let hasUnassigned = false
       for (const suc of orderedSucs) {
+        // "Who works here today" = professionals with a PROFESSIONAL-SPECIFIC
+        // availability rule that day (professionalsFor ignores generic sucursal
+        // rules, so a generic rule no longer makes every professional appear —
+        // Andrés 2026-09-16: no empty columns), plus anyone who has a turno.
         const profIds = new Set<string>()
-        for (const p of professionals) {
-          const works = catalogSlugs.some(
-            (slug) => availabilityFor(ds, suc, slug, availRules, availExclusions, p.value).open,
-          )
-          if (works) profIds.add(p.value)
+        for (const slug of catalogSlugs) {
+          for (const pid of professionalsFor(ds, suc, slug, availRules)) profIds.add(pid)
         }
         for (const tt of dayMap?.get(suc) ?? []) {
           if (tt.professionalId) profIds.add(tt.professionalId)
@@ -1842,7 +1844,7 @@ export function CalendarView() {
         ? cols
         : [{ resourceId: NONE_RESOURCE, resourceTitle: t('turno.none'), sucursal: '', sucColor: '#94a3b8' }]
     },
-    [sedeMarkers, turnosByDaySucursal, professionals, catalogSlugs, availRules, availExclusions, t],
+    [sedeMarkers, turnosByDaySucursal, professionals, catalogSlugs, availRules, t],
   )
   const dayHybridResources = useMemo<DayCol[]>(
     () => computeDayColumns(date),
