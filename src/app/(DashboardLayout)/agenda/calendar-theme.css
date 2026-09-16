@@ -267,6 +267,11 @@
   inset: 0;
   padding: 8px 10px;
   box-sizing: border-box;
+  /* Centre the date within its (rowSpan) block, both axes (Andrés 2026-09-16). */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 /* Agenda/Week list rows (Andrés 2026-09-15): taller rows, bold time, and a solid
