@@ -30,12 +30,21 @@ interface WeekScheduleProps {
 }
 
 const LUNCH_HOUR = 13
+// Solid green cobro block on the right of a charged turno (matches the Day view).
+const PAY_GREEN = '#16a34a'
 
 function pad2(n: number): string {
   return n < 10 ? `0${n}` : String(n)
 }
 function toKey(d: Date): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+}
+function fmtTime(d: Date): string {
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+}
+// ~15% tint of a #rrggbb colour (8-digit hex alpha).
+function tintHex(hex: string): string {
+  return `${hex}26`
 }
 
 export function WeekSchedule({
@@ -149,11 +158,29 @@ export function WeekSchedule({
   )
   for (const hd of headers) {
     const sub = daySubtitle(hd.cols)
+    // Tint the header with the day's sucursal colour(s) — a solid light tint for
+    // one sede, a split gradient for several (Andrés 2026-09-16).
+    const dayBg =
+      sub.sucursales.length === 0
+        ? undefined
+        : sub.sucursales.length === 1
+          ? tintHex(sucursalColor(sub.sucursales[0]))
+          : `linear-gradient(135deg, ${sub.sucursales
+              .map((s, i) => {
+                const from = Math.round((i * 100) / sub.sucursales.length)
+                const to = Math.round(((i + 1) * 100) / sub.sucursales.length)
+                return `${tintHex(sucursalColor(s))} ${from}% ${to}%`
+              })
+              .join(', ')})`
     cells.push(
       <div
         key={`h-${hd.ds}`}
-        className='sticky top-0 z-10 bg-card text-center px-1 py-2 border-b border-l border-border dark:border-darkborder'
-        style={{ gridColumn: `${hd.startCol} / span ${Math.max(1, hd.span)}`, gridRow: 1 }}>
+        className='sticky top-0 z-10 text-center px-1 py-2 border-b border-l border-border dark:border-darkborder'
+        style={{
+          gridColumn: `${hd.startCol} / span ${Math.max(1, hd.span)}`,
+          gridRow: 1,
+          background: dayBg,
+        }}>
         <div className='text-sm font-bold text-dark dark:text-white capitalize'>{dayTitle(hd.day)}</div>
         <div className='text-[11px] text-link dark:text-darklink leading-tight'>{sub.text}</div>
         {sub.sucursales.length >= 2 && (
@@ -226,22 +253,39 @@ export function WeekSchedule({
                     key={e.id}
                     type='button'
                     onClick={() => onOpenTurno(e)}
-                    className='flex items-stretch w-full text-left rounded-md mb-1 last:mb-0 overflow-hidden shadow-sm hover:shadow transition'
+                    className='flex items-stretch w-full text-left rounded-lg mb-1.5 last:mb-0 overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition'
                     style={{ backgroundColor: cardBg(e.status) }}>
-                    <span className='shrink-0 self-stretch' style={{ width: 5, backgroundColor: tc }} />
-                    <span className='flex-1 min-w-0 px-1.5 py-1'>
-                      <span className='block font-bold text-[11px] leading-tight text-black truncate'>
-                        {e.patientName || e.title}
+                    {/* Treatment-colour bar (thick), same as the Day view. */}
+                    <span className='shrink-0 self-stretch' style={{ width: 8, backgroundColor: tc }} />
+                    <span className='flex-1 min-w-0 py-1.5 px-2'>
+                      <span className='flex items-baseline justify-between gap-1.5'>
+                        <span className='font-bold text-[12px] leading-tight text-black truncate'>
+                          {e.patientName || e.title}
+                        </span>
+                        <span className='shrink-0 text-[10px] font-semibold text-black whitespace-nowrap'>
+                          {fmtTime(e.start)} · {fmtTime(e.end)}
+                        </span>
                       </span>
                       {e.treatmentSlug && (
-                        <span className='block text-[10px] leading-tight truncate' style={{ color: tc }}>
+                        <span className='block text-[11px] leading-tight truncate mt-0.5 text-black'>
                           {treatmentName(e.treatmentSlug)}
                         </span>
                       )}
                       {meta && (
-                        <span className='block text-[10px] leading-tight truncate text-gray-500'>{meta}</span>
+                        <span className='block text-[10px] leading-tight truncate text-gray-500 mt-0.5'>
+                          {meta}
+                        </span>
                       )}
                     </span>
+                    {/* Cobro block: solid green, flush to the edge (Day-view style). */}
+                    {e.charged && (
+                      <span
+                        className='shrink-0 self-stretch flex items-center justify-center text-white font-bold text-sm'
+                        style={{ width: 26, backgroundColor: PAY_GREEN }}
+                        title='$'>
+                        $
+                      </span>
+                    )}
                   </button>
                 )
               })
