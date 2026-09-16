@@ -90,6 +90,7 @@ import type { TranslationKey } from '@/lib/i18n/dictionaries'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
 import './calendar-theme.css'
+import { DaySchedule } from './day-schedule'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 type Option = { value: string; label: string }
@@ -1862,6 +1863,25 @@ export function CalendarView() {
     return visibleEvents
   }, [columnMode, visibleEvents, dayHybridResources, hybridResourceIdFor])
 
+  // Day-view schedule table (Andrés 2026-09-16): the day's (timed, non-cancelled)
+  // turnos and a stable turno -> hybrid column mapping, reusing the same columns
+  // as the RBC resource layout so the table matches the rest of the agenda.
+  const dayColIdSet = useMemo(
+    () => new Set(dayHybridResources.map((r) => r.resourceId)),
+    [dayHybridResources],
+  )
+  const dayResourceIdFor = useCallback(
+    (e: CalendarEvent) => hybridResourceIdFor(e, dayColIdSet),
+    [hybridResourceIdFor, dayColIdSet],
+  )
+  const dayTurnos = useMemo(
+    () =>
+      visibleEvents.filter(
+        (e) => !e.allDay && e.status !== 'cancelado' && toDateInput(e.start) === toDateInput(date),
+      ),
+    [visibleEvents, date],
+  )
+
   // Pre-reservas past the TTL (highlight only — no auto-cancel in v1).
   const expiredCount = useMemo(
     () => visibleEvents.filter((e) => isExpiredReserva(e)).length,
@@ -2632,32 +2652,37 @@ export function CalendarView() {
             allLabel={t('agendaCal.allTreatments')}
           />
         </div>
-        {/* Columns mode: none, one column per sucursal, or one per profesional
-            (Day view). Dragging a turno between columns reassigns that field. */}
-        <div className='flex items-center gap-2'>
-          <Icon icon='solar:layers-minimalistic-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
-          <span className='text-xs font-medium text-link dark:text-darklink'>{t('agenda.columns')}:</span>
-          <select
-            value={columnMode}
-            onChange={(e) => setColumnMode(e.target.value as 'none' | 'sucursal' | 'professional')}
-            className='pl-2.5 pr-9 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
-            <option value='none'>{t('agenda.columnsNone')}</option>
-            <option value='sucursal'>{t('agenda.columnsBySucursal')}</option>
-            <option value='professional'>{t('agenda.columnsByProfessional')}</option>
-          </select>
-        </div>
-        <div className='flex items-center gap-2'>
-          <Icon icon='solar:clock-square-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
-          <span className='text-xs font-medium text-link dark:text-darklink'>{t('agenda.scale')}:</span>
-          <select
-            value={scaleMin}
-            onChange={(e) => setScaleMin(parseInt(e.target.value, 10))}
-            className='pl-2.5 pr-9 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
-            {[5, 10, 15, 20, 30, 60].map((m) => (
-              <option key={m} value={m}>{m} min</option>
-            ))}
-          </select>
-        </div>
+        {/* Columns + Scale apply to RBC's time grids only. The Day view is now the
+            custom hour-table (auto-grouped by sucursal/profesional, fixed hourly
+            rows), so both controls are hidden there (Andrés 2026-09-16). */}
+        {view !== Views.DAY && (
+          <>
+            <div className='flex items-center gap-2'>
+              <Icon icon='solar:layers-minimalistic-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
+              <span className='text-xs font-medium text-link dark:text-darklink'>{t('agenda.columns')}:</span>
+              <select
+                value={columnMode}
+                onChange={(e) => setColumnMode(e.target.value as 'none' | 'sucursal' | 'professional')}
+                className='pl-2.5 pr-9 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
+                <option value='none'>{t('agenda.columnsNone')}</option>
+                <option value='sucursal'>{t('agenda.columnsBySucursal')}</option>
+                <option value='professional'>{t('agenda.columnsByProfessional')}</option>
+              </select>
+            </div>
+            <div className='flex items-center gap-2'>
+              <Icon icon='solar:clock-square-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
+              <span className='text-xs font-medium text-link dark:text-darklink'>{t('agenda.scale')}:</span>
+              <select
+                value={scaleMin}
+                onChange={(e) => setScaleMin(parseInt(e.target.value, 10))}
+                className='pl-2.5 pr-9 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
+                {[5, 10, 15, 20, 30, 60].map((m) => (
+                  <option key={m} value={m}>{m} min</option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Colour legend for the all-branches availability overview. */}
@@ -2702,14 +2727,10 @@ export function CalendarView() {
 
       <DnDCalendar
         localizer={localizer}
-        // Hide the whole time-grid table in the Week view and in the plain Day view
-        // (Columns: None) — Andrés 2026-09-16 "remove the table". The Day keeps its
-        // grid when in columns mode (sucursal/profesional), where the detail lives.
-        className={
-          view === Views.WEEK || (view === Views.DAY && !columnsActive)
-            ? 'cb-hidegrid'
-            : undefined
-        }
+        // Hide RBC's own time-grid in Week and Day (Andrés 2026-09-16): the Day is
+        // rendered by the custom hour-table (DaySchedule) below, and the RBC
+        // calendar is kept only for its toolbar + Month/Agenda views.
+        className={view === Views.WEEK || view === Views.DAY ? 'cb-hidegrid' : undefined}
         events={calendarEvents}
         startAccessor='start'
         endAccessor='end'
@@ -2752,10 +2773,11 @@ export function CalendarView() {
         messages={messages}
         style={
           {
-            // Fixed height (RBC needs one to render). Month is a compact overview
-            // (bands + circles), so it needs less height than the time grids
-            // (Andrés 2026-09-15: reduce the month table height).
-            height: view === Views.MONTH ? 680 : 720,
+            // Fixed height for the views RBC actually renders (Month overview,
+            // Agenda list). Week/Day hide RBC's grid (custom table below), so the
+            // calendar shrinks to just its toolbar (auto) with no empty gap.
+            height:
+              view === Views.MONTH ? 680 : view === Views.AGENDA ? 720 : 'auto',
             // Taller rows so even short turnos show their full content (nombre +
             // tratamiento + profesional) without clipping. 50px per slot (Andrés
             // 2026-09-15).
@@ -2782,6 +2804,29 @@ export function CalendarView() {
         })}
         components={calendarComponents}
       />
+
+      {view === Views.DAY && (
+        <div className='mt-3'>
+          <DaySchedule
+            date={date}
+            columns={dayHybridResources}
+            turnos={dayTurnos}
+            resourceIdFor={dayResourceIdFor}
+            onOpenTurno={onSelectEvent}
+            onCreate={(start, end, sucursal, professionalId) =>
+              openAdd(start, end, false, sucursal, professionalId)
+            }
+            treatmentColor={treatmentColorResolved}
+            treatmentName={treatmentName}
+            cardBg={(status) => lightenHex(statusColorFor(status))}
+            payColor={(status) => darkenHex(statusColorFor(status))}
+            sucursalLabel={sucursalLabel}
+            locale={locale}
+            emptyLabel={t('agenda.noProfessional')}
+            newLabel={t('agendaCal.new')}
+          />
+        </div>
+      )}
 
       {draft && (
         <EventDialog
