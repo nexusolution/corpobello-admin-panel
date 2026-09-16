@@ -2850,7 +2850,6 @@ export function CalendarView() {
           <WeekSchedule
             days={weekDays}
             columnsForDay={computeDayColumns}
-            resourceIdFor={hybridResourceIdFor}
             turnos={weekTurnos}
             onOpenTurno={onSelectEvent}
             onCreate={(start, end, sucursal, professionalId) =>
