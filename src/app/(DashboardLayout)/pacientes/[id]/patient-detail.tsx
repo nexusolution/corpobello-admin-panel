@@ -481,6 +481,36 @@ function ReservationsTab({ detail, t, locale }: { detail: PatientDetailData; t: 
   const hasReservations = detail.reservations.length > 0
   return (
     <div className='space-y-6'>
+      {/* Real agenda turnos (calendar_events) linked to this patient — Andrés
+          2026-09-16: the patient's agenda activity must show in the ficha. */}
+      {detail.turnos.length > 0 && (
+        <div className='space-y-3'>
+          <h3 className='text-sm font-semibold text-dark dark:text-white'>{t('patientDetail.turnos.title')}</h3>
+          {detail.turnos.map((tu) => {
+            const suc = tu.sucursal ? tu.sucursal.charAt(0).toUpperCase() + tu.sucursal.slice(1) : ''
+            const meta = [tu.professional, suc].filter(Boolean).join(' · ')
+            return (
+              <div
+                key={tu.id}
+                className='flex items-center justify-between gap-3 rounded-md border border-border dark:border-darkborder p-3'>
+                <div className='min-w-0'>
+                  <div className='flex items-center gap-2 flex-wrap'>
+                    <StatusPill status={tu.status} />
+                    {tu.treatment && (
+                      <span className='text-sm text-dark dark:text-white truncate'>{tu.treatment}</span>
+                    )}
+                  </div>
+                  <p className='text-xs text-link dark:text-darklink mt-1'>
+                    {formatDateTime(tu.start, locale)}
+                    {meta ? ` · ${meta}` : ''}
+                  </p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {/* Current reservations */}
       {hasReservations ? (
         <div className='space-y-3'>

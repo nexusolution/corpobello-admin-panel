@@ -155,6 +155,19 @@ export type PatientReservation = {
   lastActivity: string | null
 }
 
+// A real agenda turno (calendar_events) linked to this patient — Andrés 2026-09-16
+// wants the patient's agenda activity to show in the ficha, not just the bot funnel.
+export type PatientTurno = {
+  id: string
+  start: string
+  end: string
+  allDay: boolean
+  status: string
+  treatment: string
+  professional: string
+  sucursal: string | null
+}
+
 export type PatientContact = {
   id: string
   fullName: string
@@ -174,6 +187,16 @@ export type PatientDetail = {
   quotes: PatientQuote[]
   notes: PatientNote[]
   reservations: PatientReservation[]
+  turnos: PatientTurno[]
+}
+
+function prettifySlug(slug: string | null): string {
+  if (!slug) return ''
+  return slug
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^\w/, (c) => c.toUpperCase())
 }
 
 function embedded<T>(rel: T | T[] | null): T | null {
@@ -186,8 +209,8 @@ export async function fetchPatientDetail(
   if (!isSupabaseConfigured()) return { data: null, error: null }
   const supabase = getSupabase()
 
-  // Patient row + internal notes only need the id — fetch in parallel.
-  const [patientRes, notesRes] = await Promise.all([
+  // Patient row + internal notes + agenda turnos only need the id — fetch in parallel.
+  const [patientRes, notesRes, turnosRes] = await Promise.all([
     supabase
       .from('patients')
       .select(
@@ -200,6 +223,13 @@ export async function fetchPatientDetail(
       .select('id, body, created_at, author:author_id (display_name)')
       .eq('patient_id', id)
       .order('created_at', { ascending: false }),
+    supabase
+      .from('calendar_events')
+      .select(
+        'id, starts_at, ends_at, all_day, status, sucursal, treatment_slug, professional:professional_id (display_name)',
+      )
+      .eq('patient_id', id)
+      .order('starts_at', { ascending: false }),
   ])
 
   if (patientRes.error) return { data: null, error: patientRes.error.message }
@@ -286,6 +316,21 @@ export async function fetchPatientDetail(
     lastActivity: l.last_message_at,
   }))
 
+  // Real agenda turnos linked to this patient (best-effort: an ad-hoc DB without
+  // the calendar_events table just yields none).
+  const turnos: PatientTurno[] = turnosRes.error
+    ? []
+    : ((turnosRes.data as any[]) ?? []).map((r) => ({
+        id: r.id,
+        start: r.starts_at,
+        end: r.ends_at,
+        allDay: !!r.all_day,
+        status: r.status ?? 'pendiente',
+        treatment: prettifySlug(r.treatment_slug),
+        professional: embedded<{ display_name: string | null }>(r.professional)?.display_name?.trim() || '',
+        sucursal: normalizeSucursal(r.sucursal),
+      }))
+
   const contact: PatientContact = {
     id: p.id,
     fullName: p.full_name?.trim() || p.whatsapp_phone || 'Sin nombre',
@@ -299,7 +344,7 @@ export async function fetchPatientDetail(
     createdAt: p.created_at ?? '',
   }
 
-  return { data: { contact, messages, quotes, notes, reservations }, error: null }
+  return { data: { contact, messages, quotes, notes, reservations, turnos }, error: null }
 }
 
 /** Append an internal note (author enforced to the signed-in user by RLS). */

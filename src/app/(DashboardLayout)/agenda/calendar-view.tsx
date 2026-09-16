@@ -2902,7 +2902,11 @@ export function CalendarView() {
           catalogSlugs={catalogSlugs}
           allEvents={events}
           isSucursalClosed={isSucursalClosed}
-          canOverrideClosed={role === 'admin' || role === 'operador'}
+          // Closed-day override is a controlled exception (Andrés 2026-09-16): only
+          // an admin may FORCE a turno on a closed day; operador/profesional (and
+          // the bot) are blocked. A per-user "authorized secretary" flag is the
+          // pending permission-matrix decision.
+          canOverrideClosed={role === 'admin'}
           canDelete={role === 'admin' || role === 'operador'}
           actorId={actorId}
           actorName={actorName}
