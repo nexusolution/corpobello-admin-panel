@@ -301,6 +301,26 @@
   font-size: 16px;
 }
 
+/* Agenda list: slightly rounded row "cards" (Andrés 2026-09-16). RBC collapses
+   the table borders, which suppresses border-radius, so switch to the separate
+   model and round each row's outer cells (neutral date block on the left, the
+   colour bar's time-cell left + event-cell right). overflow clips the date
+   stripes and the cobro "$" block to the rounded corners. */
+.rbc-agenda-view table.rbc-agenda-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td.rbc-agenda-date-cell {
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+  overflow: hidden;
+}
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td.rbc-agenda-event-cell {
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  overflow: hidden;
+}
+
 .rbc-current-time-indicator {
   background: #fa896b;
 }
