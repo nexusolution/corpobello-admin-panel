@@ -26,12 +26,18 @@ interface DayScheduleProps {
   treatmentColor: (slug: string | null | undefined, name?: string) => string
   treatmentName: (slug?: string | null) => string
   cardBg: (status: string) => string
-  payColor: (status: string) => string
   sucursalLabel: (s: string) => string
   locale: string
   emptyLabel: string
   newLabel: string
+  lunchLabel: string
 }
+
+// Midday break: the 13:00–14:00 row shows "ALMUERZO" in every column (unless a
+// turno was actually scheduled over lunch) — Andrés 2026-09-16.
+const LUNCH_HOUR = 13
+// Solid green cobro block on the right of a charged turno (matches the reference).
+const PAY_GREEN = '#16a34a'
 
 function pad2(n: number): string {
   return n < 10 ? `0${n}` : String(n)
@@ -50,11 +56,11 @@ export function DaySchedule({
   treatmentColor,
   treatmentName,
   cardBg,
-  payColor,
   sucursalLabel,
   locale,
   emptyLabel,
   newLabel,
+  lunchLabel,
 }: DayScheduleProps) {
   // Long, capitalised date header, e.g. "Lunes 5 de octubre de 2026".
   const rawDate = new Intl.DateTimeFormat(locale, {
@@ -193,8 +199,10 @@ export function DaySchedule({
                               key={e.id}
                               type='button'
                               onClick={() => onOpenTurno(e)}
-                              className='relative w-full text-left rounded-md py-1.5 pl-2.5 pr-2 mb-1 last:mb-0 overflow-hidden border border-black/5 dark:border-white/10 hover:brightness-95 transition'
-                              style={{ backgroundColor: cardBg(e.status), borderLeft: `4px solid ${tc}` }}>
+                              className={`relative w-full text-left rounded-md py-1.5 pl-3 mb-1 last:mb-0 overflow-hidden border border-black/5 dark:border-white/10 hover:brightness-95 transition ${
+                                e.charged ? 'pr-10' : 'pr-2'
+                              }`}
+                              style={{ backgroundColor: cardBg(e.status), borderLeft: `8px solid ${tc}` }}>
                               <div className='flex items-start justify-between gap-1'>
                                 <span className='font-semibold text-[13px] leading-tight text-gray-800 truncate'>
                                   {e.patientName || e.title}
@@ -214,8 +222,8 @@ export function DaySchedule({
                               )}
                               {e.charged && (
                                 <span
-                                  className='absolute right-1.5 bottom-1 text-[11px] font-bold'
-                                  style={{ color: payColor(e.status) }}
+                                  className='absolute right-0 top-0 bottom-0 w-8 flex items-center justify-center text-white font-bold text-sm'
+                                  style={{ backgroundColor: PAY_GREEN }}
                                   title='$'>
                                   $
                                 </span>
@@ -223,6 +231,10 @@ export function DaySchedule({
                             </button>
                           )
                         })
+                      ) : h === LUNCH_HOUR ? (
+                        <div className='rounded-md bg-gray-100 dark:bg-white/5 text-link dark:text-darklink text-[11px] font-medium uppercase tracking-wide text-center py-3'>
+                          {lunchLabel}
+                        </div>
                       ) : (
                         <button
                           type='button'

@@ -2819,11 +2819,11 @@ export function CalendarView() {
             treatmentColor={treatmentColorResolved}
             treatmentName={treatmentName}
             cardBg={(status) => lightenHex(statusColorFor(status))}
-            payColor={(status) => darkenHex(statusColorFor(status))}
             sucursalLabel={sucursalLabel}
             locale={locale}
             emptyLabel={t('agenda.noProfessional')}
             newLabel={t('agendaCal.new')}
+            lunchLabel={t('agenda.lunch')}
           />
         </div>
       )}
