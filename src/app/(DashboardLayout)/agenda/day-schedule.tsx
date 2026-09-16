@@ -114,7 +114,6 @@ export function DaySchedule({
     else inner.set(h, [e])
   }
 
-  const singleCol = columns.length === 1
   const minTableWidth = columns.length > 2 ? columns.length * 170 + 72 : undefined
 
   const dateAtHour = (h: number) => {
@@ -199,31 +198,33 @@ export function DaySchedule({
                               key={e.id}
                               type='button'
                               onClick={() => onOpenTurno(e)}
-                              className={`relative w-full text-left rounded-md py-1.5 pl-3 mb-1 last:mb-0 overflow-hidden border border-black/5 dark:border-white/10 hover:brightness-95 transition ${
-                                e.charged ? 'pr-10' : 'pr-2'
-                              }`}
-                              style={{ backgroundColor: cardBg(e.status), borderLeft: `8px solid ${tc}` }}>
-                              <div className='flex items-start justify-between gap-1'>
-                                <span className='font-semibold text-[13px] leading-tight text-gray-800 truncate'>
+                              className='flex items-stretch w-full text-left rounded-lg mb-1.5 last:mb-0 overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition'
+                              style={{ backgroundColor: cardBg(e.status) }}>
+                              {/* Treatment-colour bar (thick) */}
+                              <span
+                                className='shrink-0 self-stretch'
+                                style={{ width: 8, backgroundColor: tc }}
+                              />
+                              <span className='flex-1 min-w-0 py-1.5 px-2.5'>
+                                <span className='block text-[11px] font-semibold text-black leading-tight'>
+                                  {fmtTime(e.start)} · {fmtTime(e.end)}
+                                </span>
+                                <span className='block font-bold text-[13px] leading-tight text-black truncate mt-0.5'>
                                   {e.patientName || e.title}
                                 </span>
-                                {singleCol && (
-                                  <span className='shrink-0 text-[11px] text-gray-500 whitespace-nowrap'>
-                                    {fmtTime(e.start)} · {fmtTime(e.end)}
+                                {e.treatmentSlug && (
+                                  <span
+                                    className='block text-[11px] leading-tight truncate mt-0.5'
+                                    style={{ color: tc }}>
+                                    {treatmentName(e.treatmentSlug)}
                                   </span>
                                 )}
-                              </div>
-                              {e.treatmentSlug && (
-                                <div
-                                  className='text-[11px] leading-tight truncate mt-0.5'
-                                  style={{ color: tc }}>
-                                  {treatmentName(e.treatmentSlug)}
-                                </div>
-                              )}
+                              </span>
+                              {/* Cobro block: solid green, flush to the edge (no border/gap). */}
                               {e.charged && (
                                 <span
-                                  className='absolute right-0 top-0 bottom-0 w-8 flex items-center justify-center text-white font-bold text-sm'
-                                  style={{ backgroundColor: PAY_GREEN }}
+                                  className='shrink-0 self-stretch flex items-center justify-center text-white font-bold text-sm'
+                                  style={{ width: 34, backgroundColor: PAY_GREEN }}
                                   title='$'>
                                   $
                                 </span>
