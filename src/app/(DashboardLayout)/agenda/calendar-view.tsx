@@ -2702,10 +2702,14 @@ export function CalendarView() {
 
       <DnDCalendar
         localizer={localizer}
-        // Plain Day view (Columns: None) hides the whole time-grid table (Andrés
-        // 2026-09-16 "remove the table"). In columns mode the Day keeps its grid
-        // (that is where the sucursal/profesional detail lives).
-        className={view === Views.DAY && !columnsActive ? 'cb-day-hidegrid' : undefined}
+        // Hide the whole time-grid table in the Week view and in the plain Day view
+        // (Columns: None) — Andrés 2026-09-16 "remove the table". The Day keeps its
+        // grid when in columns mode (sucursal/profesional), where the detail lives.
+        className={
+          view === Views.WEEK || (view === Views.DAY && !columnsActive)
+            ? 'cb-hidegrid'
+            : undefined
+        }
         events={calendarEvents}
         startAccessor='start'
         endAccessor='end'

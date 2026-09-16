@@ -339,10 +339,10 @@
   background: rgba(100, 116, 139, 0.16);
 }
 
-/* Plain Day view (Columns: None): remove the whole time-grid table, leaving only
-   the toolbar + filters above (Andrés 2026-09-16). The Day keeps its grid when in
-   columns mode (sucursal/profesional), where the detail actually lives. */
-.cb-day-hidegrid .rbc-time-view {
+/* Remove the whole time-grid table (Week, and plain Day with Columns: None),
+   leaving only the toolbar + filters above (Andrés 2026-09-16). The Day keeps its
+   grid when in columns mode (sucursal/profesional), where the detail lives. */
+.cb-hidegrid .rbc-time-view {
   display: none !important;
 }
 
