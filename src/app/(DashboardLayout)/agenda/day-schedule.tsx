@@ -206,16 +206,16 @@ export function DaySchedule({
                                 style={{ width: 8, backgroundColor: tc }}
                               />
                               <span className='flex-1 min-w-0 py-1.5 px-2.5'>
-                                <span className='block text-[11px] font-semibold text-black leading-tight'>
-                                  {fmtTime(e.start)} · {fmtTime(e.end)}
-                                </span>
-                                <span className='block font-bold text-[13px] leading-tight text-black truncate mt-0.5'>
-                                  {e.patientName || e.title}
+                                <span className='flex items-baseline justify-between gap-2'>
+                                  <span className='font-bold text-[13px] leading-tight text-black truncate'>
+                                    {e.patientName || e.title}
+                                  </span>
+                                  <span className='shrink-0 text-[11px] font-semibold text-black whitespace-nowrap'>
+                                    {fmtTime(e.start)} · {fmtTime(e.end)}
+                                  </span>
                                 </span>
                                 {e.treatmentSlug && (
-                                  <span
-                                    className='block text-[11px] leading-tight truncate mt-0.5'
-                                    style={{ color: tc }}>
+                                  <span className='block text-[11px] leading-tight truncate mt-0.5 text-black'>
                                     {treatmentName(e.treatmentSlug)}
                                   </span>
                                 )}
