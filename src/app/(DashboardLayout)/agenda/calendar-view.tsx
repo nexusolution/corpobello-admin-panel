@@ -2508,7 +2508,10 @@ export function CalendarView() {
     if (bandSucs.length === 0) return el
     // Show up to 4 circles per band; more collapse into a "+X" pill so the cell
     // never gets crowded (Andrés 2026-09-16).
-    const cap = 4
+    // Circles shown per band before the "+N" pill, adaptive to how many sucursales
+    // work that day (Andrés spec: 1 sede → 9, 2 → 5, 3 → 3). Each band keeps its
+    // own "+N" so the number reflects that sucursal, not the whole day.
+    const cap = bandSucs.length === 1 ? 9 : bandSucs.length === 2 ? 5 : 3
     const overlay = (
       <div className='cb-month-bands'>
         {bandSucs.map((suc) => {
