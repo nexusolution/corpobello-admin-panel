@@ -91,6 +91,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css'
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
 import './calendar-theme.css'
 import { DaySchedule } from './day-schedule'
+import { WeekSchedule } from './week-schedule'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 type Option = { value: string; label: string }
@@ -1788,56 +1789,65 @@ export function CalendarView() {
     sucursal: string
     sucColor: string
   }
-  const dayHybridResources = useMemo<DayCol[]>(() => {
-    const ds = toDateInput(date)
-    const dayMap = turnosByDaySucursal.get(ds)
-    const sucs = new Set<string>()
-    for (const m of sedeMarkers(date)) sucs.add(m.sucursal)
-    if (dayMap) for (const s of dayMap.keys()) if (s !== NONE_RESOURCE) sucs.add(s)
-    const orderedSucs = SUCURSALES.filter((s) => sucs.has(s))
-    const cols: DayCol[] = []
-    let hasUnassigned = false
-    for (const suc of orderedSucs) {
-      const profIds = new Set<string>()
-      for (const p of professionals) {
-        const works = catalogSlugs.some(
-          (slug) => availabilityFor(ds, suc, slug, availRules, availExclusions, p.value).open,
-        )
-        if (works) profIds.add(p.value)
-      }
-      for (const tt of dayMap?.get(suc) ?? []) {
-        if (tt.professionalId) profIds.add(tt.professionalId)
-        else hasUnassigned = true
-      }
-      const profList = professionals.filter((p) => profIds.has(p.value))
-      if (profList.length === 0) {
-        cols.push({
-          resourceId: `su:${suc}`,
-          resourceTitle: sucursalLabel(suc),
-          sucursal: suc,
-          sucColor: sucursalColor(suc),
-        })
-      } else {
-        for (const p of profList)
+  // Columns (sucursal → professional pairs) that actually work on a given day.
+  // Reused for the Day table and, per day, for the Week grid's lanes.
+  const computeDayColumns = useCallback(
+    (day: Date): DayCol[] => {
+      const ds = toDateInput(day)
+      const dayMap = turnosByDaySucursal.get(ds)
+      const sucs = new Set<string>()
+      for (const m of sedeMarkers(day)) sucs.add(m.sucursal)
+      if (dayMap) for (const s of dayMap.keys()) if (s !== NONE_RESOURCE) sucs.add(s)
+      const orderedSucs = SUCURSALES.filter((s) => sucs.has(s))
+      const cols: DayCol[] = []
+      let hasUnassigned = false
+      for (const suc of orderedSucs) {
+        const profIds = new Set<string>()
+        for (const p of professionals) {
+          const works = catalogSlugs.some(
+            (slug) => availabilityFor(ds, suc, slug, availRules, availExclusions, p.value).open,
+          )
+          if (works) profIds.add(p.value)
+        }
+        for (const tt of dayMap?.get(suc) ?? []) {
+          if (tt.professionalId) profIds.add(tt.professionalId)
+          else hasUnassigned = true
+        }
+        const profList = professionals.filter((p) => profIds.has(p.value))
+        if (profList.length === 0) {
           cols.push({
-            resourceId: `sp:${suc}:${p.value}`,
-            resourceTitle: p.label,
+            resourceId: `su:${suc}`,
+            resourceTitle: sucursalLabel(suc),
             sucursal: suc,
             sucColor: sucursalColor(suc),
           })
+        } else {
+          for (const p of profList)
+            cols.push({
+              resourceId: `sp:${suc}:${p.value}`,
+              resourceTitle: p.label,
+              sucursal: suc,
+              sucColor: sucursalColor(suc),
+            })
+        }
       }
-    }
-    if (hasUnassigned)
-      cols.push({
-        resourceId: NONE_RESOURCE,
-        resourceTitle: t('agenda.noProfessional'),
-        sucursal: '',
-        sucColor: '#94a3b8',
-      })
-    return cols.length
-      ? cols
-      : [{ resourceId: NONE_RESOURCE, resourceTitle: t('turno.none'), sucursal: '', sucColor: '#94a3b8' }]
-  }, [date, sedeMarkers, turnosByDaySucursal, professionals, catalogSlugs, availRules, availExclusions, t])
+      if (hasUnassigned)
+        cols.push({
+          resourceId: NONE_RESOURCE,
+          resourceTitle: t('agenda.noProfessional'),
+          sucursal: '',
+          sucColor: '#94a3b8',
+        })
+      return cols.length
+        ? cols
+        : [{ resourceId: NONE_RESOURCE, resourceTitle: t('turno.none'), sucursal: '', sucColor: '#94a3b8' }]
+    },
+    [sedeMarkers, turnosByDaySucursal, professionals, catalogSlugs, availRules, availExclusions, t],
+  )
+  const dayHybridResources = useMemo<DayCol[]>(
+    () => computeDayColumns(date),
+    [computeDayColumns, date],
+  )
 
   // Map a turno to its hybrid column: prefer the exact (sucursal, profesional)
   // pair, else the sucursal-only column, else the unassigned bucket.
@@ -1881,6 +1891,34 @@ export function CalendarView() {
       ),
     [visibleEvents, date],
   )
+
+  // Week grid (Andrés 2026-09-16): the 6 days Mon–Sat of the current week, and the
+  // week's (timed, non-cancelled) turnos.
+  const weekDays = useMemo(() => {
+    const base = new Date(date)
+    base.setHours(0, 0, 0, 0)
+    const back = (base.getDay() + 6) % 7
+    const monday = new Date(base)
+    monday.setDate(base.getDate() - back)
+    return [0, 1, 2, 3, 4, 5].map((i) => {
+      const d = new Date(monday)
+      d.setDate(monday.getDate() + i)
+      return d
+    })
+  }, [date])
+  const weekTurnos = useMemo(() => {
+    const startMs = weekDays[0].getTime()
+    const end = new Date(weekDays[weekDays.length - 1])
+    end.setHours(23, 59, 59, 999)
+    const endMs = end.getTime()
+    return visibleEvents.filter(
+      (e) =>
+        !e.allDay &&
+        e.status !== 'cancelado' &&
+        e.start.getTime() >= startMs &&
+        e.start.getTime() <= endMs,
+    )
+  }, [visibleEvents, weekDays])
 
   // Pre-reservas past the TTL (highlight only — no auto-cancel in v1).
   const expiredCount = useMemo(
@@ -2804,6 +2842,30 @@ export function CalendarView() {
         })}
         components={calendarComponents}
       />
+
+      {view === Views.WEEK && (
+        <div className='mt-3'>
+          <WeekSchedule
+            days={weekDays}
+            columnsForDay={computeDayColumns}
+            resourceIdFor={hybridResourceIdFor}
+            turnos={weekTurnos}
+            onOpenTurno={onSelectEvent}
+            onCreate={(start, end, sucursal, professionalId) =>
+              openAdd(start, end, false, sucursal, professionalId)
+            }
+            treatmentColor={treatmentColorResolved}
+            treatmentName={treatmentName}
+            cardBg={(status) => lightenHex(statusColorFor(status))}
+            sucursalLabel={sucursalLabel}
+            sucursalColor={sucursalColor}
+            professionalName={professionalName}
+            locale={locale}
+            lunchLabel={t('agenda.lunch')}
+            newLabel={t('agendaCal.new')}
+          />
+        </div>
+      )}
 
       {view === Views.DAY && (
         <div className='mt-3'>
