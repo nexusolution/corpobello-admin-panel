@@ -13,6 +13,7 @@ import { PromocionesSection } from './promociones-section'
 import { HorariosSection } from './horarios-section'
 import { DisponibilidadSection } from './disponibilidad-section'
 import { PacksSection } from './packs-section'
+import { CatalogoSection } from './catalogo-section'
 import { EstadosSection } from './estados-section'
 import { ColoresSection } from './colores-section'
 import { FeriadosSection } from './feriados-section'
@@ -33,11 +34,13 @@ type TabKey =
   | 'packs'
   | 'estados'
   | 'colores'
+  | 'catalogo'
   | 'feriados'
   | 'consents'
 
 const TABS: { key: TabKey; labelKey: TranslationKey; icon: string }[] = [
   { key: 'treatments', labelKey: 'autoGestion.treatments.heading', icon: 'solar:widget-line-duotone' },
+  { key: 'catalogo', labelKey: 'autoGestion.catalog.heading', icon: 'solar:list-check-line-duotone' },
   { key: 'prices', labelKey: 'autoGestion.prices.heading', icon: 'solar:tag-price-line-duotone' },
   { key: 'cotizadores', labelKey: 'autoGestion.cotizadores.heading', icon: 'solar:calculator-line-duotone' },
   { key: 'promos', labelKey: 'autoGestion.promos.heading', icon: 'solar:tag-horizontal-line-duotone' },
@@ -90,6 +93,7 @@ export function AutoGestionTabs() {
       {tab === 'promos' && <PromocionesSection />}
       {tab === 'horarios' && <HorariosSection />}
       {tab === 'disponibilidad' && <DisponibilidadSection />}
+      {tab === 'catalogo' && <CatalogoSection />}
       {tab === 'packs' && <PacksSection />}
       {tab === 'estados' && <EstadosSection />}
       {tab === 'colores' && <ColoresSection />}

@@ -57,6 +57,7 @@ import {
 } from '@/lib/data/calendar-events'
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
 import { fetchMenuOverrides } from '@/lib/data/menu-overrides'
+import { fetchTreatmentCatalog } from '@/lib/data/treatment-catalog'
 import { fetchAvailability } from '@/lib/data/availability'
 import { logTurnoAudit } from '@/lib/data/turno-audit'
 import { fetchTurnoStatusConfig, type TurnoStatusConfig } from '@/lib/data/turno-statuses'
@@ -1634,16 +1635,27 @@ export function CalendarView() {
     // Lookups for the form (best-effort; empty on RLS/error). Merge the full
     // treatment catalog (menu_overrides) with the flat-priced ones so depilación,
     // tatuajes and verrugas are bookable — not just the photo-eval treatments.
-    void Promise.all([fetchMenuOverrides(), fetchTreatmentPrices()]).then(([mo, tp]) => {
-      const byslug = new Map<string, string>()
-      for (const m of mo.data) byslug.set(m.slug, m.displayName)
-      for (const p of tp.data) if (!byslug.has(p.slug)) byslug.set(p.slug, p.displayName)
-      const opts = [...byslug.entries()]
-        .map(([value, label]) => ({ value, label }))
-        .sort((a, b) => a.label.localeCompare(b.label))
-      setTreatments(opts)
-      setCatalogSlugs(opts.map((o) => o.value))
-    })
+    void Promise.all([fetchMenuOverrides(), fetchTreatmentPrices(), fetchTreatmentCatalog()]).then(
+      ([mo, tp, cat]) => {
+        // Prefer the autogestionable catalog (0051) when it has been imported:
+        // active treatments only, in the configured order. Falls back to the code
+        // catalog (menu_overrides + prices) until the clinic imports it.
+        if (cat.data.length > 0) {
+          const active = cat.data.filter((c) => c.active)
+          setTreatments(active.map((c) => ({ value: c.slug, label: c.label })))
+          setCatalogSlugs(active.map((c) => c.slug))
+          return
+        }
+        const byslug = new Map<string, string>()
+        for (const m of mo.data) byslug.set(m.slug, m.displayName)
+        for (const p of tp.data) if (!byslug.has(p.slug)) byslug.set(p.slug, p.displayName)
+        const opts = [...byslug.entries()]
+          .map(([value, label]) => ({ value, label }))
+          .sort((a, b) => a.label.localeCompare(b.label))
+        setTreatments(opts)
+        setCatalogSlugs(opts.map((o) => o.value))
+      },
+    )
     // Availability rules + cross-sucursal exclusions for shading + warnings.
     void fetchAvailability().then(({ rules, exclusions }) => {
       setAvailRules(rules)
