@@ -24,6 +24,7 @@ import type {
 import { SUCURSALES } from '@/lib/data/calendar-events'
 import { fetchMenuOverrides } from '@/lib/data/menu-overrides'
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
+import { fetchTreatmentCatalog } from '@/lib/data/treatment-catalog'
 import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
@@ -286,16 +287,28 @@ export function DisponibilidadSection() {
 
   useEffect(() => {
     void reload()
-    void Promise.all([fetchMenuOverrides(), fetchTreatmentPrices()]).then(([mo, tp]) => {
-      const byslug = new Map<string, string>()
-      for (const m of mo.data) byslug.set(m.slug, m.displayName)
-      for (const p of tp.data) if (!byslug.has(p.slug)) byslug.set(p.slug, p.displayName)
-      setTreatments(
-        [...byslug.entries()]
-          .map(([slug, name]) => ({ slug, name }))
-          .sort((a, b) => a.name.localeCompare(b.name)),
-      )
-    })
+    // Prefer the autogestionable catalog (0051) when imported so NEW treatments are
+    // configurable here too; fall back to the code catalog otherwise (Andrés #8).
+    void Promise.all([fetchMenuOverrides(), fetchTreatmentPrices(), fetchTreatmentCatalog()]).then(
+      ([mo, tp, cat]) => {
+        if (cat.data.length > 0) {
+          setTreatments(
+            cat.data
+              .map((c) => ({ slug: c.slug, name: c.label }))
+              .sort((a, b) => a.name.localeCompare(b.name)),
+          )
+          return
+        }
+        const byslug = new Map<string, string>()
+        for (const m of mo.data) byslug.set(m.slug, m.displayName)
+        for (const p of tp.data) if (!byslug.has(p.slug)) byslug.set(p.slug, p.displayName)
+        setTreatments(
+          [...byslug.entries()]
+            .map(([slug, name]) => ({ slug, name }))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        )
+      },
+    )
     void fetchAppUsers().then(({ data }) =>
       setProfessionals(
         data

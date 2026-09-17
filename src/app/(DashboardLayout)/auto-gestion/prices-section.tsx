@@ -13,6 +13,7 @@ import {
   type Rounding,
   type Direction,
 } from '@/lib/data/treatment-prices'
+import { fetchTreatmentCatalog } from '@/lib/data/treatment-catalog'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
@@ -195,10 +196,24 @@ export function PricesSection() {
 
   useEffect(() => {
     let active = true
-    void fetchTreatmentPrices().then(({ data, error }) => {
+    // Merge in catalog treatments (0051) that have no price row yet, so a NEW
+    // treatment is priceable here (defaults to 0 until saved) — Andrés #8.
+    void Promise.all([fetchTreatmentPrices(), fetchTreatmentCatalog()]).then(([prices, cat]) => {
       if (!active) return
-      setItems(data)
-      setLoadError(error)
+      const bySlug = new Map(prices.data.map((p) => [p.slug, p]))
+      for (const c of cat.data) {
+        if (!bySlug.has(c.slug)) {
+          bySlug.set(c.slug, {
+            slug: c.slug,
+            displayName: c.label,
+            listAmount: 0,
+            efectivoAmount: 0,
+            currency: 'ARS',
+          })
+        }
+      }
+      setItems([...bySlug.values()].sort((a, b) => a.displayName.localeCompare(b.displayName)))
+      setLoadError(prices.error)
       setLoading(false)
     })
     return () => {
