@@ -152,6 +152,12 @@ function patternSummary(p: DayPattern, locale: string): string {
       )
       return g.join(' · ')
     }
+    case 'monthly_cycle': {
+      const wk = locale === 'es' ? 'sem' : 'wk'
+      const anchorTxt = locale === 'es' ? '2º lunes' : '2nd Mon'
+      const parts = p.entries.map((e) => `+${e.weekOffset} ${wk} ${weekdayLabel(e.weekday, locale)}`)
+      return `${anchorTxt} → ${parts.join(', ')}`
+    }
     default:
       return ''
   }
@@ -170,6 +176,7 @@ type Draft = {
   anchorMonday: string
   groupA: Weekday[]
   groupB: Weekday[]
+  cycleEntries: { weekOffset: number; weekday: Weekday }[]
   openMin: number
   closeMin: number
   active: boolean
@@ -189,6 +196,7 @@ function emptyDraft(): Draft {
     anchorMonday: '',
     groupA: [5],
     groupB: [6],
+    cycleEntries: [{ weekOffset: 0, weekday: 1 }],
     openMin: 8 * 60,
     closeMin: 20 * 60,
     active: true,
@@ -212,6 +220,9 @@ function ruleToDraft(r: AvailabilityRule): Draft {
     d.groupA = r.pattern.groups[0] ?? []
     d.groupB = r.pattern.groups[1] ?? []
   }
+  if (r.pattern.type === 'monthly_cycle') {
+    d.cycleEntries = r.pattern.entries.length ? r.pattern.entries : [{ weekOffset: 0, weekday: 1 }]
+  }
   d.openMin = r.openMin
   d.closeMin = r.closeMin
   d.active = r.active
@@ -223,6 +234,8 @@ function draftToRule(d: Draft): AvailabilityRule {
   let pattern: DayPattern
   if (d.patternType === 'weekly') pattern = { type: 'weekly', weekdays: [...d.weekly].sort() }
   else if (d.patternType === 'monthly_ordinal') pattern = { type: 'monthly_ordinal', days: d.monthly }
+  else if (d.patternType === 'monthly_cycle')
+    pattern = { type: 'monthly_cycle', ordinal: 2, anchorWeekday: 1, entries: d.cycleEntries }
   else pattern = { type: 'alternating', anchorMonday: d.anchorMonday, groups: [d.groupA, d.groupB] }
   return {
     id: d.id,
@@ -533,6 +546,7 @@ function RuleEditor({
     draft.closeMin > draft.openMin &&
     (draft.patternType !== 'weekly' || draft.weekly.length > 0) &&
     (draft.patternType !== 'monthly_ordinal' || draft.monthly.length > 0) &&
+    (draft.patternType !== 'monthly_cycle' || draft.cycleEntries.length > 0) &&
     (draft.patternType !== 'alternating' || (!!draft.anchorMonday && (draft.groupA.length > 0 || draft.groupB.length > 0)))
 
   return (
@@ -592,6 +606,7 @@ function RuleEditor({
             <option value='weekly'>{t('autoGestion.availability.weekly')}</option>
             <option value='monthly_ordinal'>{t('autoGestion.availability.monthlyOrdinal')}</option>
             <option value='alternating'>{t('autoGestion.availability.alternating')}</option>
+            <option value='monthly_cycle'>{t('autoGestion.availability.monthlyCycle')}</option>
           </Select>
         </label>
 
@@ -620,6 +635,57 @@ function RuleEditor({
             ))}
             <button type='button' onClick={() => set({ monthly: [...draft.monthly, { weekday: 1, ordinal: 1 }] })} className='text-xs text-primary font-medium hover:underline'>
               + {t('autoGestion.availability.addDay')}
+            </button>
+          </div>
+        )}
+
+        {draft.patternType === 'monthly_cycle' && (
+          <div className='space-y-2'>
+            <p className='text-[11px] text-link dark:text-darklink'>{t('autoGestion.availability.cycleHint')}</p>
+            {draft.cycleEntries.map((row, i) => (
+              <div key={i} className='flex items-center gap-2'>
+                <span className='text-xs text-link dark:text-darklink'>+</span>
+                <input
+                  type='number'
+                  min={0}
+                  max={8}
+                  value={row.weekOffset}
+                  onChange={(e) =>
+                    set({
+                      cycleEntries: draft.cycleEntries.map((r, j) =>
+                        j === i ? { ...r, weekOffset: Math.max(0, parseInt(e.target.value, 10) || 0) } : r,
+                      ),
+                    })
+                  }
+                  className={`${FIELD} w-16`}
+                />
+                <span className='text-xs text-link dark:text-darklink'>{t('autoGestion.availability.weekOffset')}</span>
+                <Select
+                  value={row.weekday}
+                  onChange={(v) =>
+                    set({
+                      cycleEntries: draft.cycleEntries.map((r, j) =>
+                        j === i ? { ...r, weekday: parseInt(v, 10) as Weekday } : r,
+                      ),
+                    })
+                  }>
+                  {WEEKDAY_ORDER.map((w) => (
+                    <option key={w} value={w}>{weekdayLabel(w, locale)}</option>
+                  ))}
+                </Select>
+                <button
+                  type='button'
+                  onClick={() => set({ cycleEntries: draft.cycleEntries.filter((_, j) => j !== i) })}
+                  className='text-link dark:text-darklink hover:text-error'>
+                  <Icon icon='solar:close-circle-line-duotone' height={18} width={18} />
+                </button>
+              </div>
+            ))}
+            <button
+              type='button'
+              onClick={() => set({ cycleEntries: [...draft.cycleEntries, { weekOffset: 0, weekday: 1 }] })}
+              className='text-xs text-primary font-medium hover:underline'>
+              + {t('autoGestion.availability.addEntry')}
             </button>
           </div>
         )}

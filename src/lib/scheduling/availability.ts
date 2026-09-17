@@ -10,6 +10,17 @@ export type DayPattern =
   | { type: 'weekly'; weekdays: Weekday[] }
   | { type: 'monthly_ordinal'; days: { weekday: Weekday; ordinal: number }[] }
   | { type: 'alternating'; anchorMonday: string; groups: Weekday[][] }
+  // Cycle anchored on the Nth weekday of the month (Caballito: 2nd Monday), whose
+  // entries run in successive weeks and may spill into the following month — the
+  // spilled dates still belong to the anchoring month's cycle (Andrés 2026-09-17).
+  // ordinal defaults to 2, anchorWeekday to 1 (Monday). Each entry = a date at
+  // `weekOffset` weeks after the anchor's week, on `weekday`.
+  | {
+      type: 'monthly_cycle'
+      ordinal?: number
+      anchorWeekday?: Weekday
+      entries: { weekOffset: number; weekday: Weekday }[]
+    }
 
 export interface AvailabilityRule {
   id: string
@@ -65,6 +76,13 @@ function mondayOf(dateStr: string): Date {
   return dt
 }
 
+// The date of the `ordinal`-th `weekday` of a given month (e.g. 2nd Monday).
+function nthWeekdayOfMonth(year: number, month0: number, weekday: Weekday, ordinal: number): Date {
+  const first = new Date(Date.UTC(year, month0, 1, 12))
+  const offset = (weekday - first.getUTCDay() + 7) % 7
+  return new Date(Date.UTC(year, month0, 1 + offset + (ordinal - 1) * 7, 12))
+}
+
 /** Does `dateStr` fall on a day this pattern covers? */
 export function matchesPattern(dateStr: string, pattern: DayPattern): boolean {
   const { day, weekday } = dayOf(dateStr)
@@ -84,6 +102,35 @@ export function matchesPattern(dateStr: string, pattern: DayPattern): boolean {
       const weeks = Math.round((wkMonday.getTime() - anchor.getTime()) / (7 * 86_400_000))
       const idx = ((weeks % groups.length) + groups.length) % groups.length
       return (groups[idx] ?? []).includes(weekday)
+    }
+    case 'monthly_cycle': {
+      if (!pattern.entries || pattern.entries.length === 0) return false
+      const ord = pattern.ordinal ?? 2
+      const aw = pattern.anchorWeekday ?? 1
+      const dt = new Date(`${dateStr}T12:00:00.000Z`)
+      const y = dt.getUTCFullYear()
+      const m = dt.getUTCMonth()
+      // The date can belong to THIS month's cycle or the PREVIOUS month's cycle
+      // (entries with a larger weekOffset spill into the next month).
+      const candidates: [number, number][] = [
+        [y, m],
+        m === 0 ? [y - 1, 11] : [y, m - 1],
+      ]
+      for (const [cy, cm] of candidates) {
+        const anchor = nthWeekdayOfMonth(cy, cm, aw, ord)
+        for (const e of pattern.entries) {
+          const dayFromMonday = (e.weekday + 6) % 7 // Mon=0 … Sun=6 (anchor is a Monday)
+          const target = new Date(anchor.getTime())
+          target.setUTCDate(anchor.getUTCDate() + e.weekOffset * 7 + dayFromMonday)
+          if (
+            target.getUTCFullYear() === dt.getUTCFullYear() &&
+            target.getUTCMonth() === dt.getUTCMonth() &&
+            target.getUTCDate() === dt.getUTCDate()
+          )
+            return true
+        }
+      }
+      return false
     }
     default:
       return false
