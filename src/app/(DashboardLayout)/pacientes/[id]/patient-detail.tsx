@@ -489,10 +489,14 @@ function ReservationsTab({ detail, t, locale }: { detail: PatientDetailData; t: 
           {detail.turnos.map((tu) => {
             const suc = tu.sucursal ? tu.sucursal.charAt(0).toUpperCase() + tu.sucursal.slice(1) : ''
             const meta = [tu.professional, suc].filter(Boolean).join(' · ')
+            // Deep-link to the agenda on that turno's date + open it (Andrés #3).
+            const d = new Date(tu.start)
+            const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
             return (
-              <div
+              <Link
                 key={tu.id}
-                className='flex items-center justify-between gap-3 rounded-md border border-border dark:border-darkborder p-3'>
+                href={`/agenda?view=day&date=${ds}&event=${tu.id}`}
+                className='flex items-center justify-between gap-3 rounded-md border border-border dark:border-darkborder p-3 hover:border-primary hover:bg-muted/30 transition-colors'>
                 <div className='min-w-0'>
                   <div className='flex items-center gap-2 flex-wrap'>
                     <StatusPill status={tu.status} />
@@ -505,7 +509,8 @@ function ReservationsTab({ detail, t, locale }: { detail: PatientDetailData; t: 
                     {meta ? ` · ${meta}` : ''}
                   </p>
                 </div>
-              </div>
+                <Icon icon='tabler:chevron-right' height={16} width={16} className='text-link dark:text-darklink shrink-0' />
+              </Link>
             )
           })}
         </div>

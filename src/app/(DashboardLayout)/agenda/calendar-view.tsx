@@ -1812,7 +1812,11 @@ export function CalendarView() {
           for (const pid of professionalsFor(ds, suc, slug, availRules)) profIds.add(pid)
         }
         for (const tt of dayMap?.get(suc) ?? []) {
-          if (tt.professionalId) profIds.add(tt.professionalId)
+          // A turno with no professional OR a professional not in the active list
+          // (e.g. an inactive user) must still be shown — it falls into the "Sin
+          // asignar" catch-all instead of being dropped (Andrés 2026-09-17 bug #4).
+          if (tt.professionalId && professionals.some((p) => p.value === tt.professionalId))
+            profIds.add(tt.professionalId)
           else hasUnassigned = true
         }
         const profList = professionals.filter((p) => profIds.has(p.value))
@@ -1833,6 +1837,9 @@ export function CalendarView() {
             })
         }
       }
+      // Turnos with no sucursal (or an unrecognised one) live under the NONE key
+      // and are never iterated above — surface them in the catch-all too (bug #4).
+      if ((dayMap?.get(NONE_RESOURCE)?.length ?? 0) > 0) hasUnassigned = true
       if (hasUnassigned)
         cols.push({
           resourceId: NONE_RESOURCE,
@@ -2402,6 +2409,22 @@ export function CalendarView() {
     })
   }, [])
 
+  // Deep-link from the patient ficha (Reservas → click turno): ?event=<id> opens
+  // that exact turno once the events have loaded, on its own date (Andrés #3).
+  const pendingEventId = useMemo(() => {
+    if (typeof window === 'undefined') return null
+    return new URLSearchParams(window.location.search).get('event')
+  }, [])
+  const openedPendingRef = useRef(false)
+  useEffect(() => {
+    if (openedPendingRef.current || !pendingEventId || events.length === 0) return
+    const ev = events.find((e) => e.id === pendingEventId)
+    if (!ev) return
+    openedPendingRef.current = true
+    setDate(new Date(ev.start))
+    onSelectEvent(ev)
+  }, [events, pendingEventId, onSelectEvent])
+
   const messages = useMemo(
     () => ({
       today: t('agendaCal.today'),
@@ -2573,17 +2596,11 @@ export function CalendarView() {
         event.sucursal ? sucursalLabel(event.sucursal) : '',
       ].filter(Boolean)
       return (
-        // Agenda: treatment = a CIRCLE at the left; info runs inline; cobro "$"
-        // is a solid full-height block at the right, only when charged (Andrés
-        // 2026-09-14/15). Row background = estado (eventPropGetter).
+        // Agenda: treatment = a vertical BAR at the left of the row (painted on the
+        // time cell via --cb-treat, like Day/Week — Andrés 2026-09-17); info runs
+        // inline; cobro "$" is a solid full-height block at the right when charged.
+        // Row background = estado (eventPropGetter).
         <span className={`flex items-center gap-2 w-full ${event.charged ? 'pr-14' : ''}`}>
-          {event.treatmentSlug && (
-            <span
-              className='inline-block h-3.5 w-3.5 rounded-full shrink-0'
-              style={{ backgroundColor: treatmentColorRef.current(event.treatmentSlug, treatmentNameRef.current(event.treatmentSlug)) }}
-              title={treatmentNameRef.current(event.treatmentSlug)}
-            />
-          )}
           <span className='min-w-0 truncate'>
             <span className='font-bold'>{event.title}</span>
             {parts.length > 0 && <span className='text-link dark:text-darklink'> · {parts.join(' · ')}</span>}
