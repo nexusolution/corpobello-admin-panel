@@ -620,6 +620,7 @@ export function PatientsTable() {
           p.fullName.toLowerCase().includes(q) ||
           p.phoneLast4.includes(q) ||
           p.phoneFull.includes(q) ||
+          p.id.toLowerCase().includes(q) ||
           (p.dni ? p.dni.toLowerCase().includes(q) : false)
       )
     }
