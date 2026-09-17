@@ -490,6 +490,9 @@ type Draft = {
   endTime: string
   observaciones: string
   packId: string | null
+  depositAmount: string
+  depositDate: string
+  depositReceived: boolean
 }
 
 const SELECT_CLS =
@@ -675,6 +678,11 @@ function EventDialog({
   const [startTime, setStartTime] = useState(draft.startTime)
   const [endTime, setEndTime] = useState(draft.endTime)
   const [observaciones, setObservaciones] = useState(draft.observaciones)
+  // Depósito/seña on the turno (Etapa 2 signed scope): importe + fecha + recibido.
+  // Preserved on reprogramación / cambio de sucursal (persistMove copies them).
+  const [depositAmount, setDepositAmount] = useState(draft.depositAmount)
+  const [depositDate, setDepositDate] = useState(draft.depositDate)
+  const [depositReceived, setDepositReceived] = useState(draft.depositReceived)
   // Primera sesión: bumps the auto-suggested duration (charla/explicación previa).
   const [firstSession, setFirstSession] = useState(false)
   // Pack linking (Andrés' 4x3 / 5x4). A turno can be tied to a patient's pack
@@ -954,6 +962,9 @@ function EventDialog({
       treatmentSlug: treatmentSlug || null,
       observaciones: observaciones.trim() || null,
       packId: packId || null,
+      depositAmount: depositAmount.trim() ? Number(depositAmount.replace(/[^\d.,]/g, '').replace(',', '.')) : null,
+      depositDate: depositDate || null,
+      depositReceived,
     }
     // Build the audit entry (who / when / what) before persisting.
     const statusLabel = (s: TurnoStatus) => statusLabelFor(s)
@@ -1220,6 +1231,45 @@ function EventDialog({
               </button>
             </div>
           )}
+
+          {/* Depósito / seña on the turno (Etapa 2): importe + fecha + recibido. */}
+          <div className='rounded-md border border-border dark:border-darkborder p-3 space-y-2'>
+            <div className='flex items-center gap-2'>
+              <Icon icon='solar:hand-money-line-duotone' height={16} width={16} className='text-secondary' />
+              <span className='text-sm font-medium text-dark dark:text-white'>{t('turno.deposit.title')}</span>
+            </div>
+            <div className='grid grid-cols-2 gap-2'>
+              <label className='block'>
+                <span className='text-xs text-link dark:text-darklink'>{t('turno.deposit.amount')}</span>
+                <input
+                  type='text'
+                  inputMode='decimal'
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  placeholder='0'
+                  className='mt-1 w-full px-2.5 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+                />
+              </label>
+              <label className='block'>
+                <span className='text-xs text-link dark:text-darklink'>{t('turno.deposit.date')}</span>
+                <input
+                  type='date'
+                  value={depositDate}
+                  onChange={(e) => setDepositDate(e.target.value)}
+                  className='mt-1 w-full px-2.5 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+                />
+              </label>
+            </div>
+            <label className='flex items-center gap-2 cursor-pointer select-none'>
+              <input
+                type='checkbox'
+                checked={depositReceived}
+                onChange={(e) => setDepositReceived(e.target.checked)}
+                className='h-4 w-4 rounded border-border dark:border-darkborder accent-primary'
+              />
+              <span className='text-sm text-dark dark:text-white'>{t('turno.deposit.received')}</span>
+            </label>
+          </div>
 
           <label className='flex items-center gap-2 cursor-pointer select-none'>
             <input
@@ -2168,6 +2218,9 @@ export function CalendarView() {
         endTime: toTimeInput(e),
         observaciones: '',
         packId: null,
+        depositAmount: '',
+        depositDate: '',
+        depositReceived: false,
       })
     },
     [isProfesional, myUserId],
@@ -2273,6 +2326,10 @@ export function CalendarView() {
         treatmentSlug: event.treatmentSlug,
         observaciones: event.observaciones,
         packId: event.packId,
+        // Preserve the deposit on reprogramación / cambio de sucursal (Andrés #1).
+        depositAmount: event.depositAmount,
+        depositDate: event.depositDate,
+        depositReceived: event.depositReceived,
       })
       // Audit the drag/resize (reschedule + any column reassign).
       const changes = [`${t('turnoAudit.rescheduledTo')} ${toDateInput(s)}${allDay ? '' : ' ' + toTimeInput(s)}`]
@@ -2406,6 +2463,9 @@ export function CalendarView() {
       endTime: toTimeInput(ev.end),
       observaciones: ev.observaciones ?? '',
       packId: ev.packId,
+      depositAmount: ev.depositAmount != null ? String(ev.depositAmount) : '',
+      depositDate: ev.depositDate ?? '',
+      depositReceived: ev.depositReceived,
     })
   }, [])
 

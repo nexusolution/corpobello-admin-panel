@@ -508,6 +508,12 @@ function ReservationsTab({ detail, t, locale }: { detail: PatientDetailData; t: 
                     {formatDateTime(tu.start, locale)}
                     {meta ? ` · ${meta}` : ''}
                   </p>
+                  {tu.depositAmount != null && (
+                    <p className='text-xs text-secondary mt-1 font-medium'>
+                      {t('turno.deposit.title')}: ${tu.depositAmount.toLocaleString('es-AR')}
+                      {tu.depositReceived ? ` · ${t('turno.deposit.received')}` : ''}
+                    </p>
+                  )}
                 </div>
                 <Icon icon='tabler:chevron-right' height={16} width={16} className='text-link dark:text-darklink shrink-0' />
               </Link>

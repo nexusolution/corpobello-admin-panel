@@ -166,6 +166,8 @@ export type PatientTurno = {
   treatment: string
   professional: string
   sucursal: string | null
+  depositAmount: number | null
+  depositReceived: boolean
 }
 
 export type PatientContact = {
@@ -226,7 +228,7 @@ export async function fetchPatientDetail(
     supabase
       .from('calendar_events')
       .select(
-        'id, starts_at, ends_at, all_day, status, sucursal, treatment_slug, professional:professional_id (display_name)',
+        'id, starts_at, ends_at, all_day, status, sucursal, treatment_slug, deposit_amount, deposit_received, professional:professional_id (display_name)',
       )
       .eq('patient_id', id)
       .order('starts_at', { ascending: false }),
@@ -329,6 +331,8 @@ export async function fetchPatientDetail(
         treatment: prettifySlug(r.treatment_slug),
         professional: embedded<{ display_name: string | null }>(r.professional)?.display_name?.trim() || '',
         sucursal: normalizeSucursal(r.sucursal),
+        depositAmount: r.deposit_amount == null ? null : Number(r.deposit_amount),
+        depositReceived: !!r.deposit_received,
       }))
 
   const contact: PatientContact = {

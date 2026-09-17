@@ -85,6 +85,9 @@ export type CalendarEvent = {
   treatmentSlug: string | null
   observaciones: string | null
   packId: string | null
+  depositAmount: number | null
+  depositDate: string | null
+  depositReceived: boolean
   createdAt: Date
 }
 
@@ -102,6 +105,9 @@ type Row = {
   treatment_slug: string | null
   observaciones: string | null
   pack_id: string | null
+  deposit_amount: number | string | null
+  deposit_date: string | null
+  deposit_received: boolean | null
   created_at: string
   patient: { full_name: string | null } | { full_name: string | null }[] | null
 }
@@ -133,6 +139,9 @@ function rowToEvent(r: Row): CalendarEvent {
     treatmentSlug: r.treatment_slug,
     observaciones: r.observaciones,
     packId: r.pack_id,
+    depositAmount: r.deposit_amount == null ? null : Number(r.deposit_amount),
+    depositDate: r.deposit_date,
+    depositReceived: !!r.deposit_received,
     createdAt: new Date(r.created_at),
   }
 }
@@ -169,7 +178,7 @@ export async function autoCancelExpiredReservas(): Promise<{
 }
 
 const SELECT =
-  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, observaciones, pack_id, created_at, patient:patient_id (full_name)'
+  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, observaciones, pack_id, deposit_amount, deposit_date, deposit_received, created_at, patient:patient_id (full_name)'
 
 export async function fetchCalendarEvents(): Promise<{
   data: CalendarEvent[]
@@ -197,6 +206,9 @@ export type CalendarEventInput = {
   treatmentSlug: string | null
   observaciones: string | null
   packId: string | null
+  depositAmount: number | null
+  depositDate: string | null
+  depositReceived: boolean
 }
 
 function toPayload(input: CalendarEventInput) {
@@ -213,6 +225,9 @@ function toPayload(input: CalendarEventInput) {
     treatment_slug: input.treatmentSlug,
     observaciones: input.observaciones,
     pack_id: input.packId,
+    deposit_amount: input.depositAmount,
+    deposit_date: input.depositDate,
+    deposit_received: input.depositReceived,
     color: STATUS_COLORS[input.status],
   }
 }
