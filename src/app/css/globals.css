@@ -256,3 +256,38 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 input[type="time"] {
   -moz-appearance: textfield;
 }
+
+/* SweetAlert2: compact modals (Andrés 2026-09-17: "el modal es muy grande").
+   The library default popup is ~32em wide with big padding; cap it so every
+   dialog (even those without an explicit width) reads compact. */
+.swal2-popup {
+  width: 380px !important;
+  max-width: 92vw !important;
+  padding: 1.25rem !important;
+  border-radius: 12px !important;
+  font-size: 0.9rem !important;
+}
+.swal2-title {
+  font-size: 1.05rem !important;
+  padding: 0.25rem 0 0 !important;
+}
+.swal2-html-container {
+  font-size: 0.9rem !important;
+  margin: 0.5rem 0 0 !important;
+}
+.swal2-icon {
+  width: 3rem !important;
+  height: 3rem !important;
+  margin: 0.75rem auto 0.25rem !important;
+}
+.swal2-icon .swal2-icon-content {
+  font-size: 1.75rem !important;
+}
+.swal2-actions {
+  margin-top: 1rem !important;
+  gap: 0.5rem;
+}
+.swal2-styled {
+  font-size: 0.9rem !important;
+  padding: 0.5rem 1rem !important;
+}
