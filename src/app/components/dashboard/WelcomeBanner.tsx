@@ -86,7 +86,7 @@ export function WelcomeBanner({
               <div className='flex items-center justify-center shrink-0'>
                 <Icon icon='solar:chart-square-line-duotone' height={48} width={48} className='text-primary' />
               </div>
-              <div className='flex flex-col gap-2 min-w-0'>
+              <div className='flex flex-col gap-3 min-w-0'>
                 <StatRow value='2' label={t('welcome.patientsAttended')} />
                 <StatRow value='1' label={t('welcome.cancellations')} />
                 {showFinancials && (
@@ -141,7 +141,7 @@ export function WelcomeBanner({
                 <div className='flex items-center justify-center shrink-0'>
                   <Icon icon='solar:stethoscope-line-duotone' height={48} width={48} className='text-secondary' />
                 </div>
-                <div className='flex flex-col gap-2 min-w-0'>
+                <div className='flex flex-col gap-3 min-w-0'>
                   {treatmentChips.map((slug) => {
                     const color = getTreatmentColorBySlug(slug)
                     return (
