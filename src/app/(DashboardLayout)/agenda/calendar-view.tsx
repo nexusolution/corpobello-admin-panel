@@ -1512,6 +1512,13 @@ export function CalendarView() {
     const d = new URLSearchParams(window.location.search).get('date')
     return d ? new Date(`${d}T00:00:00`) : new Date()
   })
+  // Agenda (list) length in days — contextual to the view you entered from (Andrés
+  // 2026-09-17): Día → ~1 mes, Mes → ese mes calendario, Semana → ~1 mes desde la
+  // semana. Default 30.
+  const [agendaLength, setAgendaLength] = useState(30)
+  // Remember the date you were working on before opening Agenda, to restore the
+  // context when you switch back to Día/Semana/Mes.
+  const preAgendaDateRef = useRef<Date | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   // When set, the clinical evolution form opens pre-linked to a turno ("Cerrar
   // sesión"). Reuses the ficha's EvolucionForm (agenda ↔ ficha integration).
@@ -2242,6 +2249,38 @@ export function CalendarView() {
     [],
   )
 
+  // View switch from the toolbar. Entering Agenda builds a contextual date range
+  // from the view you came from (Andrés 2026-09-17); leaving it restores the date
+  // you were working on so Día/Semana/Mes keep their context.
+  const handleView = useCallback(
+    (next: View) => {
+      if (next === Views.AGENDA && view !== Views.AGENDA) {
+        preAgendaDateRef.current = date
+        if (view === Views.MONTH) {
+          const first = new Date(date.getFullYear(), date.getMonth(), 1)
+          const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
+          setDate(first)
+          setAgendaLength(daysInMonth)
+        } else if (view === Views.WEEK) {
+          const base = new Date(date)
+          base.setHours(0, 0, 0, 0)
+          const back = (base.getDay() + 6) % 7
+          const monday = new Date(base)
+          monday.setDate(base.getDate() - back)
+          setDate(monday)
+          setAgendaLength(30)
+        } else {
+          // From Day: keep the date, show ~1 month ahead.
+          setAgendaLength(30)
+        }
+      } else if (view === Views.AGENDA && next !== Views.AGENDA && preAgendaDateRef.current) {
+        setDate(preAgendaDateRef.current)
+      }
+      setView(next)
+    },
+    [view, date],
+  )
+
   const onSelectSlot = useCallback(
     (slot: SlotInfo) => {
       // Clicking a column pre-fills that column's sucursal / profesional. In the
@@ -2861,9 +2900,11 @@ export function CalendarView() {
         // nor block Week/Month navigation (Andrés 2026-09-15). The view is always
         // whatever the toolbar selects; columns apply only when Day is active.
         view={view}
-        onView={setView}
+        onView={handleView}
         date={date}
         onNavigate={setDate}
+        // Agenda (list) range length in days — contextual to how it was entered.
+        length={agendaLength}
         // Clicking a day (number, band, circle or "+N") in Month opens that day's
         // Day view, split into columns per working sucursal/profesional.
         onDrillDown={(d: Date) => openDayFromMonth(d)}
