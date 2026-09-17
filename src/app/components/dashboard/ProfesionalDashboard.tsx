@@ -12,11 +12,14 @@ import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 import {
   fetchCalendarEvents,
   getCurrentUserId,
-  STATUS_COLORS,
-  STATUS_LABEL_KEY,
   type CalendarEvent,
   type TurnoStatus,
 } from '@/lib/data/calendar-events'
+import {
+  fetchTurnoStatusConfig,
+  makeStatusResolvers,
+  type TurnoStatusConfig,
+} from '@/lib/data/turno-statuses'
 import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
 import { fetchSucursalHours } from '@/lib/data/sucursal-hours'
 import { getTreatmentColorBySlug } from '@/lib/treatment-colors'
@@ -71,19 +74,23 @@ export function ProfesionalDashboard() {
   const [turnos, setTurnos] = useState<CalendarEvent[]>([])
   const [sucursal, setSucursal] = useState<string | null>(null)
   const [todayHours, setTodayHours] = useState<string | null>(null)
+  const [statusConfigs, setStatusConfigs] = useState<TurnoStatusConfig[]>([])
   const [loading, setLoading] = useState(true)
+  const { colorFor, labelFor } = makeStatusResolvers(statusConfigs, t as (k: string) => string)
 
   useEffect(() => setHour(new Date().getHours()), [])
 
   useEffect(() => {
     let active = true
     async function load() {
-      const [{ data: events }, { data: users }, myId] = await Promise.all([
+      const [{ data: events }, { data: users }, myId, cfg] = await Promise.all([
         fetchCalendarEvents(),
         fetchAppUsers(),
         getCurrentUserId(),
+        fetchTurnoStatusConfig(),
       ])
       if (!active) return
+      setStatusConfigs(cfg.data)
       const mySuc = users.find((u) => u.id === myId)?.sucursal ?? null
       setSucursal(mySuc)
 
@@ -310,12 +317,12 @@ export function ProfesionalDashboard() {
           <div className='space-y-2'>
             {turnos.map((x) => {
               const col = getTreatmentColorBySlug(x.treatmentSlug || 'other')
-              const bg = STATUS_COLORS[x.status]
+              const bg = colorFor(x.status)
               return (
                 <div key={x.id} className='flex items-center gap-3 rounded-md overflow-hidden pr-3 py-2' style={{ backgroundColor: `${bg}1f` }}>
                   <span className='w-1.5 self-stretch shrink-0' style={{ backgroundColor: col.hex }} />
                   <span className='flex-1 min-w-0 text-sm font-medium text-dark dark:text-white truncate pl-1'>{x.patientName || x.title}</span>
-                  <span className='shrink-0 text-xs font-medium' style={{ color: bg }}>{t(STATUS_LABEL_KEY[x.status])}</span>
+                  <span className='shrink-0 text-xs font-medium' style={{ color: bg }}>{labelFor(x.status)}</span>
                   <button
                     type='button'
                     onClick={() => underDev(t('proDash.action.ficha'), t)}

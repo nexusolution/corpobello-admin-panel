@@ -11,12 +11,15 @@ import { getTreatmentColor } from '@/lib/treatment-colors'
 import {
   fetchCalendarEvents,
   getCurrentUserId,
-  STATUS_COLORS,
-  STATUS_LABEL_KEY,
   TURNO_STATUSES,
   type TurnoStatus,
 } from '@/lib/data/calendar-events'
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
+import {
+  fetchTurnoStatusConfig,
+  makeStatusResolvers,
+  type TurnoStatusConfig,
+} from '@/lib/data/turno-statuses'
 import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 
@@ -72,18 +75,22 @@ const AgendaDay = () => {
   const { t } = useTranslation()
   const { role } = useCurrentUser()
   const [appts, setAppts] = useState<Appointment[]>([])
+  const [statusConfigs, setStatusConfigs] = useState<TurnoStatusConfig[]>([])
   const [loading, setLoading] = useState(true)
+  const { colorFor, labelFor } = makeStatusResolvers(statusConfigs, t as (k: string) => string)
 
   useEffect(() => {
     let active = true
     async function load() {
-      const [{ data: events }, { data: prices }, { data: users }, myId] = await Promise.all([
+      const [{ data: events }, { data: prices }, { data: users }, myId, cfg] = await Promise.all([
         fetchCalendarEvents(),
         fetchTreatmentPrices(),
         fetchAppUsers(),
         getCurrentUserId(),
+        fetchTurnoStatusConfig(),
       ])
       if (!active) return
+      setStatusConfigs(cfg.data)
       const treatmentMap = new Map(prices.map((p) => [p.slug, p.displayName]))
       const proMap = new Map(users.map((u) => [u.id, u.fullName]))
 
@@ -180,8 +187,8 @@ const AgendaDay = () => {
         ) : (
           appts.map((appt) => {
             const tColor = getTreatmentColor(appt.treatmentLabel)
-            const statusColor = STATUS_COLORS[appt.status]
-            const statusLabel = t(STATUS_LABEL_KEY[appt.status])
+            const statusColor = colorFor(appt.status)
+            const statusLabel = labelFor(appt.status)
             return (
               <div
                 key={appt.id}

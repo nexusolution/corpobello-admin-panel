@@ -13,11 +13,14 @@ import { fetchFunnelCounts, type FunnelCounts } from './data'
 import {
   fetchCalendarEvents,
   getCurrentUserId,
-  STATUS_COLORS,
-  STATUS_LABEL_KEY,
   type CalendarEvent,
   type TurnoStatus,
 } from '@/lib/data/calendar-events'
+import {
+  fetchTurnoStatusConfig,
+  makeStatusResolvers,
+  type TurnoStatusConfig,
+} from '@/lib/data/turno-statuses'
 import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
 import { getTreatmentColorBySlug } from '@/lib/treatment-colors'
 
@@ -109,20 +112,24 @@ export function OperadorDashboard() {
   const [turnos, setTurnos] = useState<CalendarEvent[]>([])
   const [proMap, setProMap] = useState<Map<string, string>>(new Map())
   const [sucursal, setSucursal] = useState<string | null>(null)
+  const [statusConfigs, setStatusConfigs] = useState<TurnoStatusConfig[]>([])
   const [loading, setLoading] = useState(true)
+  const { colorFor, labelFor } = makeStatusResolvers(statusConfigs, t as (k: string) => string)
 
   useEffect(() => setHour(new Date().getHours()), [])
 
   useEffect(() => {
     let active = true
     async function load() {
-      const [funnelRes, { data: events }, { data: users }, myId] = await Promise.all([
+      const [funnelRes, { data: events }, { data: users }, myId, cfg] = await Promise.all([
         fetchFunnelCounts(),
         fetchCalendarEvents(),
         fetchAppUsers(),
         getCurrentUserId(),
+        fetchTurnoStatusConfig(),
       ])
       if (!active) return
+      setStatusConfigs(cfg.data)
       setFunnel(funnelRes.counts)
       setProMap(new Map(users.map((u) => [u.id, u.fullName])))
       setSucursal(users.find((u) => u.id === myId)?.sucursal ?? null)
@@ -321,7 +328,7 @@ export function OperadorDashboard() {
           <div className='space-y-2'>
             {turnos.map((x) => {
               const c = getTreatmentColorBySlug(x.treatmentSlug || 'other')
-              const bg = STATUS_COLORS[x.status]
+              const bg = colorFor(x.status)
               return (
                 <div key={x.id} className='flex items-center gap-3 rounded-md overflow-hidden pr-3 py-2' style={{ backgroundColor: `${bg}1f` }}>
                   <span className='w-1.5 self-stretch shrink-0' style={{ backgroundColor: c.hex }} />
@@ -332,7 +339,13 @@ export function OperadorDashboard() {
                     </span>
                   )}
                   {x.charged && <span className='shrink-0 text-success font-bold' title={t('agenda.charged')}>$</span>}
-                  <AgendaRowAction status={x.status} charged={x.charged} t={t} />
+                  <AgendaRowAction
+                    status={x.status}
+                    charged={x.charged}
+                    statusColor={colorFor(x.status)}
+                    statusLabel={labelFor(x.status)}
+                    t={t}
+                  />
                 </div>
               )
             })}
@@ -354,15 +367,27 @@ function GlanceTile({ value, label, tint }: { value: number; label: string; tint
 
 // Per-row reception action, mirroring the wireframe (Cobrar / Confirmar / etc.).
 // Opens the full agenda to act (real status/charge edits live there).
-function AgendaRowAction({ status, charged, t }: { status: TurnoStatus; charged: boolean; t: TFn }) {
+function AgendaRowAction({
+  status,
+  charged,
+  statusColor,
+  statusLabel,
+  t,
+}: {
+  status: TurnoStatus
+  charged: boolean
+  statusColor: string
+  statusLabel: string
+  t: TFn
+}) {
   let label: string | null = null
   if (status === 'atendido' && !charged) label = t('opDash.action.cobrar')
   else if (status === 'pendiente' || status === 'reservado') label = t('opDash.action.confirm')
 
   if (!label) {
     return (
-      <span className='shrink-0 text-xs font-medium' style={{ color: STATUS_COLORS[status] }}>
-        {t(STATUS_LABEL_KEY[status])}
+      <span className='shrink-0 text-xs font-medium' style={{ color: statusColor }}>
+        {statusLabel}
       </span>
     )
   }

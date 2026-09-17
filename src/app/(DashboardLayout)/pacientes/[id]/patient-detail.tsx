@@ -37,6 +37,11 @@ import { fetchMenuOverrides } from '@/lib/data/menu-overrides'
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
 import { STATUS_LABEL_KEY, type TurnoStatus } from '@/lib/data/calendar-events'
 import { fetchPatientTurnoAudit, type TurnoAuditEntry } from '@/lib/data/turno-audit'
+import {
+  fetchTurnoStatusConfig,
+  makeStatusResolvers,
+  type TurnoStatusConfig,
+} from '@/lib/data/turno-statuses'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 import Swal from 'sweetalert2'
 import { fetchPatientConsents, type Consent } from '@/lib/data/consents'
@@ -466,12 +471,17 @@ function ReservationsTab({ detail, t, locale }: { detail: PatientDetailData; t: 
   // Agenda activity/audit (who + when + what) for this patient — Andrés 2026-09-15.
   const [audit, setAudit] = useState<TurnoAuditEntry[]>([])
   const [auditLoading, setAuditLoading] = useState(true)
+  const [statusCfg, setStatusCfg] = useState<TurnoStatusConfig[]>([])
+  const { colorFor, labelFor } = makeStatusResolvers(statusCfg, t as (k: string) => string)
   useEffect(() => {
     let active = true
     void fetchPatientTurnoAudit(patientId).then(({ data }) => {
       if (!active) return
       setAudit(data)
       setAuditLoading(false)
+    })
+    void fetchTurnoStatusConfig().then(({ data }) => {
+      if (active) setStatusCfg(data)
     })
     return () => {
       active = false
@@ -499,7 +509,12 @@ function ReservationsTab({ detail, t, locale }: { detail: PatientDetailData; t: 
                 className='flex items-center justify-between gap-3 rounded-md border border-border dark:border-darkborder p-3 hover:border-primary hover:bg-muted/30 transition-colors'>
                 <div className='min-w-0'>
                   <div className='flex items-center gap-2 flex-wrap'>
-                    <StatusPill status={tu.status} />
+                    <span
+                      className='inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium'
+                      style={{ backgroundColor: `${colorFor(tu.status)}22`, color: '#374151' }}>
+                      <span className='h-1.5 w-1.5 rounded-full' style={{ backgroundColor: colorFor(tu.status) }} />
+                      {labelFor(tu.status)}
+                    </span>
                     {tu.treatment && (
                       <span className='text-sm text-dark dark:text-white truncate'>{tu.treatment}</span>
                     )}

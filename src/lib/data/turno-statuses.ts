@@ -4,6 +4,7 @@
 // labels, colours and the status picker; code/bot logic still keys off status_key.
 
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
+import { STATUS_COLORS, STATUS_LABEL_KEY, type TurnoStatus } from './calendar-events'
 
 export type TurnoStatusConfig = {
   statusKey: string
@@ -75,6 +76,25 @@ export async function deleteTurnoStatus(statusKey: string): Promise<string | nul
     .eq('status_key', statusKey)
     .eq('is_custom', true)
   return error ? error.message : null
+}
+
+/** Colour/label resolvers from the status config, with fallback to the code
+ *  defaults — so dashboards, fichas and lists all respect Autogestión → Estados
+ *  (Andrés 2026-09-17). `t` translates the default label key. */
+export function makeStatusResolvers(
+  configs: TurnoStatusConfig[],
+  t: (key: string) => string,
+): { colorFor: (key: string) => string; labelFor: (key: string) => string } {
+  const find = (key: string) => configs.find((c) => c.statusKey === key)
+  return {
+    colorFor: (key) => find(key)?.color ?? STATUS_COLORS[key as TurnoStatus] ?? '#8a94a6',
+    labelFor: (key) => {
+      const c = find(key)
+      if (c) return c.label
+      const k = STATUS_LABEL_KEY[key as TurnoStatus]
+      return k ? t(k) : key
+    },
+  }
 }
 
 /** Make a URL/DB-safe key from a label (for custom statuses). */
