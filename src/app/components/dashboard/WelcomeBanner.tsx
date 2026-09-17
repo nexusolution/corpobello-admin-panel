@@ -82,7 +82,7 @@ export function WelcomeBanner({
               <Dots color='bg-primary' />
             </div>
 
-            <div className='flex items-center gap-4 flex-1'>
+            <div className='flex items-center justify-center gap-4 flex-1'>
               <div className='flex items-center justify-center shrink-0'>
                 <Icon icon='solar:chart-square-line-duotone' height={48} width={48} className='text-primary' />
               </div>
@@ -137,7 +137,7 @@ export function WelcomeBanner({
                 {t('treatments.summary.empty')}
               </p>
             ) : (
-              <div className='flex items-center gap-4 flex-1'>
+              <div className='flex items-center justify-center gap-4 flex-1'>
                 <div className='flex items-center justify-center shrink-0'>
                   <Icon icon='solar:stethoscope-line-duotone' height={48} width={48} className='text-secondary' />
                 </div>
