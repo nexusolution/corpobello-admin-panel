@@ -14,6 +14,7 @@ export type Patient = {
   fullName: string
   phoneLast4: string
   phoneFull: string
+  dni?: string | null
   // null when the patient has no sucursal on record (the bot's promote trigger
   // doesn't copy one) — rendered as "—" rather than a fabricated branch.
   sucursal: Sucursal | null

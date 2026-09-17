@@ -277,7 +277,7 @@ export async function getCurrentUserId(): Promise<string | null> {
   return data?.user?.id ?? null
 }
 
-export type PatientOption = { id: string; name: string }
+export type PatientOption = { id: string; name: string; dni: string | null }
 
 /** Search patients by name (ilike). Empty query returns the first 20 by name. */
 export async function searchPatients(query: string): Promise<PatientOption[]> {
@@ -285,15 +285,22 @@ export async function searchPatients(query: string): Promise<PatientOption[]> {
   const q = query.trim()
   let req = getSupabase()
     .from('patients')
-    .select('id, full_name, whatsapp_phone')
+    .select('id, full_name, whatsapp_phone, dni')
     .order('full_name', { ascending: true })
     .limit(20)
-  if (q) req = req.ilike('full_name', `%${q}%`)
+  if (q) {
+    // Match the name, and (when the query has digits) the DNI too — Andrés
+    // 2026-09-17: DNI is more reliable than a possibly-misspelled name.
+    const digits = q.replace(/\D/g, '')
+    const parts = [`full_name.ilike.%${q}%`]
+    if (digits.length >= 3) parts.push(`dni.ilike.%${digits}%`)
+    req = req.or(parts.join(','))
+  }
   const { data, error } = await req
   if (error || !data) return []
-  return (data as { id: string; full_name: string | null; whatsapp_phone: string | null }[]).map(
-    (r) => ({ id: r.id, name: r.full_name?.trim() || r.whatsapp_phone || 'Sin nombre' }),
-  )
+  return (
+    data as { id: string; full_name: string | null; whatsapp_phone: string | null; dni: string | null }[]
+  ).map((r) => ({ id: r.id, name: r.full_name?.trim() || r.whatsapp_phone || 'Sin nombre', dni: r.dni }))
 }
 
 // Basic patient fields shown when a turno is opened from the agenda.

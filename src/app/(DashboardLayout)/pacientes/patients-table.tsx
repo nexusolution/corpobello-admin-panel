@@ -278,6 +278,7 @@ function NewPatientDialog({
   onCreated: (p: Patient) => void
   t: TFn
 }) {
+  const router = useRouter()
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
@@ -303,7 +304,7 @@ function NewPatientDialog({
     if (!valid) return
     setSaving(true)
     setError(false)
-    const { patient, error: err } = await createPatient({
+    const { patient, error: err, duplicate } = await createPatient({
       fullName: fullName.trim(),
       phone: phone.trim(),
       email: email.trim(),
@@ -311,6 +312,26 @@ function NewPatientDialog({
       sucursal: sucursal || null,
     })
     setSaving(false)
+    // DNI already exists → warn and offer to open the existing ficha (Andrés #2).
+    if (duplicate) {
+      const res = await Swal.fire({
+        icon: 'warning',
+        iconColor: '#fa896b',
+        title: t('pacientes.newDialog.dupTitle'),
+        text: t('pacientes.newDialog.dupBody', { name: duplicate.fullName }),
+        showCancelButton: true,
+        confirmButtonText: t('pacientes.newDialog.dupOpen'),
+        cancelButtonText: t('autoGestion.availability.cancel'),
+        confirmButtonColor: '#5d87ff',
+        width: '380px',
+        customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
+      })
+      if (res.isConfirmed) {
+        onOpenChange(false)
+        router.push(`/pacientes/${duplicate.id}`)
+      }
+      return
+    }
     if (err || !patient) {
       setError(true)
       return
@@ -598,7 +619,8 @@ export function PatientsTable() {
         (p) =>
           p.fullName.toLowerCase().includes(q) ||
           p.phoneLast4.includes(q) ||
-          p.phoneFull.includes(q)
+          p.phoneFull.includes(q) ||
+          (p.dni ? p.dni.toLowerCase().includes(q) : false)
       )
     }
     list = [...list].sort((a, b) => {

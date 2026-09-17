@@ -15,6 +15,7 @@ type PatientRow = {
   id: string
   full_name: string | null
   whatsapp_phone: string | null
+  dni: string | null
   sucursal: string | null
   status: string | null
   created_at: string | null
@@ -59,7 +60,7 @@ export async function fetchPatients(): Promise<PatientsResult> {
   const { data, error } = await getSupabase()
     .from('patients')
     .select(
-      'id, full_name, whatsapp_phone, sucursal, status, created_at, updated_at, treatments:current_treatment_id (display_name)',
+      'id, full_name, whatsapp_phone, dni, sucursal, status, created_at, updated_at, treatments:current_treatment_id (display_name)',
     )
     .order('updated_at', { ascending: false })
 
@@ -70,6 +71,7 @@ export async function fetchPatients(): Promise<PatientsResult> {
     fullName: row.full_name?.trim() || row.whatsapp_phone || 'Sin nombre',
     phoneLast4: phoneLast4(row.whatsapp_phone),
     phoneFull: row.whatsapp_phone ?? '',
+    dni: row.dni,
     sucursal: normalizeSucursal(row.sucursal),
     mainTreatmentLabel: treatmentLabel(row.treatments),
     status: mapStatus(row.status),
@@ -88,19 +90,38 @@ export async function createPatient(fields: {
   email: string
   dni?: string
   sucursal: string | null
-}): Promise<{ patient: Patient | null; error: string | null }> {
+}): Promise<{ patient: Patient | null; error: string | null; duplicate?: { id: string; fullName: string } }> {
   if (!isSupabaseConfigured()) return { patient: null, error: 'not-configured' }
+  // Prevent duplicates by DNI (Andrés 2026-09-17): if the DNI already exists, do
+  // NOT insert — return the existing patient so the UI can offer to open its ficha.
+  const dni = fields.dni?.trim() || ''
+  if (dni) {
+    const { data: existing } = await getSupabase()
+      .from('patients')
+      .select('id, full_name')
+      .eq('dni', dni)
+      .limit(1)
+      .maybeSingle()
+    if (existing) {
+      const e = existing as { id: string; full_name: string | null }
+      return {
+        patient: null,
+        error: null,
+        duplicate: { id: e.id, fullName: e.full_name?.trim() || 'paciente existente' },
+      }
+    }
+  }
   const { data, error } = await getSupabase()
     .from('patients')
     .insert({
       full_name: fields.fullName,
       whatsapp_phone: fields.phone.trim() || null,
       email: fields.email.trim() || null,
-      dni: fields.dni?.trim() || null,
+      dni: dni || null,
       sucursal: fields.sucursal,
       status: 'nuevo',
     })
-    .select('id, full_name, whatsapp_phone, sucursal, status, created_at')
+    .select('id, full_name, whatsapp_phone, dni, sucursal, status, created_at')
     .single()
   if (error || !data) return { patient: null, error: error?.message ?? 'insert-failed' }
   const row = data as PatientRow
@@ -110,6 +131,7 @@ export async function createPatient(fields: {
       fullName: row.full_name?.trim() || row.whatsapp_phone || 'Sin nombre',
       phoneLast4: phoneLast4(row.whatsapp_phone),
       phoneFull: row.whatsapp_phone ?? '',
+      dni: row.dni,
       sucursal: normalizeSucursal(row.sucursal),
       mainTreatmentLabel: 'Sin tratamiento',
       status: mapStatus(row.status),

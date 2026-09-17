@@ -463,6 +463,7 @@ function PatientPicker({
                   }}
                   className='w-full text-left px-3 py-2 text-sm text-dark dark:text-white hover:bg-lightprimary/50 transition-colors'>
                   {p.name}
+                  {p.dni && <span className='text-link dark:text-darklink'> · DNI {p.dni}</span>}
                 </button>
               ))
             )}
