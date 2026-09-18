@@ -70,7 +70,10 @@ export function WeekSchedule({
 
   // Center the selected day horizontally when the week (or the selected day)
   // changes, so on load you land on the relevant day instead of at Monday with
-  // a busy Saturday hidden off to the right.
+  // a busy Saturday hidden off to the right. Column widths depend on the turnos,
+  // which can arrive AFTER the first paint and expand a busy day, so we re-center
+  // whenever the grid resizes (via ResizeObserver) until the user scrolls — then
+  // we stop, to never fight them.
   const scrollRef = useRef<HTMLDivElement>(null)
   const focusKey = focusDate ? toKey(focusDate) : ''
   const weekKey = dayData[0]?.ds ?? ''
@@ -78,14 +81,30 @@ export function WeekSchedule({
     const cont = scrollRef.current
     if (!cont) return
     const target = focusKey || weekKey
-    const el = cont.querySelector<HTMLElement>(`[data-daycol="${target}"]`)
-    if (!el) return
-    const GUTTER = 56 // the pinned time column on the left
-    const contRect = cont.getBoundingClientRect()
-    const elRect = el.getBoundingClientRect()
-    const elCenterInContent = elRect.left - contRect.left + cont.scrollLeft + elRect.width / 2
-    const desired = elCenterInContent - GUTTER / 2 - cont.clientWidth / 2
-    cont.scrollLeft = Math.max(0, desired)
+    const center = () => {
+      const el = cont.querySelector<HTMLElement>(`[data-daycol="${target}"]`)
+      if (!el) return
+      const GUTTER = 56 // the pinned time column on the left
+      const contRect = cont.getBoundingClientRect()
+      const elRect = el.getBoundingClientRect()
+      const elCenterInContent = elRect.left - contRect.left + cont.scrollLeft + elRect.width / 2
+      const desired = elCenterInContent - GUTTER / 2 - cont.clientWidth / 2
+      cont.scrollLeft = Math.max(0, desired)
+    }
+    center()
+    const raf = requestAnimationFrame(center)
+    const inner = cont.firstElementChild
+    const ro = typeof ResizeObserver !== 'undefined' && inner ? new ResizeObserver(center) : null
+    ro?.observe(inner as Element)
+    const stop = () => ro?.disconnect()
+    cont.addEventListener('pointerdown', stop, { once: true })
+    cont.addEventListener('wheel', stop, { once: true, passive: true })
+    return () => {
+      cancelAnimationFrame(raf)
+      ro?.disconnect()
+      cont.removeEventListener('pointerdown', stop)
+      cont.removeEventListener('wheel', stop)
+    }
   }, [focusKey, weekKey])
 
   // Hour rows: 08–20 by default, widened to include turnos outside that band.
