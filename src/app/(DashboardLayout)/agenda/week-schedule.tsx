@@ -165,17 +165,21 @@ export function WeekSchedule({
   cells.push(
     <div
       key='corner'
-      className='bg-card border-b border-r border-border dark:border-darkborder'
+      className='bg-card border-b border-r border-border dark:border-darkborder sticky top-0 left-0 z-30'
       style={{ gridColumn: 1, gridRow: 1 }}
     />,
   )
   dayData.forEach((d, i) => {
     const sub = daySubtitle(d.cols)
-    const dayBg =
+    // Layer the sucursal tint over an opaque card base so the sticky header never
+    // lets scrolled turnos bleed through.
+    const tintLayer =
       sub.sucursales.length === 0
-        ? undefined
+        ? null
         : sub.sucursales.length === 1
-          ? tintHex(sucursalColor(sub.sucursales[0]))
+          ? `linear-gradient(${tintHex(sucursalColor(sub.sucursales[0]))}, ${tintHex(
+              sucursalColor(sub.sucursales[0]),
+            )})`
           : `linear-gradient(135deg, ${sub.sucursales
               .map((s, k) => {
                 const from = Math.round((k * 100) / sub.sucursales.length)
@@ -183,13 +187,14 @@ export function WeekSchedule({
                 return `${tintHex(sucursalColor(s))} ${from}% ${to}%`
               })
               .join(', ')})`
+    const dayBg = tintLayer ? `${tintLayer}, var(--card)` : 'var(--card)'
     cells.push(
       <button
         key={`h-${d.ds}`}
         type='button'
         onClick={() => onOpenDay(d.day)}
         title={dayTitle(d.day)}
-        className='text-center px-1 py-2 border-b border-l border-border dark:border-darkborder cursor-pointer hover:brightness-95 transition'
+        className='text-center px-1 py-2 border-b border-l border-border dark:border-darkborder cursor-pointer hover:brightness-95 transition sticky top-0 z-20'
         style={{ gridColumn: 2 + i, gridRow: 1, background: dayBg }}>
         <div className='text-sm font-bold text-dark dark:text-white capitalize'>{dayTitle(d.day)}</div>
         <div className='text-[11px] text-link dark:text-darklink leading-tight'>{sub.text}</div>
@@ -212,7 +217,7 @@ export function WeekSchedule({
     cells.push(
       <div
         key={`t-${h}`}
-        className='text-right pr-2 pt-1 text-[11px] text-link dark:text-darklink border-b border-border/60 dark:border-darkborder/60 whitespace-nowrap'
+        className='text-right pr-2 pt-1 text-[11px] text-link dark:text-darklink border-b border-border/60 dark:border-darkborder/60 whitespace-nowrap sticky left-0 z-10 bg-card'
         style={{ gridColumn: 1, gridRow: rowOf(h) }}>
         <div className='font-medium'>{pad2(h)}:00</div>
         <div className='opacity-60'>{pad2(h)}:30</div>
@@ -277,7 +282,10 @@ export function WeekSchedule({
   const minWidth = 56 + dayMins.reduce((a, b) => a + b, 0)
 
   return (
-    <div className='rounded-lg border border-border dark:border-darkborder bg-card overflow-x-auto'>
+    // Bounded, self-contained scroll box: both scrollbars stay on screen so a
+    // wide (busy) week is reachable without scrolling the whole page down, while
+    // the day headers (top) and the time column (left) stay pinned.
+    <div className='rounded-lg border border-border dark:border-darkborder bg-card overflow-auto max-h-[calc(100vh-210px)]'>
       <div className='grid' style={{ gridTemplateColumns, gridTemplateRows, minWidth }}>
         {cells}
       </div>
