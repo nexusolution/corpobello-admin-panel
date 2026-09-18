@@ -46,6 +46,27 @@ function fmtTime(d: Date): string {
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
 }
 
+// Group turnos into clusters that overlap in REAL time (Andrés #13): turnos whose
+// intervals intersect go side by side (equal width); non-overlapping ones stack.
+function overlapClusters(list: CalendarEvent[]): CalendarEvent[][] {
+  const sorted = [...list].sort((a, b) => a.start.getTime() - b.start.getTime())
+  const clusters: CalendarEvent[][] = []
+  let cur: CalendarEvent[] = []
+  let curEnd = -Infinity
+  for (const e of sorted) {
+    if (cur.length > 0 && e.start.getTime() < curEnd) {
+      cur.push(e)
+      curEnd = Math.max(curEnd, e.end.getTime())
+    } else {
+      if (cur.length > 0) clusters.push(cur)
+      cur = [e]
+      curEnd = e.end.getTime()
+    }
+  }
+  if (cur.length > 0) clusters.push(cur)
+  return clusters
+}
+
 export function DaySchedule({
   date,
   columns,
@@ -191,47 +212,58 @@ export function DaySchedule({
                         groupStart && i > 0 ? 'border-l border-border dark:border-darkborder' : ''
                       }`}>
                       {cell.length > 0 ? (
-                        cell.map((e) => {
-                          const tc = treatmentColor(e.treatmentSlug, treatmentName(e.treatmentSlug))
-                          return (
-                            <button
-                              key={e.id}
-                              type='button'
-                              onClick={() => onOpenTurno(e)}
-                              className='flex items-stretch w-full text-left rounded-lg mb-1.5 last:mb-0 overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition'
-                              style={{ backgroundColor: cardBg(e.status) }}>
-                              {/* Treatment-colour bar (thick) */}
-                              <span
-                                className='shrink-0 self-stretch'
-                                style={{ width: 8, backgroundColor: tc }}
-                              />
-                              <span className='flex-1 min-w-0 py-1.5 px-2.5'>
-                                <span className='flex items-baseline justify-between gap-2'>
-                                  <span className='font-bold text-[13px] leading-tight text-black truncate'>
-                                    {e.patientName || e.title}
-                                  </span>
-                                  <span className='shrink-0 text-[11px] font-semibold text-black whitespace-nowrap'>
-                                    {fmtTime(e.start)} · {fmtTime(e.end)}
-                                  </span>
-                                </span>
-                                {e.treatmentSlug && (
-                                  <span className='block text-[11px] leading-tight truncate mt-0.5 text-black'>
-                                    {treatmentName(e.treatmentSlug)}
-                                  </span>
-                                )}
-                              </span>
-                              {/* Cobro block: solid green, flush to the edge, wide + big $. */}
-                              {e.charged && (
-                                <span
-                                  className='shrink-0 self-stretch flex items-center justify-center text-white font-bold text-lg'
-                                  style={{ width: 44, backgroundColor: PAY_GREEN }}
-                                  title='$'>
-                                  $
-                                </span>
-                              )}
-                            </button>
-                          )
-                        })
+                        <div className='space-y-1.5'>
+                          {overlapClusters(cell).map((cluster, ci) => (
+                            <div key={ci} className='flex items-stretch gap-1.5'>
+                              {cluster.map((e) => {
+                                const tc = treatmentColor(e.treatmentSlug, treatmentName(e.treatmentSlug))
+                                const solo = cluster.length === 1
+                                return (
+                                  <button
+                                    key={e.id}
+                                    type='button'
+                                    onClick={() => onOpenTurno(e)}
+                                    className='flex items-stretch flex-1 min-w-0 text-left rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition'
+                                    style={{ backgroundColor: cardBg(e.status) }}>
+                                    {/* Treatment-colour bar (thick) */}
+                                    <span className='shrink-0 self-stretch' style={{ width: 8, backgroundColor: tc }} />
+                                    <span className='flex-1 min-w-0 py-1.5 px-2.5'>
+                                      <span className='flex items-baseline justify-between gap-2'>
+                                        <span className='font-bold text-[13px] leading-tight text-black truncate'>
+                                          {e.patientName || e.title}
+                                        </span>
+                                        {solo && (
+                                          <span className='shrink-0 text-[11px] font-semibold text-black whitespace-nowrap'>
+                                            {fmtTime(e.start)} · {fmtTime(e.end)}
+                                          </span>
+                                        )}
+                                      </span>
+                                      {!solo && (
+                                        <span className='block text-[11px] font-semibold text-black leading-tight'>
+                                          {fmtTime(e.start)} · {fmtTime(e.end)}
+                                        </span>
+                                      )}
+                                      {e.treatmentSlug && (
+                                        <span className='block text-[11px] leading-tight truncate mt-0.5 text-black'>
+                                          {treatmentName(e.treatmentSlug)}
+                                        </span>
+                                      )}
+                                    </span>
+                                    {/* Cobro block: solid green, flush to the edge. */}
+                                    {e.charged && (
+                                      <span
+                                        className='shrink-0 self-stretch flex items-center justify-center text-white font-bold text-lg'
+                                        style={{ width: solo ? 44 : 24, backgroundColor: PAY_GREEN }}
+                                        title='$'>
+                                        $
+                                      </span>
+                                    )}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          ))}
+                        </div>
                       ) : h === LUNCH_HOUR ? (
                         <div className='rounded-md bg-gray-100 dark:bg-white/5 text-link dark:text-darklink text-[11px] font-medium uppercase tracking-wide text-center py-3'>
                           {lunchLabel}

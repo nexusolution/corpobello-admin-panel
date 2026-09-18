@@ -2990,6 +2990,7 @@ export function CalendarView() {
             columnsForDay={computeDayColumns}
             turnos={weekTurnos}
             onOpenTurno={onSelectEvent}
+            onOpenDay={openDayFromMonth}
             onCreate={(start, end, sucursal, professionalId) =>
               openAdd(start, end, false, sucursal, professionalId)
             }

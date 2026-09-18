@@ -17,6 +17,7 @@ interface WeekScheduleProps {
   columnsForDay: (day: Date) => DayColumn[]
   turnos: CalendarEvent[]
   onOpenTurno: (e: CalendarEvent) => void
+  onOpenDay: (day: Date) => void
   onCreate: (start: Date, end: Date, sucursal?: string, professionalId?: string) => void
   treatmentColor: (slug: string | null | undefined, name?: string) => string
   treatmentName: (slug?: string | null) => string
@@ -50,6 +51,7 @@ export function WeekSchedule({
   columnsForDay,
   turnos,
   onOpenTurno,
+  onOpenDay,
   onCreate,
   treatmentColor,
   treatmentName,
@@ -182,9 +184,12 @@ export function WeekSchedule({
               })
               .join(', ')})`
     cells.push(
-      <div
+      <button
         key={`h-${d.ds}`}
-        className='text-center px-1 py-2 border-b border-l border-border dark:border-darkborder'
+        type='button'
+        onClick={() => onOpenDay(d.day)}
+        title={dayTitle(d.day)}
+        className='text-center px-1 py-2 border-b border-l border-border dark:border-darkborder cursor-pointer hover:brightness-95 transition'
         style={{ gridColumn: 2 + i, gridRow: 1, background: dayBg }}>
         <div className='text-sm font-bold text-dark dark:text-white capitalize'>{dayTitle(d.day)}</div>
         <div className='text-[11px] text-link dark:text-darklink leading-tight'>{sub.text}</div>
@@ -198,7 +203,7 @@ export function WeekSchedule({
             ))}
           </div>
         )}
-      </div>,
+      </button>,
     )
   })
 
