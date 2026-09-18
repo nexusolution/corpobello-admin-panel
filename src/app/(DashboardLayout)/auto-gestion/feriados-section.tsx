@@ -150,11 +150,29 @@ export function FeriadosSection() {
 
         <label className='flex flex-col gap-1'>
           <span className='text-xs font-medium text-dark dark:text-white'>{t('autoGestion.feriados.from')}</span>
-          <input type='date' value={startDate} onChange={(e) => setStartDate(e.target.value)} className={FIELD} />
+          <input
+            type='date'
+            lang='es-AR'
+            value={startDate}
+            onChange={(e) => {
+              const v = e.target.value
+              setStartDate(v)
+              // "Hasta" follows "Desde": open on the same month and never before it.
+              if (v && (!endDate || endDate < v)) setEndDate(v)
+            }}
+            className={FIELD}
+          />
         </label>
         <label className='flex flex-col gap-1'>
           <span className='text-xs font-medium text-dark dark:text-white'>{t('autoGestion.feriados.to')}</span>
-          <input type='date' value={endDate} onChange={(e) => setEndDate(e.target.value)} className={FIELD} />
+          <input
+            type='date'
+            lang='es-AR'
+            value={endDate}
+            min={startDate || undefined}
+            onChange={(e) => setEndDate(e.target.value)}
+            className={FIELD}
+          />
         </label>
         <label className='flex flex-col gap-1 flex-1 min-w-[140px]'>
           <span className='text-xs font-medium text-dark dark:text-white'>{t('autoGestion.feriados.reason')}</span>

@@ -1319,6 +1319,7 @@ function EventDialog({
                 <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.startTime')}</span>
                 <input
                   type='time'
+                  lang='es-AR'
                   value={startTime}
                   onChange={(e) => {
                     const v = e.target.value
@@ -1333,6 +1334,7 @@ function EventDialog({
                 <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.endTime')}</span>
                 <input
                   type='time'
+                  lang='es-AR'
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
                   className='mt-1 w-full rounded-md border border-border dark:border-darkborder bg-background px-3 py-2 text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'

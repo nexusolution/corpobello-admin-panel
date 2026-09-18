@@ -584,11 +584,11 @@ function RuleEditor({
         </label>
         <label className='flex flex-col gap-1'>
           <span className='text-xs font-medium text-dark dark:text-white'>{t('autoGestion.availability.open')}</span>
-          <input type='time' value={minToHHMM(draft.openMin)} onChange={(e) => set({ openMin: hhmmToMin(e.target.value) })} className={FIELD} />
+          <input type='time' lang='es-AR' value={minToHHMM(draft.openMin)} onChange={(e) => set({ openMin: hhmmToMin(e.target.value) })} className={FIELD} />
         </label>
         <label className='flex flex-col gap-1'>
           <span className='text-xs font-medium text-dark dark:text-white'>{t('autoGestion.availability.close')}</span>
-          <input type='time' value={minToHHMM(draft.closeMin)} onChange={(e) => set({ closeMin: hhmmToMin(e.target.value) })} className={FIELD} />
+          <input type='time' lang='es-AR' value={minToHHMM(draft.closeMin)} onChange={(e) => set({ closeMin: hhmmToMin(e.target.value) })} className={FIELD} />
         </label>
         <label className='flex items-center gap-2 cursor-pointer select-none pb-1.5'>
           <input type='checkbox' checked={draft.active} onChange={(e) => set({ active: e.target.checked })} className='h-4 w-4 rounded border-border dark:border-darkborder accent-primary' />
