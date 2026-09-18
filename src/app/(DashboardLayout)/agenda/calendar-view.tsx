@@ -258,6 +258,7 @@ function Toolbar({
   onView,
   onNavigate,
   onAdd,
+  canAdd = true,
   t,
 }: {
   label: string
@@ -265,6 +266,7 @@ function Toolbar({
   onView: (v: View) => void
   onNavigate: (action: 'TODAY' | 'PREV' | 'NEXT') => void
   onAdd: () => void
+  canAdd?: boolean
   t: TFn
 }) {
   const views: { key: View; label: string }[] = [
@@ -297,13 +299,15 @@ function Toolbar({
             {t('agendaCal.next')}
           </button>
         </div>
-        <button
-          type='button'
-          onClick={onAdd}
-          className='inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
-          <Icon icon='tabler:plus' height={16} width={16} />
-          {t('agendaCal.new')}
-        </button>
+        {canAdd && (
+          <button
+            type='button'
+            onClick={onAdd}
+            className='inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary text-white text-sm font-medium hover:bg-primaryemphasis transition-colors'>
+            <Icon icon='tabler:plus' height={16} width={16} />
+            {t('agendaCal.new')}
+          </button>
+        )}
       </div>
 
       <h5 className='text-base font-semibold text-dark dark:text-white capitalize order-first w-full text-center sm:order-none sm:w-auto'>
@@ -615,7 +619,9 @@ function EventDialog({
   catalogSlugs,
   allEvents,
   isSucursalClosed,
-  canOverrideClosed,
+  closureReasonFor,
+  isAdmin,
+  canEditFull,
   canDelete,
   actorId,
   actorName,
@@ -638,10 +644,14 @@ function EventDialog({
   catalogSlugs: string[]
   // All loaded turnos, to warn about overlaps (sobre-turnos) on save.
   allEvents: CalendarEvent[]
-  // Is (date, sucursal) closed by a feriado/branch-closure block? + whether the
-  // current user may FORCE a turno on a closed day (admin/operador only).
+  // Is (date, sucursal) closed by a feriado/branch-closure block? + the reason to
+  // show. Closed days are NOT forceable (Andrés 2026-09-18): admin is guided to
+  // Autogestión, staff is told to ask an admin.
   isSucursalClosed: (ds: string, sucursal: string) => boolean
-  canOverrideClosed: boolean
+  closureReasonFor: (ds: string, sucursal: string) => string
+  isAdmin: boolean
+  // Full agenda edit (create/reprogram/cancel). Profesional = false → status only.
+  canEditFull: boolean
   // Only admin/operador (secretaría) may delete turnos; profesional cannot.
   canDelete: boolean
   // Acting user (for the audit trail: who made the change).
@@ -843,36 +853,44 @@ function EventDialog({
       return false
     })()
     if (closedByFeriado) {
-      if (!canOverrideClosed) {
-        await Swal.fire({
-          icon: 'error',
-          title: t('turno.closedBlockedTitle'),
-          text: t('turno.closedBlockedBody'),
-          confirmButtonText: t('turno.closedBlockedOk'),
-          confirmButtonColor: '#5d87ff',
-          background: isDarkNow ? '#2a3547' : '#ffffff',
-          color: isDarkNow ? '#ffffff' : '#2a3547',
-          width: '360px',
-          customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
-        })
-        return
-      }
-      const res = await Swal.fire({
-        icon: 'warning',
-        iconColor: '#fa896b',
-        title: t('turno.closedForceTitle'),
-        text: t('turno.closedForceBody'),
-        showCancelButton: true,
-        confirmButtonText: t('turno.closedForceYes'),
-        cancelButtonText: t('agendaCal.cancel'),
-        confirmButtonColor: '#fa896b',
-        cancelButtonColor: isDarkNow ? '#3f4a5d' : '#e5e7eb',
+      // Closed days are NOT forceable (Andrés 2026-09-18): to avoid accidental
+      // bookings, block and guide. Admin → modify the closure in Autogestión (with
+      // a shortcut); operador/profesional → ask an admin to enable it. Only the
+      // turno's own sucursal is checked, so other open branches stay bookable.
+      const reason = closureReasonFor(startStr, sucursal)
+      const motivo = reason ? ` ${t('turno.closedReason', { reason })}` : ''
+      const sucTxt = sucursal ? sucursalLabel(sucursal) : ''
+      const commonSwal = {
         background: isDarkNow ? '#2a3547' : '#ffffff',
         color: isDarkNow ? '#ffffff' : '#2a3547',
         width: '380px',
         customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
+      }
+      if (isAdmin) {
+        const res = await Swal.fire({
+          ...commonSwal,
+          icon: 'warning',
+          iconColor: '#fa896b',
+          title: t('turno.closedBlockedTitle'),
+          text: `${t('turno.closedAdminBody', { sucursal: sucTxt })}${motivo}`,
+          showCancelButton: true,
+          confirmButtonText: t('turno.closedGoFeriados'),
+          cancelButtonText: t('agendaCal.cancel'),
+          confirmButtonColor: '#5d87ff',
+          cancelButtonColor: isDarkNow ? '#3f4a5d' : '#e5e7eb',
+        })
+        if (res.isConfirmed && typeof window !== 'undefined') window.location.href = '/auto-gestion'
+        return
+      }
+      await Swal.fire({
+        ...commonSwal,
+        icon: 'error',
+        title: t('turno.closedBlockedTitle'),
+        text: `${t('turno.closedStaffBody', { sucursal: sucTxt })}${motivo}`,
+        confirmButtonText: t('turno.closedBlockedOk'),
+        confirmButtonColor: '#5d87ff',
       })
-      if (!res.isConfirmed) return
+      return
     }
     // Availability guard: warn (but allow override) if the branch is closed by the
     // schedule rules (softer than a feriado). Skipped when already handled above.
@@ -1096,6 +1114,28 @@ function EventDialog({
         </div>
 
         <div className='px-6 pb-4 overflow-y-auto flex-1 space-y-4'>
+          {/* Profesional (canEditFull=false): status is the ONLY editable field —
+              no create/reprogram/reassign (Andrés #18). The rest of the form is
+              shown read-only inside a disabled fieldset. */}
+          {!canEditFull && (
+            <div className='rounded-md border border-primary/30 bg-lightprimary/20 dark:bg-lightprimary/10 p-3 space-y-2'>
+              <p className='text-xs text-link dark:text-darklink flex items-start gap-1.5'>
+                <Icon icon='solar:lock-keyhole-minimalistic-line-duotone' height={14} width={14} className='mt-0.5 shrink-0' />
+                {t('turno.profStatusOnly')}
+              </p>
+              <label className='block'>
+                <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.status')}</span>
+                <StatusSelect
+                  value={status}
+                  onChange={(v) => setStatus(v as TurnoStatus)}
+                  options={statusOptions}
+                  labelFor={statusLabelFor}
+                  colorFor={statusColorFor}
+                />
+              </label>
+            </div>
+          )}
+          <fieldset disabled={!canEditFull} className='space-y-4 min-w-0 border-0 p-0 m-0 disabled:opacity-60'>
           <PatientPicker
             valueName={patientName}
             onChange={(id, name) => {
@@ -1391,6 +1431,7 @@ function EventDialog({
           )}
 
           {error && <p className='text-xs text-error'>{t('agendaCal.saveError')}</p>}
+          </fieldset>
         </div>
 
         <div className='p-6 pt-3 shrink-0 border-t border-border dark:border-darkborder flex items-center justify-between gap-2'>
@@ -1735,6 +1776,21 @@ export function CalendarView() {
           b.startDate <= ds &&
           b.endDate >= ds,
       ),
+    [blocks],
+  )
+  // Reason (motivo) of the branch-closure covering (ds, suc), '' if none — shown in
+  // the closed-day warnings (Andrés 2026-09-18).
+  const closureReasonFor = useCallback(
+    (ds: string, suc: string) => {
+      const b = blocks.find(
+        (x) =>
+          x.professionalId === null &&
+          (x.sucursal === null || x.sucursal === suc) &&
+          x.startDate <= ds &&
+          x.endDate >= ds,
+      )
+      return b?.reason ?? ''
+    },
     [blocks],
   )
 
@@ -2223,6 +2279,8 @@ export function CalendarView() {
       sucursalDefault?: string,
       professionalDefault?: string,
     ) => {
+      // Profesional cannot create turnos (Andrés #18) — view + status only.
+      if (isProfesional) return
       const now = new Date()
       // Default new turno: a 1-hour slot at the next full hour.
       const s = start ?? new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.min(now.getHours() + 1, 23), 0, 0)
@@ -2256,16 +2314,39 @@ export function CalendarView() {
   // From the Month, open a day in the Day view; if 2+ sucursales work/have turnos
   // that day, open it split into columns per sucursal (Andrés 2026-09-15).
   const openDayFromMonth = useCallback(
-    (d: Date) => {
-      // Drill into the day already split by the working sucursales and, within
-      // each, the professionals that work there that day (hybrid columns). The
-      // hybrid builder collapses to a single full-width column when only one
-      // sucursal + professional works, so this is safe for quiet days too.
+    async (d: Date) => {
+      const ds = toDateInput(d)
+      // If EVERY sucursal is closed that day, warn before entering (Andrés #17):
+      // you can still "ver el día", but it does not enable scheduling. Partial
+      // closures just open normally (the open branches still show).
+      const fullyClosed = SUCURSALES.every((s) => isSucursalClosed(ds, s))
+      if (fullyClosed) {
+        const reason = closureReasonFor(ds, SUCURSALES[0] ?? '')
+        const isDarkNow =
+          typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+        const res = await Swal.fire({
+          icon: 'warning',
+          iconColor: '#fa896b',
+          title: t('turno.closedDayTitle'),
+          text: `${t('turno.closedDayBody')}${reason ? ` ${t('turno.closedReason', { reason })}` : ''}`,
+          showCancelButton: true,
+          confirmButtonText: t('turno.closedDayView'),
+          cancelButtonText: t('agendaCal.cancel'),
+          confirmButtonColor: '#5d87ff',
+          cancelButtonColor: isDarkNow ? '#3f4a5d' : '#e5e7eb',
+          background: isDarkNow ? '#2a3547' : '#ffffff',
+          color: isDarkNow ? '#ffffff' : '#2a3547',
+          width: '380px',
+          customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
+        })
+        if (!res.isConfirmed) return
+      }
+      // Drill into the day split by working sucursales/profesionales (hybrid).
       setDate(d)
       setColumnMode('professional')
       setView(Views.DAY)
     },
-    [],
+    [isSucursalClosed, closureReasonFor, t],
   )
 
   // View switch from the toolbar. Entering Agenda builds a contextual date range
@@ -2592,10 +2673,11 @@ export function CalendarView() {
         onView={props.onView}
         onNavigate={props.onNavigate}
         onAdd={() => openAdd()}
+        canAdd={!isProfesional}
         t={t}
       />
     ),
-    [t, openAdd],
+    [t, openAdd, isProfesional],
   )
   const eventComp = useCallback(
     ({ event }: { event: CalendarEvent }) => {
@@ -3045,11 +3127,11 @@ export function CalendarView() {
           catalogSlugs={catalogSlugs}
           allEvents={events}
           isSucursalClosed={isSucursalClosed}
-          // Closed-day override is a controlled exception (Andrés 2026-09-16): only
-          // an admin may FORCE a turno on a closed day; operador/profesional (and
-          // the bot) are blocked. A per-user "authorized secretary" flag is the
-          // pending permission-matrix decision.
-          canOverrideClosed={role === 'admin'}
+          closureReasonFor={closureReasonFor}
+          // Closed days are NOT forceable (Andrés 2026-09-18): admin is guided to
+          // Autogestión; staff must ask an admin. Profesional edits status only.
+          isAdmin={role === 'admin'}
+          canEditFull={role === 'admin' || role === 'operador'}
           canDelete={role === 'admin' || role === 'operador'}
           actorId={actorId}
           actorName={actorName}
