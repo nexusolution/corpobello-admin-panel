@@ -68,6 +68,12 @@
    cell paints per-sucursal bands with a circle per turno (treatment colour) and
    a per-band "+N" overflow, rendered as an overlay in the day background cell.
    Clicking anywhere on the day drills into the Day view. */
+/* Keep the month grid readable on phones: give it a min width so its wrapper
+   (.cb-hscroll) scrolls horizontally instead of squeezing 7 columns into slivers
+   (Andrés 2026-09-18). On desktop the grid is wider than this, so nothing scrolls. */
+.rbc-month-view {
+  min-width: 720px;
+}
 .rbc-month-view .rbc-event,
 .rbc-month-view .rbc-show-more {
   display: none !important;

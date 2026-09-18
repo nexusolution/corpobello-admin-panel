@@ -94,6 +94,7 @@ import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
 import './calendar-theme.css'
 import { DaySchedule } from './day-schedule'
 import { WeekSchedule } from './week-schedule'
+import { useHorizontalDragScroll } from './use-hscroll'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
 type Option = { value: string; label: string }
@@ -1659,6 +1660,12 @@ export function CalendarView() {
   moment.locale(locale)
   const localizer = useMemo(() => momentLocalizer(moment), [locale])
 
+  // Horizontal scroll for the Month grid on narrow screens (a min-width on the
+  // month view below makes it overflow on phones). Wheel + visible scrollbar; no
+  // drag-pan here, to avoid fighting RBC's day click/drilldown.
+  const monthScrollRef = useRef<HTMLDivElement>(null)
+  useHorizontalDragScroll(monthScrollRef, { drag: false })
+
   // Force 24h times + DD/MM/YYYY dates in RBC's built-in Agenda/Month regardless
   // of the UI language (Andrés #15: the whole system in 24h). Without this, the
   // moment localizer follows the locale, so an English UI renders the Agenda as
@@ -3040,6 +3047,9 @@ export function CalendarView() {
             </div>
           )}
 
+      <div
+        ref={monthScrollRef}
+        className={view === Views.MONTH ? 'overflow-x-auto cb-hscroll' : undefined}>
       <DnDCalendar
         localizer={localizer}
         formats={calendarFormats as never}
@@ -3122,6 +3132,7 @@ export function CalendarView() {
         })}
         components={calendarComponents}
       />
+      </div>
 
       {view === Views.WEEK && (
         <div className='mt-3'>

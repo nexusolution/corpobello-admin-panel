@@ -7,7 +7,9 @@
 // the turno(s) that START in that hour (stacked if several). Clicking a turno opens
 // it; clicking an empty cell creates one pre-filled with that hour/sucursal/prof.
 
+import { useRef } from 'react'
 import type { CalendarEvent } from '@/lib/data/calendar-events'
+import { useHorizontalDragScroll } from './use-hscroll'
 
 export interface DayColumn {
   resourceId: string
@@ -135,7 +137,13 @@ export function DaySchedule({
     else inner.set(h, [e])
   }
 
-  const minTableWidth = columns.length > 2 ? columns.length * 170 + 72 : undefined
+  // Always give each column a readable min width (72px time gutter + 170px/col),
+  // so on a phone the day table scrolls horizontally instead of squeezing cards
+  // into slivers. On desktop the table is wider than this, so nothing scrolls.
+  const minTableWidth = columns.length * 170 + 72
+
+  const scrollRef = useRef<HTMLDivElement>(null)
+  useHorizontalDragScroll(scrollRef)
 
   const dateAtHour = (h: number) => {
     const d = new Date(date)
@@ -150,7 +158,7 @@ export function DaySchedule({
         <div className='text-xs text-link dark:text-darklink mt-0.5'>{subtitle}</div>
       </div>
 
-      <div className='overflow-x-auto'>
+      <div ref={scrollRef} className='overflow-x-auto cb-hscroll'>
         <table
           className='w-full border-collapse'
           style={{ tableLayout: 'fixed', minWidth: minTableWidth }}>
