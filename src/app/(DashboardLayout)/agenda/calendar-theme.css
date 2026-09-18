@@ -24,6 +24,17 @@
 .dark .rbc-agenda-view {
   border-color: #333f55;
 }
+/* The Agenda list runs on a fixed calendar height, so a range with more turnos
+   than fit must SCROLL, not be clipped by the rounded-corner overflow:hidden
+   above. Keep horizontal clipping (rounded corners) but allow vertical scroll,
+   both on the view and on RBC's inner scroll container. */
+.rbc-agenda-view {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.rbc-agenda-view .rbc-agenda-content {
+  overflow-y: auto;
+}
 
 .rbc-month-row + .rbc-month-row,
 .rbc-day-bg + .rbc-day-bg,
