@@ -1815,8 +1815,11 @@ export function CalendarView() {
           // (professional + treatment + sucursal). Cross-sucursal EXCLUSIONS are a
           // booking-time concern and must NOT hide a whole sucursal from the Month
           // shading — so exclusions are ignored here (Andrés #11/#12: two sucursales
-          // can work the same day with different professionals).
-          const w = availabilityFor(ds, sucursal, slug, availRules, [], p)
+          // can work the same day with different professionals). isHoliday enables
+          // the 2nd-Monday feriado shift for the monthly_cycle pattern (Andrés #10).
+          const w = availabilityFor(ds, sucursal, slug, availRules, [], p, (d) =>
+            isSucursalClosed(d, sucursal),
+          )
           if (w.open) {
             open = true
             openMin = Math.min(openMin, w.openMin ?? openMin)
@@ -1825,7 +1828,7 @@ export function CalendarView() {
         }
       return open ? { open: true, openMin, closeMin } : { open: false }
     },
-    [treatmentFilterSlugs, professionalFilterIds, catalogSlugs, availRules],
+    [treatmentFilterSlugs, professionalFilterIds, catalogSlugs, availRules, isSucursalClosed],
   )
 
   const shadeWindow = useCallback(
@@ -1942,7 +1945,8 @@ export function CalendarView() {
         // Andrés 2026-09-16: no empty columns), plus anyone who has a turno.
         const profIds = new Set<string>()
         for (const slug of catalogSlugs) {
-          for (const pid of professionalsFor(ds, suc, slug, availRules)) profIds.add(pid)
+          for (const pid of professionalsFor(ds, suc, slug, availRules, (d) => isSucursalClosed(d, suc)))
+            profIds.add(pid)
         }
         for (const tt of dayMap?.get(suc) ?? []) {
           // A turno with no professional OR a professional not in the active list
@@ -1984,7 +1988,7 @@ export function CalendarView() {
         ? cols
         : [{ resourceId: NONE_RESOURCE, resourceTitle: t('turno.none'), sucursal: '', sucColor: '#94a3b8' }]
     },
-    [sedeMarkers, turnosByDaySucursal, professionals, catalogSlugs, availRules, t],
+    [sedeMarkers, turnosByDaySucursal, professionals, catalogSlugs, availRules, isSucursalClosed, t],
   )
   const dayHybridResources = useMemo<DayCol[]>(
     () => computeDayColumns(date),

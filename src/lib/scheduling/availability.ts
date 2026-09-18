@@ -83,8 +83,15 @@ function nthWeekdayOfMonth(year: number, month0: number, weekday: Weekday, ordin
   return new Date(Date.UTC(year, month0, 1 + offset + (ordinal - 1) * 7, 12))
 }
 
-/** Does `dateStr` fall on a day this pattern covers? */
-export function matchesPattern(dateStr: string, pattern: DayPattern): boolean {
+/** Does `dateStr` fall on a day this pattern covers? `isHoliday` (sucursal-scoped)
+ *  enables the monthly_cycle feriado exception: if the anchor (2nd Monday) is a
+ *  holiday, only the anchor-Monday entry shifts to the previous ordinal (1st
+ *  Monday); every other entry still computes from the original anchor (Andrés #10). */
+export function matchesPattern(
+  dateStr: string,
+  pattern: DayPattern,
+  isHoliday?: (dateStr: string) => boolean,
+): boolean {
   const { day, weekday } = dayOf(dateStr)
   switch (pattern.type) {
     case 'weekly':
@@ -118,10 +125,17 @@ export function matchesPattern(dateStr: string, pattern: DayPattern): boolean {
       ]
       for (const [cy, cm] of candidates) {
         const anchor = nthWeekdayOfMonth(cy, cm, aw, ord)
+        // Feriado exception: if the anchor (e.g. 2nd Monday) is a holiday, the
+        // anchor-Monday jornada moves to the previous ordinal (1st Monday). Only
+        // that entry shifts; the rest still compute from the original anchor.
+        const anchorIsHoliday =
+          !!isHoliday && ord > 1 && isHoliday(anchor.toISOString().slice(0, 10))
         for (const e of pattern.entries) {
+          const shift = anchorIsHoliday && e.weekOffset === 0 && e.weekday === aw
+          const base = shift ? nthWeekdayOfMonth(cy, cm, aw, ord - 1) : anchor
           const dayFromMonday = (e.weekday + 6) % 7 // Mon=0 … Sun=6 (anchor is a Monday)
-          const target = new Date(anchor.getTime())
-          target.setUTCDate(anchor.getUTCDate() + e.weekOffset * 7 + dayFromMonday)
+          const target = new Date(base.getTime())
+          target.setUTCDate(base.getUTCDate() + (shift ? 0 : e.weekOffset * 7 + dayFromMonday))
           if (
             target.getUTCFullYear() === dt.getUTCFullYear() &&
             target.getUTCMonth() === dt.getUTCMonth() &&
@@ -160,9 +174,12 @@ export function openWindowsFor(
   slug: string,
   rules: readonly AvailabilityRule[],
   professionalId?: string,
+  isHoliday?: (dateStr: string) => boolean,
 ): { openMin: number; closeMin: number }[] {
   return rules
-    .filter((r) => ruleApplies(r, sucursal, slug, professionalId) && matchesPattern(dateStr, r.pattern))
+    .filter(
+      (r) => ruleApplies(r, sucursal, slug, professionalId) && matchesPattern(dateStr, r.pattern, isHoliday),
+    )
     .map((r) => ({ openMin: r.openMin, closeMin: r.closeMin }))
 }
 
@@ -172,8 +189,9 @@ export function isTreatmentActive(
   slug: string,
   rules: readonly AvailabilityRule[],
   professionalId?: string,
+  isHoliday?: (dateStr: string) => boolean,
 ): boolean {
-  return openWindowsFor(dateStr, sucursal, slug, rules, professionalId).length > 0
+  return openWindowsFor(dateStr, sucursal, slug, rules, professionalId, isHoliday).length > 0
 }
 
 /** Distinct professional ids (non-generic) scheduled for a treatment that day. */
@@ -182,10 +200,11 @@ export function professionalsFor(
   sucursal: string,
   slug: string,
   rules: readonly AvailabilityRule[],
+  isHoliday?: (dateStr: string) => boolean,
 ): string[] {
   const set = new Set<string>()
   for (const r of rules) {
-    if (ruleApplies(r, sucursal, slug) && matchesPattern(dateStr, r.pattern) && r.professionalId) {
+    if (ruleApplies(r, sucursal, slug) && matchesPattern(dateStr, r.pattern, isHoliday) && r.professionalId) {
       set.add(r.professionalId)
     }
   }
@@ -200,8 +219,9 @@ export function availabilityFor(
   rules: readonly AvailabilityRule[],
   exclusions: readonly AvailabilityExclusion[] = [],
   professionalId?: string,
+  isHoliday?: (dateStr: string) => boolean,
 ): AvailabilityWindow {
-  const windows = openWindowsFor(dateStr, sucursal, slug, rules, professionalId)
+  const windows = openWindowsFor(dateStr, sucursal, slug, rules, professionalId, isHoliday)
   if (windows.length === 0) return { open: false }
 
   for (const ex of exclusions) {
