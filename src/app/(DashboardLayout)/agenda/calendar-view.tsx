@@ -1755,7 +1755,12 @@ export function CalendarView() {
       let closeMin = Number.NEGATIVE_INFINITY
       for (const slug of slugs)
         for (const p of profs) {
-          const w = availabilityFor(ds, sucursal, slug, availRules, availExclusions, p)
+          // Whether a sucursal is "working that day" is a RULE question
+          // (professional + treatment + sucursal). Cross-sucursal EXCLUSIONS are a
+          // booking-time concern and must NOT hide a whole sucursal from the Month
+          // shading — so exclusions are ignored here (Andrés #11/#12: two sucursales
+          // can work the same day with different professionals).
+          const w = availabilityFor(ds, sucursal, slug, availRules, [], p)
           if (w.open) {
             open = true
             openMin = Math.min(openMin, w.openMin ?? openMin)
@@ -1764,7 +1769,7 @@ export function CalendarView() {
         }
       return open ? { open: true, openMin, closeMin } : { open: false }
     },
-    [treatmentFilterSlugs, professionalFilterIds, catalogSlugs, availRules, availExclusions],
+    [treatmentFilterSlugs, professionalFilterIds, catalogSlugs, availRules],
   )
 
   const shadeWindow = useCallback(
