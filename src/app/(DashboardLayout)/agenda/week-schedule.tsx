@@ -8,12 +8,14 @@
 // ALMUERZO band spans each day. Cards: treatment-colour bar, patient (black bold),
 // treatment (black), prof · sucursal, and a green "$" block when charged.
 
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import type { CalendarEvent } from '@/lib/data/calendar-events'
 import type { DayColumn } from './day-schedule'
 
 interface WeekScheduleProps {
   days: Date[]
+  // The selected day, centered horizontally when the week loads/changes.
+  focusDate?: Date
   columnsForDay: (day: Date) => DayColumn[]
   turnos: CalendarEvent[]
   onOpenTurno: (e: CalendarEvent) => void
@@ -48,6 +50,7 @@ function tintHex(hex: string): string {
 
 export function WeekSchedule({
   days,
+  focusDate,
   columnsForDay,
   turnos,
   onOpenTurno,
@@ -64,6 +67,26 @@ export function WeekSchedule({
   newLabel,
 }: WeekScheduleProps) {
   const dayData = days.map((day) => ({ day, ds: toKey(day), cols: columnsForDay(day) }))
+
+  // Center the selected day horizontally when the week (or the selected day)
+  // changes, so on load you land on the relevant day instead of at Monday with
+  // a busy Saturday hidden off to the right.
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const focusKey = focusDate ? toKey(focusDate) : ''
+  const weekKey = dayData[0]?.ds ?? ''
+  useEffect(() => {
+    const cont = scrollRef.current
+    if (!cont) return
+    const target = focusKey || weekKey
+    const el = cont.querySelector<HTMLElement>(`[data-daycol="${target}"]`)
+    if (!el) return
+    const GUTTER = 56 // the pinned time column on the left
+    const contRect = cont.getBoundingClientRect()
+    const elRect = el.getBoundingClientRect()
+    const elCenterInContent = elRect.left - contRect.left + cont.scrollLeft + elRect.width / 2
+    const desired = elCenterInContent - GUTTER / 2 - cont.clientWidth / 2
+    cont.scrollLeft = Math.max(0, desired)
+  }, [focusKey, weekKey])
 
   // Hour rows: 08–20 by default, widened to include turnos outside that band.
   let startH = 8
@@ -194,6 +217,7 @@ export function WeekSchedule({
         type='button'
         onClick={() => onOpenDay(d.day)}
         title={dayTitle(d.day)}
+        data-daycol={d.ds}
         className='text-center px-1 py-2 border-b border-l border-border dark:border-darkborder cursor-pointer hover:brightness-95 transition sticky top-0 z-20'
         style={{ gridColumn: 2 + i, gridRow: 1, background: dayBg }}>
         <div className='text-sm font-bold text-dark dark:text-white capitalize'>{dayTitle(d.day)}</div>
@@ -285,7 +309,9 @@ export function WeekSchedule({
     // Bounded, self-contained scroll box: both scrollbars stay on screen so a
     // wide (busy) week is reachable without scrolling the whole page down, while
     // the day headers (top) and the time column (left) stay pinned.
-    <div className='rounded-lg border border-border dark:border-darkborder bg-card overflow-auto max-h-[calc(100vh-210px)]'>
+    <div
+      ref={scrollRef}
+      className='rounded-lg border border-border dark:border-darkborder bg-card overflow-auto max-h-[calc(100vh-210px)] cb-hscroll'>
       <div className='grid' style={{ gridTemplateColumns, gridTemplateRows, minWidth }}>
         {cells}
       </div>

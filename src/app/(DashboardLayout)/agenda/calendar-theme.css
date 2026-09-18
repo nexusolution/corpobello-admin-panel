@@ -481,3 +481,34 @@
 .rbc-time-view .rbc-timeslot-group {
   min-height: var(--rbc-group-h, 40px);
 }
+
+/* Always-visible, thin scrollbars for the custom Week/Day scroll boxes so
+   horizontal scrolling is obvious and reachable (Andrés 2026-09-18). */
+.cb-hscroll {
+  scrollbar-width: thin;
+  scrollbar-color: #b6c2d2 transparent;
+}
+.cb-hscroll::-webkit-scrollbar {
+  height: 12px;
+  width: 12px;
+}
+.cb-hscroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.cb-hscroll::-webkit-scrollbar-thumb {
+  background: #b6c2d2;
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.cb-hscroll::-webkit-scrollbar-thumb:hover {
+  background: #8fa1b8;
+  background-clip: content-box;
+}
+.dark .cb-hscroll {
+  scrollbar-color: #45526a transparent;
+}
+.dark .cb-hscroll::-webkit-scrollbar-thumb {
+  background: #45526a;
+  background-clip: content-box;
+}

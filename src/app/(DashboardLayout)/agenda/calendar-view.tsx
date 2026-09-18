@@ -3127,6 +3127,7 @@ export function CalendarView() {
         <div className='mt-3'>
           <WeekSchedule
             days={weekDays}
+            focusDate={date}
             columnsForDay={computeDayColumns}
             turnos={weekTurnos}
             onOpenTurno={onSelectEvent}
