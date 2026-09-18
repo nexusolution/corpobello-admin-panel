@@ -107,6 +107,74 @@ export function WeekSchedule({
     }
   }, [focusKey, weekKey])
 
+  // Make the horizontal scroll controllable beyond dragging the thin scrollbar:
+  //   · mouse wheel scrolls horizontally when there is no vertical room (or with
+  //     Shift held), so a single wheel moves across the week;
+  //   · click-and-drag anywhere pans the week; a real click (moved < 6px) still
+  //     opens/creates a turno — a drag suppresses the trailing click so it never
+  //     fires the button underneath.
+  useEffect(() => {
+    const cont = scrollRef.current
+    if (!cont) return
+
+    const onWheel = (e: WheelEvent) => {
+      if (cont.scrollWidth <= cont.clientWidth) return
+      const canV = cont.scrollHeight > cont.clientHeight
+      if (!e.shiftKey && canV) return
+      const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX
+      if (d === 0) return
+      cont.scrollLeft += d
+      e.preventDefault()
+    }
+
+    let down = false
+    let moved = false
+    let startX = 0
+    let startLeft = 0
+    const onDown = (e: PointerEvent) => {
+      if (e.button !== 0) return
+      down = true
+      moved = false
+      startX = e.clientX
+      startLeft = cont.scrollLeft
+    }
+    const onMove = (e: PointerEvent) => {
+      if (!down) return
+      const dx = e.clientX - startX
+      if (!moved && Math.abs(dx) < 6) return
+      moved = true
+      cont.style.cursor = 'grabbing'
+      cont.style.userSelect = 'none'
+      cont.scrollLeft = startLeft - dx
+    }
+    const endDrag = () => {
+      if (!down) return
+      down = false
+      cont.style.cursor = ''
+      cont.style.userSelect = ''
+      if (moved) {
+        // Swallow the click that follows a drag so it does not open/create a turno.
+        const swallow = (ev: MouseEvent) => {
+          ev.stopPropagation()
+          ev.preventDefault()
+          window.removeEventListener('click', swallow, true)
+        }
+        window.addEventListener('click', swallow, true)
+      }
+    }
+
+    cont.addEventListener('wheel', onWheel, { passive: false })
+    cont.addEventListener('pointerdown', onDown)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', endDrag)
+    return () => {
+      cont.removeEventListener('wheel', onWheel)
+      cont.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', endDrag)
+    }
+  }, [])
+
   // Hour rows: 08–20 by default, widened to include turnos outside that band.
   let startH = 8
   let endH = 20
