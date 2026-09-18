@@ -1548,7 +1548,7 @@ WorkWeekView.title = (date: Date, { localizer }: { localizer: RbcLocalizer }) =>
   const days = weekMonToSat(date, localizer)
   const start = days[0]
   const end = days[days.length - 1]
-  return `${localizer.format(start, 'ddd D MMM')} – ${localizer.format(end, 'ddd D MMM YYYY')}`
+  return `${localizer.format(start, 'ddd D MMM')} a ${localizer.format(end, 'ddd D MMM YYYY')}`
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -1658,6 +1658,29 @@ export function CalendarView() {
 
   moment.locale(locale)
   const localizer = useMemo(() => momentLocalizer(moment), [locale])
+
+  // Force 24h times + DD/MM/YYYY dates in RBC's built-in Agenda/Month regardless
+  // of the UI language (Andrés #15: the whole system in 24h). Without this, the
+  // moment localizer follows the locale, so an English UI renders the Agenda as
+  // "9:00 am" / "MM/DD/YYYY". The custom Day/Week tables already hardcode 24h.
+  // Range separator is a word ("a"/"to"), never a dash (panel no-dash rule).
+  const calendarFormats = useMemo(() => {
+    const sep = locale === 'es' ? ' a ' : ' to '
+    type Rng = { start: Date; end: Date }
+    type Loc = { format: (d: Date, f: string, c?: string) => string }
+    const hm = (d: Date, c: string | undefined, l: Loc) => l.format(d, 'HH:mm', c)
+    const dmy = (d: Date, c: string | undefined, l: Loc) => l.format(d, 'DD/MM/YYYY', c)
+    return {
+      timeGutterFormat: 'HH:mm',
+      eventTimeRangeFormat: ({ start, end }: Rng, c: string, l: Loc) =>
+        `${hm(start, c, l)}${sep}${hm(end, c, l)}`,
+      agendaTimeRangeFormat: ({ start, end }: Rng, c: string, l: Loc) =>
+        `${hm(start, c, l)}${sep}${hm(end, c, l)}`,
+      agendaHeaderFormat: ({ start, end }: Rng, c: string, l: Loc) =>
+        `${dmy(start, c, l)}${sep}${dmy(end, c, l)}`,
+      agendaDateFormat: 'ddd DD/MM',
+    }
+  }, [locale])
 
   // Refresh events in place. Does NOT flip `loading` (only the initial mount
   // shows the spinner) — otherwise every save/drag unmounted the calendar and
@@ -3019,6 +3042,7 @@ export function CalendarView() {
 
       <DnDCalendar
         localizer={localizer}
+        formats={calendarFormats as never}
         // Hide RBC's own time-grid in Week and Day (Andrés 2026-09-16): the Day is
         // rendered by the custom hour-table (DaySchedule) below, and the RBC
         // calendar is kept only for its toolbar + Month/Agenda views.
