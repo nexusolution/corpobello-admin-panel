@@ -617,6 +617,7 @@ function EventDialog({
   rules,
   exclusions,
   catalogSlugs,
+  treatmentDurations,
   allEvents,
   isSucursalClosed,
   closureReasonFor,
@@ -642,6 +643,9 @@ function EventDialog({
   rules: AvailabilityRule[]
   exclusions: AvailabilityExclusion[]
   catalogSlugs: string[]
+  // Per-treatment self-managed duration (slug -> minutes); overrides the slug
+  // heuristic when auto-blocking a turno's end time.
+  treatmentDurations: Map<string, number>
   // All loaded turnos, to warn about overlaps (sobre-turnos) on save.
   allEvents: CalendarEvent[]
   // Is (date, sucursal) closed by a feriado/branch-closure block? + the reason to
@@ -774,7 +778,7 @@ function EventDialog({
     sTime: string = startTime,
   ) => {
     if (allDay || !slug) return
-    const minutes = suggestDurationMinutes(slug, first)
+    const minutes = suggestDurationMinutes(slug, first, undefined, treatmentDurations.get(slug))
     if (minutes <= 0) return
     const end = new Date(dateTime(sStr, sTime).getTime() + minutes * 60_000)
     setEndStr(toDateInput(end))
@@ -845,6 +849,17 @@ function EventDialog({
     // audit trail exists). Checked per day in the range, for the turno's sucursal.
     const closedByFeriado = (() => {
       if (!sucursal || !startStr) return false
+      // Only enforce when the turno is being PLACED onto the closed day for the
+      // first time: a new turno, or an existing one whose day/sucursal/range
+      // changed. Editing an existing turno already sitting in a now-closed day
+      // (e.g. a Profesional's status-only update, or notes) must still save —
+      // the block is to prevent new bookings, not to freeze what's already there.
+      const placementChanged =
+        !isEdit ||
+        startStr !== draft.startStr ||
+        sucursal !== draft.sucursal ||
+        (allDay && (endStr || startStr) !== (draft.endStr || draft.startStr))
+      if (!placementChanged) return false
       const endBound = allDay ? endStr || startStr : startStr
       const end = new Date(`${endBound}T00:00:00`)
       for (const d = new Date(`${startStr}T00:00:00`); d <= end; d.setDate(d.getDate() + 1)) {
@@ -1599,6 +1614,9 @@ export function CalendarView() {
   const [availRules, setAvailRules] = useState<AvailabilityRule[]>([])
   const [availExclusions, setAvailExclusions] = useState<AvailabilityExclusion[]>([])
   const [catalogSlugs, setCatalogSlugs] = useState<string[]>([])
+  // Per-treatment self-managed duration (Autogestión → Catálogo, migration 0051).
+  // slug -> minutes; overrides the slug heuristic when auto-blocking a turno.
+  const [treatmentDurations, setTreatmentDurations] = useState<Map<string, number>>(new Map())
   const [treatmentFilterSlugs, setTreatmentFilterSlugs] = useState<string[]>([])
   const [blocks, setBlocks] = useState<AgendaBlock[]>([])
   // Pack totals (id -> {total,label}) to render "Sesión N/M" on turno cards.
@@ -1687,6 +1705,13 @@ export function CalendarView() {
           const active = cat.data.filter((c) => c.active)
           setTreatments(active.map((c) => ({ value: c.slug, label: c.label })))
           setCatalogSlugs(active.map((c) => c.slug))
+          setTreatmentDurations(
+            new Map(
+              cat.data
+                .filter((c) => c.durationMin != null && c.durationMin > 0)
+                .map((c) => [c.slug, c.durationMin as number]),
+            ),
+          )
           return
         }
         const byslug = new Map<string, string>()
@@ -3129,6 +3154,7 @@ export function CalendarView() {
           rules={availRules}
           exclusions={availExclusions}
           catalogSlugs={catalogSlugs}
+          treatmentDurations={treatmentDurations}
           allEvents={events}
           isSucursalClosed={isSucursalClosed}
           closureReasonFor={closureReasonFor}

@@ -145,6 +145,14 @@ function formatDate(iso: string, locale: string): string {
   }).format(d)
 }
 
+// Deposit date is a plain 'YYYY-MM-DD' day string; format it as DD/MM/YYYY
+// without going through new Date() so no timezone offset shifts the day.
+function formatDepositDate(day: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(day)
+  if (!m) return day
+  return `${m[3]}/${m[2]}/${m[1]}`
+}
+
 // ---------- Empty state ----------
 
 function EmptyBlock({ icon, text }: { icon: string; text: string }) {
@@ -526,6 +534,7 @@ function ReservationsTab({ detail, t, locale }: { detail: PatientDetailData; t: 
                   {tu.depositAmount != null && (
                     <p className='text-xs text-secondary mt-1 font-medium'>
                       {t('turno.deposit.title')}: ${tu.depositAmount.toLocaleString('es-AR')}
+                      {tu.depositDate ? ` · ${formatDepositDate(tu.depositDate)}` : ''}
                       {tu.depositReceived ? ` · ${t('turno.deposit.received')}` : ''}
                     </p>
                   )}

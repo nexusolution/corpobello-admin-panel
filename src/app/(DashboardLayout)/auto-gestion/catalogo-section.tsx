@@ -108,6 +108,15 @@ export function CatalogoSection() {
     if (err) await Swal.fire({ icon: 'error', title: t('autoGestion.catalog.error'), text: err })
   }
 
+  async function setDuration(it: TreatmentCatalogItem, raw: string) {
+    const trimmed = raw.trim()
+    const next = trimmed === '' ? null : Math.max(0, Math.round(Number(trimmed)))
+    if (next != null && Number.isNaN(next)) return
+    setItems((prev) => prev.map((i) => (i.slug === it.slug ? { ...i, durationMin: next } : i)))
+    const { error } = await updateTreatment(it.slug, { durationMin: next })
+    if (error) await Swal.fire({ icon: 'error', title: t('autoGestion.catalog.error'), text: error })
+  }
+
   async function remove(it: TreatmentCatalogItem) {
     const res = await Swal.fire({
       icon: 'warning',
@@ -212,6 +221,28 @@ export function CatalogoSection() {
                 )}
                 <p className='text-[11px] text-link dark:text-darklink font-mono truncate'>{it.slug}</p>
               </div>
+
+              <label
+                className='flex items-center gap-1 shrink-0 text-[11px] text-link dark:text-darklink'
+                title={t('autoGestion.catalog.duration')}>
+                <input
+                  type='number'
+                  min={0}
+                  step={5}
+                  inputMode='numeric'
+                  defaultValue={it.durationMin ?? ''}
+                  onBlur={(e) => {
+                    const cur = it.durationMin == null ? '' : String(it.durationMin)
+                    if (e.target.value.trim() !== cur) void setDuration(it, e.target.value)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                  }}
+                  placeholder={t('autoGestion.catalog.durationUnit')}
+                  className='w-14 px-1.5 py-1 rounded-md border border-border dark:border-darkborder bg-background text-xs text-dark dark:text-white text-right focus:outline-none focus:border-primary'
+                />
+                <span>{t('autoGestion.catalog.durationUnit')}</span>
+              </label>
 
               <Switch checked={it.active} onCheckedChange={(v) => toggleActive(it, v)} />
 

@@ -36,12 +36,23 @@ export function isLaserSlug(slug: string): boolean {
 // Suggested minutes to block for a turno of `slug`. `firstSession` bumps the
 // duration for the explanatory first visit. Returns 0 for an empty slug so the
 // caller can leave the manually-set duration untouched.
+//
+// `catalogMinutes` is the per-treatment duration self-managed in Autogestión →
+// Catálogo (migration 0051). When set (> 0) it OVERRIDES the slug heuristic as
+// the base length, so a treatment's duration is fully autogestionable; the
+// first-session extra is still added on top. When null/absent, the heuristic
+// (15/20 min habitual, láser base + zonas placeholder) applies as before.
 export function suggestDurationMinutes(
   slug: string,
   firstSession: boolean,
   rule: DurationRule = defaultDurationRule,
+  catalogMinutes?: number | null,
 ): number {
   if (!slug) return 0
+  if (catalogMinutes != null && catalogMinutes > 0) {
+    const extra = isLaserSlug(slug) ? rule.laserFirstSessionExtraMinutes : rule.firstSessionExtraMinutes
+    return catalogMinutes + (firstSession ? extra : 0)
+  }
   if (isLaserSlug(slug)) {
     return rule.laserBaseMinutes + (firstSession ? rule.laserFirstSessionExtraMinutes : 0)
   }
