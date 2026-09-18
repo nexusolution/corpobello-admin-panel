@@ -253,10 +253,28 @@ export function WeekSchedule({
     })
   }
 
-  const dayCount = Math.max(1, dayData.length)
-  const gridTemplateColumns = `56px repeat(${dayCount}, minmax(160px, 1fr))`
+  // Auto-expand a day's column (header + body share the grid column) by its
+  // busiest overlap, so many simultaneous turnos stay readable instead of being
+  // squeezed into slivers. Quiet days keep the base width; the week still scrolls
+  // horizontally when a busy day makes the total exceed the viewport. Andrés #14
+  // stays intact: one column per day, quick panorama, click a header for detail.
+  const BASE_DAY = 160 // px for a day with at most 1 turno in any hour
+  const PER_CARD = 150 // px per side-by-side card on a busy day
+  const overlapOf = (ds: string) => {
+    let m = 1
+    const b = buckets.get(ds)
+    if (b) for (const arr of b.values()) if (arr.length > m) m = arr.length
+    return m
+  }
+  const dayMins = dayData.map((d) => {
+    const ov = overlapOf(d.ds)
+    return ov <= 1 ? BASE_DAY : ov * PER_CARD
+  })
+  const gridTemplateColumns = `56px ${dayData
+    .map((d, i) => `minmax(${dayMins[i]}px, ${Math.max(1, overlapOf(d.ds))}fr)`)
+    .join(' ')}`
   const gridTemplateRows = `auto repeat(${hours.length}, minmax(56px, auto))`
-  const minWidth = 56 + dayCount * 160
+  const minWidth = 56 + dayMins.reduce((a, b) => a + b, 0)
 
   return (
     <div className='rounded-lg border border-border dark:border-darkborder bg-card overflow-x-auto'>
