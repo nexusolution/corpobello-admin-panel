@@ -52,7 +52,7 @@ export default function Layout({
   return (
     <div className='flex w-full min-h-screen'>
       <div
-        className={`page-wrapper flex w-full ${
+        className={`page-wrapper flex w-full min-w-0 ${
           collapsed ? 'sidebar-collapsed' : ''
         }`}>
         {/* Header/sidebar */}
@@ -62,7 +62,10 @@ export default function Layout({
           onMouseLeave={() => setHovered(false)}>
           <Sidebar isCollapse={collapsed && !hovered} />
         </div>
-        <div className='body-wrapper w-full bg-background'>
+        {/* min-w-0 so this flex column stays viewport-bounded instead of growing
+            to fit wide content (e.g. the Week grid), which would push the whole
+            page past the screen and stop inner overflow-auto boxes from scrolling. */}
+        <div className='body-wrapper w-full min-w-0 bg-background'>
           {/* Top Header  */}
           <Header onToggleSidebar={() => setCollapsed((c) => !c)} />
           {/* Body Content  */}
