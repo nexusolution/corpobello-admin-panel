@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '@iconify/react'
 
+import { TimeField } from '@/components/ui/time-field'
 import {
   fetchSucursalHours,
   saveSucursalHours,
@@ -328,20 +329,16 @@ export function HorariosSection() {
 
               {d.isOpen ? (
                 <div className='flex items-center gap-2'>
-                  <input
-                    type='time'
-                    lang='es-AR'
+                  <TimeField
+                    className='w-28'
                     value={d.open}
-                    onChange={(e) => patchDay(d.weekday, { open: e.target.value })}
-                    className='rounded-md border border-border dark:border-darkborder bg-background px-2 py-1.5 text-sm text-dark dark:text-white focus:outline-none focus:border-primary'
+                    onChange={(v) => patchDay(d.weekday, { open: v })}
                   />
                   <span className='text-link dark:text-darklink text-sm'>a</span>
-                  <input
-                    type='time'
-                    lang='es-AR'
+                  <TimeField
+                    className='w-28'
                     value={d.close}
-                    onChange={(e) => patchDay(d.weekday, { close: e.target.value })}
-                    className='rounded-md border border-border dark:border-darkborder bg-background px-2 py-1.5 text-sm text-dark dark:text-white focus:outline-none focus:border-primary'
+                    onChange={(v) => patchDay(d.weekday, { close: v })}
                   />
                 </div>
               ) : (

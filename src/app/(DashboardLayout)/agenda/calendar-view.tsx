@@ -36,6 +36,7 @@ import { es } from 'date-fns/locale'
 
 import { Calendar as DatePickerCalendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { TimeField } from '@/components/ui/time-field'
 import {
   fetchCalendarEvents,
   createCalendarEvent,
@@ -388,72 +389,6 @@ function DateField({
         </PopoverContent>
       </Popover>
     </div>
-  )
-}
-
-// 24h time picker (Andrés #15): a native <input type=time> renders AM/PM on an
-// English-locale machine regardless of lang/UI language, so we use our own control
-// that always shows/stores HH:MM. Options at 5-min steps cover the 15/20-min
-// auto-durations; a value off the grid still displays correctly on the trigger.
-function TimeField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string
-  value: string
-  onChange: (v: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const listRef = useRef<HTMLDivElement>(null)
-  const options = useMemo(() => {
-    const out: string[] = []
-    for (let m = 6 * 60; m <= 22 * 60; m += 5) {
-      out.push(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`)
-    }
-    return out
-  }, [])
-  useEffect(() => {
-    if (!open) return
-    const el = listRef.current?.querySelector<HTMLElement>('[data-selected="true"]')
-    el?.scrollIntoView({ block: 'center' })
-  }, [open])
-  return (
-    <label className='block'>
-      <span className='text-xs font-medium text-dark dark:text-white'>{label}</span>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <button
-            type='button'
-            className={`${SELECT_TRIGGER_CLS} flex items-center justify-between gap-2 text-left`}>
-            <span>{value || '--:--'}</span>
-            <Icon
-              icon='solar:clock-circle-line-duotone'
-              height={16}
-              width={16}
-              className='text-link dark:text-darklink shrink-0'
-            />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className='w-[140px] p-1' align='start'>
-          <div ref={listRef} className='max-h-60 overflow-y-auto'>
-            {options.map((o) => (
-              <button
-                key={o}
-                type='button'
-                data-selected={o === value}
-                onClick={() => {
-                  onChange(o)
-                  setOpen(false)
-                }}
-                className={`w-full text-left px-2.5 py-1.5 rounded text-sm hover:bg-lightprimary text-dark dark:text-white ${o === value ? 'bg-lightprimary/60' : ''}`}>
-                {o}
-              </button>
-            ))}
-          </div>
-        </PopoverContent>
-      </Popover>
-    </label>
   )
 }
 
@@ -1416,16 +1351,22 @@ function EventDialog({
 
           {!allDay && (
             <div className='grid grid-cols-2 gap-3'>
-              <TimeField
-                label={t('turno.startTime')}
-                value={startTime}
-                onChange={(v) => {
-                  setStartTime(v)
-                  // Keep the auto-blocked duration when the start moves.
-                  applyAutoDuration(treatmentSlug, firstSession, startStr, v)
-                }}
-              />
-              <TimeField label={t('turno.endTime')} value={endTime} onChange={setEndTime} />
+              <label className='block'>
+                <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.startTime')}</span>
+                <TimeField
+                  className='mt-1'
+                  value={startTime}
+                  onChange={(v) => {
+                    setStartTime(v)
+                    // Keep the auto-blocked duration when the start moves.
+                    applyAutoDuration(treatmentSlug, firstSession, startStr, v)
+                  }}
+                />
+              </label>
+              <label className='block'>
+                <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.endTime')}</span>
+                <TimeField className='mt-1' value={endTime} onChange={setEndTime} />
+              </label>
             </div>
           )}
 
