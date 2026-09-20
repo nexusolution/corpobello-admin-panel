@@ -391,6 +391,72 @@ function DateField({
   )
 }
 
+// 24h time picker (Andrés #15): a native <input type=time> renders AM/PM on an
+// English-locale machine regardless of lang/UI language, so we use our own control
+// that always shows/stores HH:MM. Options at 5-min steps cover the 15/20-min
+// auto-durations; a value off the grid still displays correctly on the trigger.
+function TimeField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const listRef = useRef<HTMLDivElement>(null)
+  const options = useMemo(() => {
+    const out: string[] = []
+    for (let m = 6 * 60; m <= 22 * 60; m += 5) {
+      out.push(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`)
+    }
+    return out
+  }, [])
+  useEffect(() => {
+    if (!open) return
+    const el = listRef.current?.querySelector<HTMLElement>('[data-selected="true"]')
+    el?.scrollIntoView({ block: 'center' })
+  }, [open])
+  return (
+    <label className='block'>
+      <span className='text-xs font-medium text-dark dark:text-white'>{label}</span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type='button'
+            className={`${SELECT_TRIGGER_CLS} flex items-center justify-between gap-2 text-left`}>
+            <span>{value || '--:--'}</span>
+            <Icon
+              icon='solar:clock-circle-line-duotone'
+              height={16}
+              width={16}
+              className='text-link dark:text-darklink shrink-0'
+            />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className='w-[140px] p-1' align='start'>
+          <div ref={listRef} className='max-h-60 overflow-y-auto'>
+            {options.map((o) => (
+              <button
+                key={o}
+                type='button'
+                data-selected={o === value}
+                onClick={() => {
+                  onChange(o)
+                  setOpen(false)
+                }}
+                className={`w-full text-left px-2.5 py-1.5 rounded text-sm hover:bg-lightprimary text-dark dark:text-white ${o === value ? 'bg-lightprimary/60' : ''}`}>
+                {o}
+              </button>
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </label>
+  )
+}
+
 // Searchable patient picker (async ilike search against patients).
 function PatientPicker({
   valueName,
@@ -1320,15 +1386,11 @@ function EventDialog({
                   className='mt-1 w-full px-2.5 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
                 />
               </label>
-              <label className='block'>
-                <span className='text-xs text-link dark:text-darklink'>{t('turno.deposit.date')}</span>
-                <input
-                  type='date'
-                  value={depositDate}
-                  onChange={(e) => setDepositDate(e.target.value)}
-                  className='mt-1 w-full px-2.5 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
-                />
-              </label>
+              <DateField
+                label={t('turno.deposit.date')}
+                value={depositDate}
+                onChange={setDepositDate}
+              />
             </div>
             <label className='flex items-center gap-2 cursor-pointer select-none'>
               <input
@@ -1354,31 +1416,16 @@ function EventDialog({
 
           {!allDay && (
             <div className='grid grid-cols-2 gap-3'>
-              <label className='block'>
-                <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.startTime')}</span>
-                <input
-                  type='time'
-                  lang='es-AR'
-                  value={startTime}
-                  onChange={(e) => {
-                    const v = e.target.value
-                    setStartTime(v)
-                    // Keep the auto-blocked duration when the start moves.
-                    applyAutoDuration(treatmentSlug, firstSession, startStr, v)
-                  }}
-                  className='mt-1 w-full rounded-md border border-border dark:border-darkborder bg-background px-3 py-2 text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
-                />
-              </label>
-              <label className='block'>
-                <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.endTime')}</span>
-                <input
-                  type='time'
-                  lang='es-AR'
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className='mt-1 w-full rounded-md border border-border dark:border-darkborder bg-background px-3 py-2 text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
-                />
-              </label>
+              <TimeField
+                label={t('turno.startTime')}
+                value={startTime}
+                onChange={(v) => {
+                  setStartTime(v)
+                  // Keep the auto-blocked duration when the start moves.
+                  applyAutoDuration(treatmentSlug, firstSession, startStr, v)
+                }}
+              />
+              <TimeField label={t('turno.endTime')} value={endTime} onChange={setEndTime} />
             </div>
           )}
 
