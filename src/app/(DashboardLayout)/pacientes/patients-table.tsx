@@ -313,7 +313,13 @@ function NewPatientDialog({
     })
     setSaving(false)
     // DNI already exists → warn and offer to open the existing ficha (Andrés #2).
+    // Close this Radix dialog FIRST: its focus trap otherwise swallows the first
+    // click on the SweetAlert buttons (you had to click outside to release it) —
+    // Andrés 2026-09-20, punto 2.
     if (duplicate) {
+      onOpenChange(false)
+      // Let the dialog unmount (releasing its focus trap) before opening Swal.
+      await new Promise((r) => setTimeout(r, 0))
       const res = await Swal.fire({
         icon: 'warning',
         iconColor: '#fa896b',
@@ -327,7 +333,6 @@ function NewPatientDialog({
         customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
       })
       if (res.isConfirmed) {
-        onOpenChange(false)
         router.push(`/pacientes/${duplicate.id}`)
       }
       return
