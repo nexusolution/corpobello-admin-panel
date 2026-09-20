@@ -64,32 +64,30 @@ export function AutoGestionTabs() {
   const [tab, setTab] = useState<TabKey>('catalogo')
 
   return (
-    <div className='space-y-6'>
-      {/* Tab bar — wraps to a second row instead of scrolling off-screen, so
-          the last tabs (Textos informativos / Preguntas frecuentes) are always
-          visible. The old hidden-scrollbar overflow hid them with no cue. */}
-      <div className='border-b border-border dark:border-darkborder'>
-        <div className='flex flex-wrap'>
-          {TABS.map((tb) => {
-            const active = tb.key === tab
-            return (
-              <button
-                key={tb.key}
-                type='button'
-                onClick={() => setTab(tb.key)}
-                className={`inline-flex items-center gap-2 px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                  active
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-link dark:text-darklink hover:text-primary'
-                }`}>
-                <Icon icon={tb.icon} height={17} width={17} />
-                {t(tb.labelKey)}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+    // Tabs on the LEFT as a vertical nav on desktop (Andrés 2026-09-20); on narrow
+    // screens they stack on top as wrapping chips so the page stays usable.
+    <div className='flex flex-col gap-4 md:flex-row md:gap-6'>
+      <nav className='flex flex-wrap gap-1 md:w-60 md:shrink-0 md:flex-col md:flex-nowrap'>
+        {TABS.map((tb) => {
+          const active = tb.key === tab
+          return (
+            <button
+              key={tb.key}
+              type='button'
+              onClick={() => setTab(tb.key)}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap rounded-md transition-colors md:w-full md:justify-start ${
+                active
+                  ? 'bg-lightprimary text-primary'
+                  : 'text-link dark:text-darklink hover:text-primary hover:bg-lightprimary/40'
+              }`}>
+              <Icon icon={tb.icon} height={17} width={17} className='shrink-0' />
+              {t(tb.labelKey)}
+            </button>
+          )
+        })}
+      </nav>
 
+      <div className='min-w-0 flex-1'>
       {tab === 'treatments' && <TreatmentsToggle />}
       {tab === 'prices' && <PricesSection />}
       {tab === 'cotizadores' && <CotizadoresSection />}
@@ -105,6 +103,7 @@ export function AutoGestionTabs() {
       {tab === 'intros' && <IntrosSection />}
       {tab === 'faq' && <FaqSection />}
       {tab === 'consents' && <ConsentimientosSection />}
+      </div>
     </div>
   )
 }
