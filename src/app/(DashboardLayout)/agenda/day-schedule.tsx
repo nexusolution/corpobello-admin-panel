@@ -7,7 +7,7 @@
 // the turno(s) that START in that hour (stacked if several). Clicking a turno opens
 // it; clicking an empty cell creates one pre-filled with that hour/sucursal/prof.
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CalendarEvent } from '@/lib/data/calendar-events'
 import { useHorizontalDragScroll } from './use-hscroll'
 
@@ -42,6 +42,13 @@ interface DayScheduleProps {
   emptyLabel: string
   newLabel: string
   lunchLabel: string
+  // Row granularity in minutes (5/10/15/20/30/60): every free interval at this
+  // step is its own clickable slot (Andrés #14).
+  scaleMin: number
+  // Editable visible range controls.
+  earlierLabel: string
+  laterLabel: string
+  resetHoursLabel: string
 }
 
 // Midday break: the 13:00–14:00 row shows "ALMUERZO" in every column (unless a
@@ -97,6 +104,10 @@ export function DaySchedule({
   emptyLabel,
   newLabel,
   lunchLabel,
+  scaleMin,
+  earlierLabel,
+  laterLabel,
+  resetHoursLabel,
 }: DayScheduleProps) {
   // Long, capitalised date header, e.g. "Lunes 5 de octubre de 2026".
   const rawDate = new Intl.DateTimeFormat(locale, {
@@ -124,31 +135,56 @@ export function DaySchedule({
     else groups.push({ sucursal: c.sucursal, sucColor: c.sucColor, span: 1, start: i })
   })
 
-  // Hour rows: 08–20 by default, widened to include any turno outside that band.
-  let startH = 8
-  let endH = 20
-  for (const e of turnos) {
-    const h = e.start.getHours()
-    if (h < startH) startH = h
-    if (h > endH) endH = h
-  }
-  const hours: number[] = []
-  for (let h = startH; h <= endH; h++) hours.push(h)
+  const minOfDay = (d: Date) => d.getHours() * 60 + d.getMinutes()
+  const fmtMin = (m: number) => `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`
+  const LUNCH_START = LUNCH_HOUR * 60
+  const LUNCH_END = (LUNCH_HOUR + 1) * 60
 
-  // Turnos bucketed by column id -> start hour.
-  const byColHour = new Map<string, Map<number, CalendarEvent[]>>()
+  // Visible range: 08–20 by default, widened to fit any turno, and manually
+  // expandable earlier/later (Andrés #14). Scale sets the row granularity.
+  const [earlyExtra, setEarlyExtra] = useState(0)
+  const [lateExtra, setLateExtra] = useState(0)
+  let baseStartH = 8
+  let baseEndH = 20
+  for (const e of turnos) {
+    const sh = e.start.getHours()
+    if (sh < baseStartH) baseStartH = sh
+    const eh = e.end.getHours() + (e.end.getMinutes() > 0 ? 1 : 0)
+    if (eh > baseEndH) baseEndH = eh
+  }
+  const startH = Math.max(0, baseStartH - earlyExtra)
+  const endH = Math.min(24, baseEndH + lateExtra)
+  const startMin = startH * 60
+  const endMin = endH * 60
+  const slots: number[] = []
+  for (let m = startMin; m < endMin; m += scaleMin) slots.push(m)
+
+  // Per column: turnos that START in each slot, and the slots merely COVERED by a
+  // turno's duration (occupied, not clickable) so long turnos don't leave a
+  // "free" gap under themselves.
+  const startingByCol = new Map<string, Map<number, CalendarEvent[]>>()
+  const occupiedByCol = new Map<string, Set<number>>()
   for (const e of turnos) {
     const rid = resourceIdFor(e)
-    const h = e.start.getHours()
-    let inner = byColHour.get(rid)
-    if (!inner) {
-      inner = new Map()
-      byColHour.set(rid, inner)
+    const s = minOfDay(e.start)
+    const en = minOfDay(e.end)
+    const startSlot = startMin + Math.floor((s - startMin) / scaleMin) * scaleMin
+    let m1 = startingByCol.get(rid)
+    if (!m1) {
+      m1 = new Map()
+      startingByCol.set(rid, m1)
     }
-    const arr = inner.get(h)
+    const arr = m1.get(startSlot)
     if (arr) arr.push(e)
-    else inner.set(h, [e])
+    else m1.set(startSlot, [e])
+    let occ = occupiedByCol.get(rid)
+    if (!occ) {
+      occ = new Set()
+      occupiedByCol.set(rid, occ)
+    }
+    for (let t = startSlot + scaleMin; t < en; t += scaleMin) occ.add(t)
   }
+  const slotH = Math.max(24, Math.round(scaleMin * 1.4))
 
   // Always give each column a readable min width (72px time gutter + 170px/col),
   // so on a phone the day table scrolls horizontally instead of squeezing cards
@@ -185,9 +221,9 @@ export function DaySchedule({
     }
   }, [flashEventId, onFlashDone])
 
-  const dateAtHour = (h: number) => {
+  const dateAtMin = (min: number) => {
     const d = new Date(date)
-    d.setHours(h, 0, 0, 0)
+    d.setHours(Math.floor(min / 60), min % 60, 0, 0)
     return d
   }
 
@@ -225,6 +261,37 @@ export function DaySchedule({
           </div>
         </div>
       )}
+
+      <div className='flex items-center gap-2 px-4 py-2 border-b border-border dark:border-darkborder'>
+        <button
+          type='button'
+          onClick={() => setEarlyExtra((n) => Math.min(baseStartH, n + 1))}
+          disabled={startH <= 0}
+          className='inline-flex items-center gap-1 text-xs font-medium text-link dark:text-darklink hover:text-primary disabled:opacity-40'>
+          <span className='text-sm leading-none'>↑</span>
+          {earlierLabel}
+        </button>
+        <span className='text-border dark:text-darkborder'>·</span>
+        <button
+          type='button'
+          onClick={() => setLateExtra((n) => Math.min(24 - baseEndH, n + 1))}
+          disabled={endH >= 24}
+          className='inline-flex items-center gap-1 text-xs font-medium text-link dark:text-darklink hover:text-primary disabled:opacity-40'>
+          <span className='text-sm leading-none'>↓</span>
+          {laterLabel}
+        </button>
+        {(earlyExtra > 0 || lateExtra > 0) && (
+          <button
+            type='button'
+            onClick={() => {
+              setEarlyExtra(0)
+              setLateExtra(0)
+            }}
+            className='ml-auto text-xs font-medium text-primary hover:underline'>
+            {resetHoursLabel}
+          </button>
+        )}
+      </div>
 
       <div ref={scrollRef} className='overflow-x-auto cb-hscroll'>
         <table
@@ -272,18 +339,23 @@ export function DaySchedule({
             </tr>
           </thead>
           <tbody>
-            {hours.map((h) => (
-              <tr key={h}>
-                <td className='align-top text-right pr-2 pt-2 text-xs text-link dark:text-darklink whitespace-nowrap border-b border-border/60 dark:border-darkborder/60'>
-                  {pad2(h)}:00
+            {slots.map((slotMin) => {
+              const onHour = slotMin % 60 === 0
+              const isLunch = slotMin >= LUNCH_START && slotMin < LUNCH_END
+              return (
+              <tr key={slotMin}>
+                <td className={`align-top text-right pr-2 pt-1 whitespace-nowrap border-b border-border/60 dark:border-darkborder/60 ${onHour ? 'text-xs font-semibold text-dark dark:text-white' : 'text-[10px] text-link/70 dark:text-darklink/70'}`}>
+                  {fmtMin(slotMin)}
                 </td>
                 {columns.map((c, i) => {
                   const groupStart = groups.some((g) => g.start === i)
-                  const cell = byColHour.get(c.resourceId)?.get(h) ?? []
+                  const cell = (startingByCol.get(c.resourceId)?.get(slotMin) ?? []).slice()
                   cell.sort((a, b) => a.start.getTime() - b.start.getTime())
+                  const occupied = occupiedByCol.get(c.resourceId)?.has(slotMin) ?? false
                   return (
                     <td
                       key={c.resourceId}
+                      style={{ height: slotH }}
                       className={`align-top p-1 border-b border-border/60 dark:border-darkborder/60 ${
                         groupStart && i > 0 ? 'border-l border-border dark:border-darkborder' : ''
                       }`}>
@@ -341,16 +413,22 @@ export function DaySchedule({
                             </div>
                           ))}
                         </div>
-                      ) : h === LUNCH_HOUR ? (
-                        <div className='rounded-md bg-gray-100 dark:bg-white/5 text-link dark:text-darklink text-[11px] font-medium uppercase tracking-wide text-center py-3'>
-                          {lunchLabel}
+                      ) : occupied ? (
+                        // Slot covered by a turno that started earlier: busy, not
+                        // clickable (a faint tint distinguishes it from a free slot).
+                        <div className='w-full h-full rounded bg-black/[0.03] dark:bg-white/[0.04]' style={{ minHeight: slotH - 8 }} />
+                      ) : isLunch ? (
+                        <div
+                          className='rounded-md bg-gray-100 dark:bg-white/5 text-link dark:text-darklink text-[10px] font-medium uppercase tracking-wide text-center flex items-center justify-center'
+                          style={{ minHeight: slotH - 8 }}>
+                          {slotMin === LUNCH_START ? lunchLabel : ''}
                         </div>
                       ) : (
                         <button
                           type='button'
                           onClick={() => {
-                            const start = dateAtHour(h)
-                            const end = new Date(start.getTime() + 30 * 60000)
+                            const start = dateAtMin(slotMin)
+                            const end = new Date(start.getTime() + scaleMin * 60000)
                             const sucursal = c.sucursal || undefined
                             const professionalId = c.resourceId.startsWith('sp:')
                               ? c.resourceId.slice(c.resourceId.indexOf(':', 3) + 1)
@@ -358,14 +436,17 @@ export function DaySchedule({
                             onCreate(start, end, sucursal, professionalId)
                           }}
                           aria-label={newLabel}
-                          className='w-full min-h-[46px] rounded-md hover:bg-primary/5 transition-colors'
+                          title={newLabel}
+                          className='w-full rounded-md hover:bg-primary/5 transition-colors'
+                          style={{ minHeight: slotH - 8 }}
                         />
                       )}
                     </td>
                   )
                 })}
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>

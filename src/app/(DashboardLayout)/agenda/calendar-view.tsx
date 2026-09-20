@@ -3257,6 +3257,10 @@ export function CalendarView() {
             emptyLabel={t('agenda.noProfessional')}
             newLabel={t('agendaCal.new')}
             lunchLabel={t('agenda.lunch')}
+            scaleMin={scaleMin}
+            earlierLabel={t('agenda.showEarlier')}
+            laterLabel={t('agenda.showLater')}
+            resetHoursLabel={t('agenda.resetHours')}
           />
         </div>
       )}
