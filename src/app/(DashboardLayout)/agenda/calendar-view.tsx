@@ -11,7 +11,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { computeAge } from '@/lib/age'
 import { Icon } from '@iconify/react'
 import Swal from 'sweetalert2'
@@ -2678,22 +2678,35 @@ export function CalendarView() {
   // on that turno's date in Vista Día and FLASHES the exact card, keeping the
   // agenda context instead of opening the editor directly (Andrés punto 3). The
   // user then clicks the card to open it normally.
+  //
+  // Read the params REACTIVELY (useSearchParams), not from window.location in a
+  // one-shot initializer: Next's App Router keeps this route mounted and only
+  // swaps the query on client navigation, so a state initializer would never
+  // re-run and the deep-link would land on whatever view was already open.
   const [flashEventId, setFlashEventId] = useState<string | null>(null)
-  const pendingEventId = useMemo(() => {
-    if (typeof window === 'undefined') return null
-    return new URLSearchParams(window.location.search).get('event')
-  }, [])
-  const openedPendingRef = useRef(false)
+  const searchParams = useSearchParams()
+  const eventParam = searchParams.get('event')
+  const dateParam = searchParams.get('date')
+  // 1) Navigate to Día on the linked date as soon as the param appears (even
+  //    before that day's turnos have loaded), so the right day's data fetches.
+  const navigatedForRef = useRef<string | null>(null)
   useEffect(() => {
-    if (openedPendingRef.current || !pendingEventId || events.length === 0) return
-    const ev = events.find((e) => e.id === pendingEventId)
-    if (!ev) return
-    openedPendingRef.current = true
+    if (!eventParam || navigatedForRef.current === eventParam) return
+    navigatedForRef.current = eventParam
     setView(Views.DAY)
     setColumnMode('professional')
+    if (dateParam) setDate(new Date(`${dateParam}T00:00:00`))
+  }, [eventParam, dateParam])
+  // 2) Once the exact turno is loaded, pin the date to it and flash the card.
+  const flashedForRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!eventParam || events.length === 0 || flashedForRef.current === eventParam) return
+    const ev = events.find((e) => e.id === eventParam)
+    if (!ev) return
+    flashedForRef.current = eventParam
     setDate(new Date(ev.start))
     setFlashEventId(ev.id)
-  }, [events, pendingEventId])
+  }, [events, eventParam])
 
   const messages = useMemo(
     () => ({

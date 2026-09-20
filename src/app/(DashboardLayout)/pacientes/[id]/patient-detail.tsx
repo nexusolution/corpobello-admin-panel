@@ -131,6 +131,7 @@ function formatDateTime(iso: string, locale: string): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false, // 24h everywhere (Andrés #15), regardless of UI locale
   }).format(d)
 }
 
