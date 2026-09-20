@@ -7,7 +7,7 @@
 // the turno(s) that START in that hour (stacked if several). Clicking a turno opens
 // it; clicking an empty cell creates one pre-filled with that hour/sucursal/prof.
 
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import type { CalendarEvent } from '@/lib/data/calendar-events'
 import { useHorizontalDragScroll } from './use-hscroll'
 
@@ -23,6 +23,11 @@ interface DayScheduleProps {
   columns: DayColumn[]
   turnos: CalendarEvent[]
   resourceIdFor: (e: CalendarEvent) => string
+  // Deep-link from the ficha (Reservas → turno): scroll to this turno's card and
+  // flash it briefly, keeping the agenda context (Andrés punto 3). Cleared via
+  // onFlashDone once the highlight finishes.
+  flashEventId?: string | null
+  onFlashDone?: () => void
   onOpenTurno: (e: CalendarEvent) => void
   onCreate: (start: Date, end: Date, sucursal?: string, professionalId?: string) => void
   treatmentColor: (slug: string | null | undefined, name?: string) => string
@@ -74,6 +79,8 @@ export function DaySchedule({
   columns,
   turnos,
   resourceIdFor,
+  flashEventId,
+  onFlashDone,
   onOpenTurno,
   onCreate,
   treatmentColor,
@@ -144,6 +151,33 @@ export function DaySchedule({
 
   const scrollRef = useRef<HTMLDivElement>(null)
   useHorizontalDragScroll(scrollRef)
+
+  // Ficha deep-link (punto 3): once the target turno's card is in the DOM, scroll
+  // it into view (hour + column) and flash it, then clear the flag.
+  useEffect(() => {
+    if (!flashEventId) return
+    let done = false
+    const run = () => {
+      if (done) return
+      const el = document.querySelector<HTMLElement>(`[data-eventid="${flashEventId}"]`)
+      if (!el) return
+      done = true
+      el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+      el.classList.add('cb-flash')
+      window.setTimeout(() => {
+        el.classList.remove('cb-flash')
+        onFlashDone?.()
+      }, 2600)
+    }
+    // Try now and on the next frame (the card may mount a tick after this runs).
+    run()
+    const raf = requestAnimationFrame(run)
+    const t = window.setTimeout(run, 200)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.clearTimeout(t)
+    }
+  }, [flashEventId, onFlashDone])
 
   const dateAtHour = (h: number) => {
     const d = new Date(date)
@@ -230,6 +264,7 @@ export function DaySchedule({
                                   <button
                                     key={e.id}
                                     type='button'
+                                    data-eventid={e.id}
                                     onClick={() => onOpenTurno(e)}
                                     className='flex items-stretch flex-1 min-w-0 text-left rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition'
                                     style={{ backgroundColor: cardBg(e.status) }}>

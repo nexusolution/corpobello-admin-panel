@@ -1992,6 +1992,9 @@ export function CalendarView() {
       if (dayMap) for (const s of dayMap.keys()) if (s !== NONE_RESOURCE) sucs.add(s)
       const orderedSucs = SUCURSALES.filter((s) => sucs.has(s))
       const cols: DayCol[] = []
+      // Professionals that have a column somewhere today, so a null-sucursal turno
+      // for one of them routes to their column instead of "Sin asignar" (punto 4).
+      const spProfIds = new Set<string>()
       let hasUnassigned = false
       for (const suc of orderedSucs) {
         // "Who works here today" = professionals with a PROFESSIONAL-SPECIFIC
@@ -2020,18 +2023,25 @@ export function CalendarView() {
             sucColor: sucursalColor(suc),
           })
         } else {
-          for (const p of profList)
+          for (const p of profList) {
+            spProfIds.add(p.value)
             cols.push({
               resourceId: `sp:${suc}:${p.value}`,
               resourceTitle: p.label,
               sucursal: suc,
               sucColor: sucursalColor(suc),
             })
+          }
         }
       }
       // Turnos with no sucursal (or an unrecognised one) live under the NONE key
-      // and are never iterated above — surface them in the catch-all too (bug #4).
-      if ((dayMap?.get(NONE_RESOURCE)?.length ?? 0) > 0) hasUnassigned = true
+      // and are never iterated above. They surface in the catch-all ONLY when they
+      // can't be routed to a professional column — a null-sucursal turno whose
+      // professional already has a column goes there instead (Andrés punto 4).
+      for (const tt of dayMap?.get(NONE_RESOURCE) ?? []) {
+        if (tt.professionalId && spProfIds.has(tt.professionalId)) continue
+        hasUnassigned = true
+      }
       if (hasUnassigned)
         cols.push({
           resourceId: NONE_RESOURCE,
@@ -2051,12 +2061,21 @@ export function CalendarView() {
   )
 
   // Map a turno to its hybrid column: prefer the exact (sucursal, profesional)
-  // pair, else the sucursal-only column, else the unassigned bucket.
+  // pair; if the sucursal is missing/mismatched but the PROFESSIONAL is known,
+  // still place it in that professional's column anywhere they work that day
+  // (professional and sucursal are independent — Andrés 2026-09-20, punto 4);
+  // else the sucursal-only column, else the unassigned bucket.
   const hybridResourceIdFor = useCallback(
     (e: CalendarEvent, colIds: Set<string>) => {
       const suc = e.sucursal || ''
-      if (e.professionalId && colIds.has(`sp:${suc}:${e.professionalId}`))
-        return `sp:${suc}:${e.professionalId}`
+      if (e.professionalId) {
+        const exact = `sp:${suc}:${e.professionalId}`
+        if (colIds.has(exact)) return exact
+        // Sucursal missing/unknown → fall back to this professional's column.
+        for (const id of colIds) {
+          if (id.startsWith('sp:') && id.endsWith(`:${e.professionalId}`)) return id
+        }
+      }
       if (colIds.has(`su:${suc}`)) return `su:${suc}`
       return NONE_RESOURCE
     },
@@ -2668,8 +2687,11 @@ export function CalendarView() {
     })
   }, [])
 
-  // Deep-link from the patient ficha (Reservas → click turno): ?event=<id> opens
-  // that exact turno once the events have loaded, on its own date (Andrés #3).
+  // Deep-link from the patient ficha (Reservas → click turno): ?event=<id> lands
+  // on that turno's date in Vista Día and FLASHES the exact card, keeping the
+  // agenda context instead of opening the editor directly (Andrés punto 3). The
+  // user then clicks the card to open it normally.
+  const [flashEventId, setFlashEventId] = useState<string | null>(null)
   const pendingEventId = useMemo(() => {
     if (typeof window === 'undefined') return null
     return new URLSearchParams(window.location.search).get('event')
@@ -2680,9 +2702,11 @@ export function CalendarView() {
     const ev = events.find((e) => e.id === pendingEventId)
     if (!ev) return
     openedPendingRef.current = true
+    setView(Views.DAY)
+    setColumnMode('professional')
     setDate(new Date(ev.start))
-    onSelectEvent(ev)
-  }, [events, pendingEventId, onSelectEvent])
+    setFlashEventId(ev.id)
+  }, [events, pendingEventId])
 
   const messages = useMemo(
     () => ({
@@ -3173,6 +3197,8 @@ export function CalendarView() {
             columns={dayHybridResources}
             turnos={dayTurnos}
             resourceIdFor={dayResourceIdFor}
+            flashEventId={flashEventId}
+            onFlashDone={() => setFlashEventId(null)}
             onOpenTurno={onSelectEvent}
             onCreate={(start, end, sucursal, professionalId) =>
               openAdd(start, end, false, sucursal, professionalId)

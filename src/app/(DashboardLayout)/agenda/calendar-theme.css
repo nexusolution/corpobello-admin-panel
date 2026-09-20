@@ -518,3 +518,25 @@
   background: #45526a;
   background-clip: content-box;
 }
+
+/* Ficha deep-link (Andrés punto 3): temporary highlight of the exact turno card
+   the user arrived from, so they can spot it without opening the editor. */
+@keyframes cb-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(93, 135, 255, 0);
+  }
+  12% {
+    box-shadow: 0 0 0 4px rgba(93, 135, 255, 0.85);
+  }
+  70% {
+    box-shadow: 0 0 0 4px rgba(93, 135, 255, 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(93, 135, 255, 0);
+  }
+}
+.cb-flash {
+  animation: cb-flash 2.5s ease-out;
+  position: relative;
+  z-index: 5;
+}
