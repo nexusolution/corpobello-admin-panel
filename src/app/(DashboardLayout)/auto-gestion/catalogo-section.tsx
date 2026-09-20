@@ -20,7 +20,13 @@ import { getTreatmentColor } from '@/lib/treatment-colors'
 import { Switch } from '@/components/ui/switch'
 import { useTranslation } from '@/lib/i18n/context'
 
-export function CatalogoSection() {
+export function CatalogoSection({
+  onNavigate,
+}: {
+  // Jump to a sibling Autogestión tab to finish configuring a treatment
+  // (availability/professionals/sucursales, or price) — Andrés punto 8.
+  onNavigate?: (tab: 'disponibilidad' | 'prices') => void
+}) {
   const { t } = useTranslation()
   const [items, setItems] = useState<TreatmentCatalogItem[]>([])
   const [colors, setColors] = useState<Map<string, string>>(new Map())
@@ -284,6 +290,29 @@ export function CatalogoSection() {
         <Icon icon='solar:info-circle-line-duotone' height={14} width={14} className='mt-0.5 shrink-0' />
         {t('autoGestion.catalog.footNote')}
       </p>
+
+      {/* Finish configuring a treatment in its sibling tabs (Andrés punto 8): the
+          duration and colour are set here; availability/professionals/sucursales
+          in Disponibilidad, and the price in Precios. */}
+      {onNavigate && (
+        <div className='flex flex-wrap items-center gap-2 pt-1'>
+          <span className='text-xs text-link dark:text-darklink'>{t('autoGestion.catalog.configHint')}</span>
+          <button
+            type='button'
+            onClick={() => onNavigate('disponibilidad')}
+            className='inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border dark:border-darkborder text-xs font-medium text-dark dark:text-white hover:border-primary hover:text-primary transition-colors'>
+            <Icon icon='solar:calendar-mark-line-duotone' height={14} width={14} />
+            {t('autoGestion.catalog.goAvailability')}
+          </button>
+          <button
+            type='button'
+            onClick={() => onNavigate('prices')}
+            className='inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border dark:border-darkborder text-xs font-medium text-dark dark:text-white hover:border-primary hover:text-primary transition-colors'>
+            <Icon icon='solar:tag-price-line-duotone' height={14} width={14} />
+            {t('autoGestion.catalog.goPrices')}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

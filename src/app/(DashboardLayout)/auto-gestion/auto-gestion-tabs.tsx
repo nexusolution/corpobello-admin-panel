@@ -39,8 +39,11 @@ type TabKey =
   | 'consents'
 
 const TABS: { key: TabKey; labelKey: TranslationKey; icon: string }[] = [
-  { key: 'treatments', labelKey: 'autoGestion.treatments.heading', icon: 'solar:widget-line-duotone' },
+  // Treatment self-management is the primary entry (Andrés 2026-09-20, punto 8):
+  // the catalog (add/rename/reorder/enable-disable/colour/duration) comes first,
+  // then the bot-menu on/off toggle.
   { key: 'catalogo', labelKey: 'autoGestion.catalog.heading', icon: 'solar:list-check-line-duotone' },
+  { key: 'treatments', labelKey: 'autoGestion.treatments.heading', icon: 'solar:widget-line-duotone' },
   { key: 'prices', labelKey: 'autoGestion.prices.heading', icon: 'solar:tag-price-line-duotone' },
   { key: 'cotizadores', labelKey: 'autoGestion.cotizadores.heading', icon: 'solar:calculator-line-duotone' },
   { key: 'promos', labelKey: 'autoGestion.promos.heading', icon: 'solar:tag-horizontal-line-duotone' },
@@ -58,7 +61,7 @@ const TABS: { key: TabKey; labelKey: TranslationKey; icon: string }[] = [
 
 export function AutoGestionTabs() {
   const { t } = useTranslation()
-  const [tab, setTab] = useState<TabKey>('treatments')
+  const [tab, setTab] = useState<TabKey>('catalogo')
 
   return (
     <div className='space-y-6'>
@@ -93,7 +96,7 @@ export function AutoGestionTabs() {
       {tab === 'promos' && <PromocionesSection />}
       {tab === 'horarios' && <HorariosSection />}
       {tab === 'disponibilidad' && <DisponibilidadSection />}
-      {tab === 'catalogo' && <CatalogoSection />}
+      {tab === 'catalogo' && <CatalogoSection onNavigate={setTab} />}
       {tab === 'packs' && <PacksSection />}
       {tab === 'estados' && <EstadosSection />}
       {tab === 'colores' && <ColoresSection />}
