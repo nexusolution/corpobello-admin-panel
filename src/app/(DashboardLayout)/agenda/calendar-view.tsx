@@ -504,6 +504,11 @@ type Draft = {
 
 const SELECT_CLS =
   'mt-1 w-full pl-2.5 pr-9 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+// For the CUSTOM (Popover) selects that render their own chevron: same styling but
+// a normal right padding (not pr-9, which is reserved for a native arrow), so the
+// chevron sits at the right end aligned with the native selects (Andrés 2026-09-20).
+const SELECT_TRIGGER_CLS =
+  'mt-1 w-full pl-2.5 pr-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
 
 // Status picker with a colour dot per estado (native <option> can't be coloured).
 function StatusSelect({
@@ -525,7 +530,7 @@ function StatusSelect({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type='button' className={`${SELECT_CLS} flex items-center justify-between gap-2 text-left`}>
+        <button type='button' className={`${SELECT_TRIGGER_CLS} flex items-center justify-between gap-2 text-left`}>
           <span className='flex items-center gap-2 truncate'>
             <span className='h-2.5 w-2.5 rounded-full shrink-0' style={{ backgroundColor: colorFor(value) }} />
             <span className='truncate'>{labelFor(value)}</span>
@@ -574,7 +579,7 @@ function TreatmentSelect({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type='button' className={`${SELECT_CLS} flex items-center justify-between gap-2 text-left`}>
+        <button type='button' className={`${SELECT_TRIGGER_CLS} flex items-center justify-between gap-2 text-left`}>
           <span className='flex items-center gap-2 truncate'>
             {value && (
               <span
