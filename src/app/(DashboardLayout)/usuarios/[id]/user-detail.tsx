@@ -98,7 +98,7 @@ function formatDateTime(iso: string, locale: string): { date: string; time: stri
   const timeFmt = new Intl.DateTimeFormat(locale === 'es' ? 'es-AR' : 'en-US', {
     hour: '2-digit',
     minute: '2-digit',
-    hour12: true,
+    hour12: false, // 24h everywhere (Andrés #15)
   })
   return { date: dateFmt.format(d), time: timeFmt.format(d) }
 }
