@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Icon } from '@iconify/react'
 
 import { TreatmentsToggle } from './treatments-toggle'
@@ -76,7 +76,22 @@ const GROUPS: { titleKey: TranslationKey; keys: TabKey[] }[] = [
 
 export function AutoGestionTabs() {
   const { t } = useTranslation()
-  const [tab, setTab] = useState<TabKey>('catalogo')
+  // Deep-link support (Andrés #1b): ?tab opens a section, and prof/suc/date
+  // pre-position the availability editor. Read once on mount (the agenda opens
+  // this with a full navigation, so window.location is fresh).
+  const [tab, setTab] = useState<TabKey>(() => {
+    if (typeof window === 'undefined') return 'catalogo'
+    const q = new URLSearchParams(window.location.search).get('tab')
+    return (TABS.some((x) => x.key === q) ? q : 'catalogo') as TabKey
+  })
+  const initialDispo = useMemo(() => {
+    if (typeof window === 'undefined') return null
+    const p = new URLSearchParams(window.location.search)
+    const prof = p.get('prof') ?? ''
+    const suc = p.get('suc') ?? ''
+    const date = p.get('date') ?? ''
+    return prof || suc ? { prof, suc, date } : null
+  }, [])
 
   return (
     // Tabs on the LEFT as a vertical nav on desktop (Andrés 2026-09-20); on narrow
@@ -117,7 +132,7 @@ export function AutoGestionTabs() {
       {tab === 'cotizadores' && <CotizadoresSection />}
       {tab === 'promos' && <PromocionesSection />}
       {tab === 'horarios' && <HorariosSection />}
-      {tab === 'disponibilidad' && <DisponibilidadSection />}
+      {tab === 'disponibilidad' && <DisponibilidadSection initialFocus={initialDispo} />}
       {tab === 'catalogo' && <CatalogoSection onNavigate={setTab} />}
       {tab === 'packs' && <PacksSection />}
       {tab === 'estados' && <EstadosSection />}

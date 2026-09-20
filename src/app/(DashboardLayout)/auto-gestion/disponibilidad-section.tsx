@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '@iconify/react'
 import Swal from 'sweetalert2'
 import moment from 'moment'
@@ -268,7 +268,13 @@ function draftToRule(d: Draft): AvailabilityRule {
   }
 }
 
-export function DisponibilidadSection() {
+export function DisponibilidadSection({
+  initialFocus,
+}: {
+  // Deep-link from the agenda's "Editar disponibilidad" (Andrés #1b): open a new
+  // rule draft pre-filled with this professional + sucursal (+ the date's weekday).
+  initialFocus?: { prof: string; suc: string; date: string } | null
+} = {}) {
   const { t, locale } = useTranslation() as { t: TFn; locale: string }
   const [rules, setRules] = useState<AvailabilityRule[]>([])
   const [exclusions, setExclusions] = useState<AvailabilityExclusion[]>([])
@@ -300,6 +306,23 @@ export function DisponibilidadSection() {
       setLoading(false)
     })
   }
+
+  // Deep-link: open a new rule draft pre-filled with the professional/sucursal
+  // (and the date's weekday) that the agenda sent us (Andrés #1b). Once.
+  const focusAppliedRef = useRef(false)
+  useEffect(() => {
+    if (!initialFocus || focusAppliedRef.current) return
+    focusAppliedRef.current = true
+    const d = emptyDraft()
+    if (initialFocus.suc) d.sucursal = initialFocus.suc
+    if (initialFocus.prof) d.professionalId = initialFocus.prof
+    if (initialFocus.date) {
+      const wd = new Date(`${initialFocus.date}T12:00:00`).getDay() as Weekday
+      d.patternType = 'weekly'
+      d.weekly = [wd]
+    }
+    setDraft(d)
+  }, [initialFocus])
 
   useEffect(() => {
     void reload()

@@ -967,7 +967,16 @@ function EventDialog({
           cancelButtonColor: isDarkNow ? '#3f4a5d' : '#e5e7eb',
         })
         if (res.isDenied) {
-          if (typeof window !== 'undefined') window.location.href = '/auto-gestion'
+          // Open Autogestión → Disponibilidad already positioned on this
+          // professional + sucursal (+ the date's weekday) so the admin doesn't
+          // have to hunt for it (Andrés #1b).
+          if (typeof window !== 'undefined') {
+            const qs = new URLSearchParams({ tab: 'disponibilidad' })
+            if (professionalId) qs.set('prof', professionalId)
+            if (sucursal) qs.set('suc', sucursal)
+            if (startStr) qs.set('date', startStr)
+            window.location.href = `/auto-gestion?${qs.toString()}`
+          }
           return
         }
         if (!res.isConfirmed) return
