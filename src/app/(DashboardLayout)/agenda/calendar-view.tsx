@@ -3100,7 +3100,9 @@ export function CalendarView() {
               <span className='font-medium'>{t('agenda.treatmentLegend')}:</span>
               {treatmentLegend.map((tl) => (
                 <span key={tl.label} className='inline-flex items-center gap-1.5'>
-                  <span className='h-3 w-3 rounded-full' style={{ backgroundColor: tl.color }} />
+                  {/* A short bar (not a circle): the treatment colour is the left
+                      bar in Semana/Día/Agenda (Andrés 2026-09-20, punto 6). */}
+                  <span className='h-3 w-1.5 rounded-sm' style={{ backgroundColor: tl.color }} />
                   {tl.label}
                 </span>
               ))}
