@@ -9,6 +9,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { CalendarEvent } from '@/lib/data/calendar-events'
+import type { LunchWindow } from '@/lib/data/lunch'
 import { useHorizontalDragScroll } from './use-hscroll'
 
 export interface DayColumn {
@@ -49,11 +50,12 @@ interface DayScheduleProps {
   earlierLabel: string
   laterLabel: string
   resetHoursLabel: string
+  // Configurable lunch (Andrés punto 5): the lunch window per column, and a click
+  // handler to edit/remove it just for this day.
+  lunchFor: (col: DayColumn) => LunchWindow | null
+  onEditLunch: (col: DayColumn) => void
 }
 
-// Midday break: the 13:00–14:00 row shows "ALMUERZO" in every column (unless a
-// turno was actually scheduled over lunch) — Andrés 2026-09-16.
-const LUNCH_HOUR = 13
 // Solid green cobro block on the right of a charged turno (matches the reference).
 const PAY_GREEN = '#16a34a'
 
@@ -108,6 +110,8 @@ export function DaySchedule({
   earlierLabel,
   laterLabel,
   resetHoursLabel,
+  lunchFor,
+  onEditLunch,
 }: DayScheduleProps) {
   // Long, capitalised date header, e.g. "Lunes 5 de octubre de 2026".
   const rawDate = new Intl.DateTimeFormat(locale, {
@@ -137,8 +141,8 @@ export function DaySchedule({
 
   const minOfDay = (d: Date) => d.getHours() * 60 + d.getMinutes()
   const fmtMin = (m: number) => `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`
-  const LUNCH_START = LUNCH_HOUR * 60
-  const LUNCH_END = (LUNCH_HOUR + 1) * 60
+  // Configurable lunch window per column (Andrés punto 5).
+  const lunchByCol = new Map(columns.map((c) => [c.resourceId, lunchFor(c)]))
 
   // Visible range: 08–20 by default, widened to fit any turno, and manually
   // expandable earlier/later (Andrés #14). Scale sets the row granularity.
@@ -341,7 +345,6 @@ export function DaySchedule({
           <tbody>
             {slots.map((slotMin) => {
               const onHour = slotMin % 60 === 0
-              const isLunch = slotMin >= LUNCH_START && slotMin < LUNCH_END
               return (
               <tr key={slotMin}>
                 <td className={`align-top text-right pr-2 pt-1 whitespace-nowrap border-b border-border/60 dark:border-darkborder/60 ${onHour ? 'text-xs font-semibold text-dark dark:text-white' : 'text-[10px] text-link/70 dark:text-darklink/70'}`}>
@@ -352,6 +355,9 @@ export function DaySchedule({
                   const cell = (startingByCol.get(c.resourceId)?.get(slotMin) ?? []).slice()
                   cell.sort((a, b) => a.start.getTime() - b.start.getTime())
                   const occupied = occupiedByCol.get(c.resourceId)?.has(slotMin) ?? false
+                  const lw = lunchByCol.get(c.resourceId) ?? null
+                  const isLunch = !!lw && slotMin >= lw.startMin && slotMin < lw.endMin
+                  const isLunchTop = isLunch && slotMin - scaleMin < (lw as LunchWindow).startMin
                   return (
                     <td
                       key={c.resourceId}
@@ -418,11 +424,16 @@ export function DaySchedule({
                         // clickable (a faint tint distinguishes it from a free slot).
                         <div className='w-full h-full rounded bg-black/[0.03] dark:bg-white/[0.04]' style={{ minHeight: slotH - 8 }} />
                       ) : isLunch ? (
-                        <div
-                          className='rounded-md bg-gray-100 dark:bg-white/5 text-link dark:text-darklink text-[10px] font-medium uppercase tracking-wide text-center flex items-center justify-center'
+                        // Click the ALMUERZO block to move/remove lunch just for
+                        // this day (Andrés punto 5).
+                        <button
+                          type='button'
+                          onClick={() => onEditLunch(c)}
+                          title={lunchLabel}
+                          className='w-full rounded-md bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-link dark:text-darklink text-[10px] font-medium uppercase tracking-wide text-center flex items-center justify-center transition-colors'
                           style={{ minHeight: slotH - 8 }}>
-                          {slotMin === LUNCH_START ? lunchLabel : ''}
-                        </div>
+                          {isLunchTop ? lunchLabel : ''}
+                        </button>
                       ) : (
                         <button
                           type='button'

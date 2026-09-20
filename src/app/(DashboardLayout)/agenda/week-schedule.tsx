@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, type ReactNode } from 'react'
 import type { CalendarEvent } from '@/lib/data/calendar-events'
+import type { LunchWindow } from '@/lib/data/lunch'
 import type { DayColumn } from './day-schedule'
 
 interface WeekScheduleProps {
@@ -20,6 +21,8 @@ interface WeekScheduleProps {
   // Map a turno to its column id within a given day's column set (same hybrid
   // resolver the Day view uses), so each day can split into professional subcolumns.
   resourceIdFor: (e: CalendarEvent, colIds: Set<string>) => string
+  // Configurable lunch window per (day, subcolumn) — Andrés punto 5.
+  lunchFor: (day: Date, col: DayColumn) => LunchWindow | null
   turnos: CalendarEvent[]
   onOpenTurno: (e: CalendarEvent) => void
   onOpenDay: (day: Date) => void
@@ -35,7 +38,6 @@ interface WeekScheduleProps {
   emptyLabel: string
 }
 
-const LUNCH_HOUR = 13
 const PAY_GREEN = '#16a34a'
 
 function pad2(n: number): string {
@@ -56,6 +58,7 @@ export function WeekSchedule({
   focusDate,
   columnsForDay,
   resourceIdFor,
+  lunchFor,
   turnos,
   onOpenTurno,
   onOpenDay,
@@ -377,7 +380,8 @@ export function WeekSchedule({
         const list = (buckets.get(f.ds)?.get(c.resourceId)?.get(h) ?? [])
           .slice()
           .sort((a, b) => a.start.getTime() - b.start.getTime())
-        const isLunch = h === LUNCH_HOUR && list.length === 0
+        const lw = lunchFor(f.day, c)
+        const isLunch = !!lw && lw.startMin < (h + 1) * 60 && lw.endMin > h * 60 && list.length === 0
         cells.push(
           <div
             key={`c-${f.ds}-${col}-${h}`}

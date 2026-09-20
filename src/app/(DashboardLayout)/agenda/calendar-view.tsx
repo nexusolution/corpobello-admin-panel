@@ -73,6 +73,14 @@ import {
 } from '@/lib/scheduling/availability'
 import { suggestDurationMinutes } from '@/lib/scheduling/duration'
 import {
+  fetchLunch,
+  resolveLunch,
+  saveLunchOverride,
+  type LunchConfig,
+  type LunchOverride,
+  type LunchWindow,
+} from '@/lib/data/lunch'
+import {
   fetchPackConfigs,
   fetchActivePacks,
   createPatientPack,
@@ -626,6 +634,7 @@ function EventDialog({
   exclusions,
   catalogSlugs,
   treatmentDurations,
+  lunchFor,
   allEvents,
   isSucursalClosed,
   closureReasonFor,
@@ -654,6 +663,9 @@ function EventDialog({
   // Per-treatment self-managed duration (slug -> minutes); overrides the slug
   // heuristic when auto-blocking a turno's end time.
   treatmentDurations: Map<string, number>
+  // Resolve the lunch window for (sucursal, professional, date) — used to block
+  // booking over lunch (Andrés punto 5).
+  lunchFor: (sucursal: string, professionalId: string | undefined, dateStr: string) => LunchWindow | null
   // All loaded turnos, to warn about overlaps (sobre-turnos) on save.
   allEvents: CalendarEvent[]
   // Is (date, sucursal) closed by a feriado/branch-closure block? + the reason to
@@ -991,6 +1003,50 @@ function EventDialog({
           confirmButtonColor: '#5d87ff',
         })
         return
+      }
+    }
+    // Almuerzo (Andrés punto 5): no se agenda dentro del almuerzo. Secretaría
+    // bloqueada; Admin puede autorizar una excepción. Solo al colocar/mover.
+    if (!allDay && sucursal && placementChanged) {
+      const lunch = lunchFor(sucursal, professionalId || undefined, startStr)
+      if (lunch) {
+        const s = dateTime(startStr, startTime)
+        const e = dateTime(startStr, endTime)
+        const sMin = s.getHours() * 60 + s.getMinutes()
+        const eMin = e.getHours() * 60 + e.getMinutes()
+        if (sMin < lunch.endMin && eMin > lunch.startMin) {
+          const commonSwal = {
+            background: isDarkNow ? '#2a3547' : '#ffffff',
+            color: isDarkNow ? '#ffffff' : '#2a3547',
+            width: '380px',
+            customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
+          }
+          if (isAdmin) {
+            const res = await Swal.fire({
+              ...commonSwal,
+              icon: 'warning',
+              iconColor: '#ffae1f',
+              title: t('turno.lunchTitle'),
+              text: t('turno.lunchAdminBody'),
+              showCancelButton: true,
+              confirmButtonText: t('turno.lunchAuthorize'),
+              cancelButtonText: t('agendaCal.cancel'),
+              confirmButtonColor: '#5d87ff',
+              cancelButtonColor: isDarkNow ? '#3f4a5d' : '#e5e7eb',
+            })
+            if (!res.isConfirmed) return
+          } else {
+            await Swal.fire({
+              ...commonSwal,
+              icon: 'error',
+              title: t('turno.lunchTitle'),
+              text: t('turno.lunchStaffBody'),
+              confirmButtonText: t('turno.closedBlockedOk'),
+              confirmButtonColor: '#5d87ff',
+            })
+            return
+          }
+        }
       }
     }
     // Sobre-turno: warn (do NOT block) if this timed turno overlaps another one
@@ -1639,6 +1695,9 @@ export function CalendarView() {
   const [scaleMin, setScaleMin] = useState(30)
   const [availRules, setAvailRules] = useState<AvailabilityRule[]>([])
   const [availExclusions, setAvailExclusions] = useState<AvailabilityExclusion[]>([])
+  // Configurable lunch (migration 0052): habitual config + per-day overrides.
+  const [lunchConfig, setLunchConfig] = useState<LunchConfig[]>([])
+  const [lunchOverrides, setLunchOverrides] = useState<LunchOverride[]>([])
   const [catalogSlugs, setCatalogSlugs] = useState<string[]>([])
   // Per-treatment self-managed duration (Autogestión → Catálogo, migration 0051).
   // slug -> minutes; overrides the slug heuristic when auto-blocking a turno.
@@ -1780,6 +1839,10 @@ export function CalendarView() {
       },
     )
     // Availability rules + cross-sucursal exclusions for shading + warnings.
+    void fetchLunch().then(({ config, overrides }) => {
+      setLunchConfig(config)
+      setLunchOverrides(overrides)
+    })
     void fetchAvailability().then(({ rules, exclusions }) => {
       setAvailRules(rules)
       setAvailExclusions(exclusions)
@@ -2122,6 +2185,111 @@ export function CalendarView() {
       return visibleEvents.map((e) => ({ ...e, resourceId: e.sucursal || NONE_RESOURCE }))
     return visibleEvents
   }, [columnMode, visibleEvents, dayHybridResources, hybridResourceIdFor])
+
+  // Configurable lunch (Andrés punto 5): resolve the lunch window for a
+  // (sucursal, professional, date) from the loaded config + overrides. A column's
+  // professional id is encoded in its resourceId (sp:<suc>:<prof> or sp::<prof>).
+  const profIdOfResource = (rid: string) =>
+    rid.startsWith('sp:') ? rid.slice(rid.indexOf(':', 3) + 1) : undefined
+  const lunchFor = useCallback(
+    (sucursal: string, professionalId: string | undefined, dateStr: string): LunchWindow | null =>
+      resolveLunch(sucursal, professionalId, dateStr, lunchConfig, lunchOverrides),
+    [lunchConfig, lunchOverrides],
+  )
+  const reloadLunch = useCallback(() => {
+    void fetchLunch().then(({ config, overrides }) => {
+      setLunchConfig(config)
+      setLunchOverrides(overrides)
+    })
+  }, [])
+  // Click the ALMUERZO block in Vista Día to move/remove lunch for THIS day only
+  // (an override; the habitual config stays). Admin-only — moving lunch is an
+  // authorisation, like the booking exception (Andrés punto 5).
+  const openLunchEditor = useCallback(
+    async (col: DayCol) => {
+      const isDark =
+        typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+      const commonSwal = {
+        background: isDark ? '#2a3547' : '#ffffff',
+        color: isDark ? '#ffffff' : '#2a3547',
+        width: '360px',
+        customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
+      }
+      if (role !== 'admin') {
+        await Swal.fire({ ...commonSwal, icon: 'info', title: t('turno.lunchTitle'), text: t('turno.lunchAdminOnly'), confirmButtonText: t('turno.closedBlockedOk'), confirmButtonColor: '#5d87ff' })
+        return
+      }
+      const ds = toDateInput(date)
+      const profId = profIdOfResource(col.resourceId)
+      const cur = lunchFor(col.sucursal, profId, ds)
+      const mm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+      const startCur = cur ? mm(cur.startMin) : '13:00'
+      const endCur = cur ? mm(cur.endMin) : '14:00'
+      const opts = (selected: string) => {
+        let out = ''
+        for (let m = 6 * 60; m <= 22 * 60; m += 15) {
+          const v = mm(m)
+          out += `<option value="${v}"${v === selected ? ' selected' : ''}>${v}</option>`
+        }
+        return out
+      }
+      const selCls =
+        'rounded-md border border-[#e5eaef] dark:border-[#333f55] bg-transparent px-2 py-1.5 text-sm'
+      const res = await Swal.fire({
+        ...commonSwal,
+        title: t('turno.lunchTitle'),
+        html: `<div style="display:flex;gap:12px;justify-content:center;align-items:end">
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">${t('autoGestion.lunch.from')}<select id="cb-lunch-start" class="${selCls}">${opts(startCur)}</select></label>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">${t('autoGestion.lunch.to')}<select id="cb-lunch-end" class="${selCls}">${opts(endCur)}</select></label>
+          </div>`,
+        showCancelButton: true,
+        showDenyButton: true,
+        confirmButtonText: t('turno.lunchSave'),
+        denyButtonText: t('turno.lunchRemoveDay'),
+        cancelButtonText: t('agendaCal.cancel'),
+        confirmButtonColor: '#5d87ff',
+        denyButtonColor: '#fa896b',
+        cancelButtonColor: isDark ? '#3f4a5d' : '#e5e7eb',
+        preConfirm: () => {
+          const toMin = (v: string) => {
+            const [h, m] = v.split(':').map(Number)
+            return h * 60 + m
+          }
+          const sEl = document.getElementById('cb-lunch-start') as HTMLSelectElement | null
+          const eEl = document.getElementById('cb-lunch-end') as HTMLSelectElement | null
+          const sMin = toMin(sEl?.value ?? startCur)
+          const eMin = toMin(eEl?.value ?? endCur)
+          if (eMin <= sMin) {
+            Swal.showValidationMessage(t('autoGestion.lunch.badRange'))
+            return false
+          }
+          return { sMin, eMin }
+        },
+      })
+      if (res.isConfirmed && res.value) {
+        await saveLunchOverride({
+          sucursal: col.sucursal,
+          professionalId: profId ?? null,
+          day: ds,
+          removed: false,
+          startMin: res.value.sMin,
+          endMin: res.value.eMin,
+        })
+        reloadLunch()
+      } else if (res.isDenied) {
+        await saveLunchOverride({
+          sucursal: col.sucursal,
+          professionalId: profId ?? null,
+          day: ds,
+          removed: true,
+          startMin: null,
+          endMin: null,
+        })
+        reloadLunch()
+      }
+    },
+    [date, role, lunchFor, reloadLunch, t],
+  )
 
   // Day-view schedule table (Andrés 2026-09-16): the day's (timed, non-cancelled)
   // turnos and a stable turno -> hybrid column mapping, reusing the same columns
@@ -3238,6 +3406,7 @@ export function CalendarView() {
             focusDate={date}
             columnsForDay={computeDayColumns}
             resourceIdFor={hybridResourceIdFor}
+            lunchFor={(day, col) => lunchFor(col.sucursal, profIdOfResource(col.resourceId), toDateInput(day))}
             turnos={weekTurnos}
             onOpenTurno={onSelectEvent}
             onOpenDay={openDayFromMonth}
@@ -3284,6 +3453,8 @@ export function CalendarView() {
             earlierLabel={t('agenda.showEarlier')}
             laterLabel={t('agenda.showLater')}
             resetHoursLabel={t('agenda.resetHours')}
+            lunchFor={(col) => lunchFor(col.sucursal, profIdOfResource(col.resourceId), toDateInput(date))}
+            onEditLunch={openLunchEditor}
           />
         </div>
       )}
@@ -3297,6 +3468,7 @@ export function CalendarView() {
           exclusions={availExclusions}
           catalogSlugs={catalogSlugs}
           treatmentDurations={treatmentDurations}
+          lunchFor={lunchFor}
           allEvents={events}
           isSucursalClosed={isSucursalClosed}
           closureReasonFor={closureReasonFor}
