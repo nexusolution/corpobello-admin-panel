@@ -838,42 +838,46 @@ function EventDialog({
   // Any day in the range the treatment is NOT offered at the branch (per the
   // availability rules) → warning. Uses the selected treatment when set, else
   // "any treatment" (whether the branch works at all that day).
+  // No disponibilidad programada for the turno's sucursal/date — considering the
+  // SELECTED professional when one is chosen (Andrés 2026-09-20: "ese profesional
+  // no tiene disponibilidad"). Falls back to sucursal-level when no professional.
   const hasClosedDay = useMemo(() => {
     if (!sucursal || !startStr) return false
+    const pid = professionalId || undefined
     const endBound = allDay ? endStr || startStr : startStr
     const end = new Date(`${endBound}T00:00:00`)
     for (const d = new Date(`${startStr}T00:00:00`); d <= end; d.setDate(d.getDate() + 1)) {
       const ds = toDateInput(d)
-      const w = treatmentSlug
-        ? availabilityFor(ds, sucursal, treatmentSlug, rules, exclusions)
-        : anyTreatmentAvailability(ds, sucursal, catalogSlugs, rules, exclusions)
-      if (!w.open) return true
+      const open = treatmentSlug
+        ? availabilityFor(ds, sucursal, treatmentSlug, rules, exclusions, pid).open
+        : pid
+          ? catalogSlugs.some((s) => availabilityFor(ds, sucursal, s, rules, exclusions, pid).open)
+          : anyTreatmentAvailability(ds, sucursal, catalogSlugs, rules, exclusions).open
+      if (!open) return true
     }
     return false
-  }, [sucursal, treatmentSlug, startStr, endStr, allDay, rules, exclusions, catalogSlugs])
+  }, [sucursal, treatmentSlug, professionalId, startStr, endStr, allDay, rules, exclusions, catalogSlugs])
 
   async function save() {
     if (!valid || saving) return
     const isDarkNow =
       typeof document !== 'undefined' &&
       document.documentElement.classList.contains('dark')
+    // Enforcement (feriado + disponibilidad) only fires when the turno is being
+    // PLACED onto the day for the first time: a new turno, or an existing one whose
+    // day/sucursal/range changed. Editing an existing turno in place (e.g. a
+    // Profesional's status-only update, or notes) must still save.
+    const placementChanged =
+      !isEdit ||
+      startStr !== draft.startStr ||
+      sucursal !== draft.sucursal ||
+      (allDay && (endStr || startStr) !== (draft.endStr || draft.startStr))
     // Feriado / branch-closure ENFORCEMENT (Andrés 2026-09-15): a day closed via
     // Autogestión → Feriados must not simply warn. Users without permission are
     // BLOCKED; admin/operador may FORCE with a confirmation (logged once the
     // audit trail exists). Checked per day in the range, for the turno's sucursal.
     const closedByFeriado = (() => {
-      if (!sucursal || !startStr) return false
-      // Only enforce when the turno is being PLACED onto the closed day for the
-      // first time: a new turno, or an existing one whose day/sucursal/range
-      // changed. Editing an existing turno already sitting in a now-closed day
-      // (e.g. a Profesional's status-only update, or notes) must still save —
-      // the block is to prevent new bookings, not to freeze what's already there.
-      const placementChanged =
-        !isEdit ||
-        startStr !== draft.startStr ||
-        sucursal !== draft.sucursal ||
-        (allDay && (endStr || startStr) !== (draft.endStr || draft.startStr))
-      if (!placementChanged) return false
+      if (!sucursal || !startStr || !placementChanged) return false
       const endBound = allDay ? endStr || startStr : startStr
       const end = new Date(`${endBound}T00:00:00`)
       for (const d = new Date(`${startStr}T00:00:00`); d <= end; d.setDate(d.getDate() + 1)) {
@@ -921,28 +925,60 @@ function EventDialog({
       })
       return
     }
-    // Availability guard: warn (but allow override) if the branch is closed by the
-    // schedule rules (softer than a feriado). Skipped when already handled above.
-    if (hasClosedDay && !closedByFeriado) {
-      const isDark =
-        typeof document !== 'undefined' &&
-        document.documentElement.classList.contains('dark')
-      const res = await Swal.fire({
-        title: t('turno.closedConfirmTitle'),
-        text: t('turno.closedConfirmBody'),
-        icon: 'warning',
-        iconColor: '#ffae1f',
-        showCancelButton: true,
-        confirmButtonText: t('turno.closedConfirmYes'),
-        cancelButtonText: t('agendaCal.cancel'),
-        confirmButtonColor: '#5d87ff',
-        cancelButtonColor: isDark ? '#3f4a5d' : '#e5e7eb',
-        background: isDark ? '#2a3547' : '#ffffff',
-        color: isDark ? '#ffffff' : '#2a3547',
-        width: '360px',
+    // Disponibilidad ENFORCEMENT by role (Andrés 2026-09-20, punto 1): if the
+    // selected professional has NO programmed availability at that sucursal/date,
+    // Secretaría/Operador is BLOCKED (must ask an Admin); Admin may authorise a
+    // one-off EXCEPTION or jump to Autogestión to edit the availability. The
+    // exception turno exists and shows, but the Month fondo still reflects only
+    // programmed availability (handled in dateCellWrapper). Only on placement.
+    if (hasClosedDay && !closedByFeriado && placementChanged) {
+      const who = professionalId
+        ? professionals.find((p) => p.value === professionalId)?.label || ''
+        : ''
+      const sucTxt = sucursal ? sucursalLabel(sucursal) : ''
+      const lead = who
+        ? t('turno.noAvailWho', { name: who, sucursal: sucTxt })
+        : t('turno.noAvailBranch', { sucursal: sucTxt })
+      const commonSwal = {
+        background: isDarkNow ? '#2a3547' : '#ffffff',
+        color: isDarkNow ? '#ffffff' : '#2a3547',
+        width: '400px',
         customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
-      })
-      if (!res.isConfirmed) return
+      }
+      if (isAdmin) {
+        const res = await Swal.fire({
+          ...commonSwal,
+          icon: 'warning',
+          iconColor: '#ffae1f',
+          title: t('turno.noAvailTitle'),
+          text: `${lead} ${t('turno.noAvailAdminTail')}`,
+          showConfirmButton: true,
+          showDenyButton: true,
+          showCancelButton: true,
+          confirmButtonText: t('turno.noAvailAuthorize'),
+          denyButtonText: t('turno.noAvailEditDispo'),
+          cancelButtonText: t('agendaCal.cancel'),
+          confirmButtonColor: '#5d87ff',
+          denyButtonColor: '#13deb9',
+          cancelButtonColor: isDarkNow ? '#3f4a5d' : '#e5e7eb',
+        })
+        if (res.isDenied) {
+          if (typeof window !== 'undefined') window.location.href = '/auto-gestion'
+          return
+        }
+        if (!res.isConfirmed) return
+        // confirmed → proceed (one-off exception)
+      } else {
+        await Swal.fire({
+          ...commonSwal,
+          icon: 'error',
+          title: t('turno.noAvailTitle'),
+          text: `${lead} ${t('turno.noAvailStaffTail')}`,
+          confirmButtonText: t('turno.closedBlockedOk'),
+          confirmButtonColor: '#5d87ff',
+        })
+        return
+      }
     }
     // Sobre-turno: warn (do NOT block) if this timed turno overlaps another one
     // of the SAME professional (or same sucursal when no professional). A stronger
