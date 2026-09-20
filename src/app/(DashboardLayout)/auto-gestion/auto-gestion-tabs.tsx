@@ -14,6 +14,7 @@ import { HorariosSection } from './horarios-section'
 import { DisponibilidadSection } from './disponibilidad-section'
 import { PacksSection } from './packs-section'
 import { CatalogoSection } from './catalogo-section'
+import { AlmuerzosSection } from './almuerzos-section'
 import { EstadosSection } from './estados-section'
 import { ColoresSection } from './colores-section'
 import { FeriadosSection } from './feriados-section'
@@ -31,6 +32,7 @@ type TabKey =
   | 'promos'
   | 'horarios'
   | 'disponibilidad'
+  | 'almuerzos'
   | 'packs'
   | 'estados'
   | 'colores'
@@ -49,6 +51,7 @@ const TABS: { key: TabKey; labelKey: TranslationKey; icon: string }[] = [
   { key: 'promos', labelKey: 'autoGestion.promos.heading', icon: 'solar:tag-horizontal-line-duotone' },
   { key: 'horarios', labelKey: 'autoGestion.horarios.heading', icon: 'solar:clock-circle-line-duotone' },
   { key: 'disponibilidad', labelKey: 'autoGestion.availability.heading', icon: 'solar:calendar-mark-line-duotone' },
+  { key: 'almuerzos', labelKey: 'autoGestion.lunch.heading', icon: 'solar:cup-hot-line-duotone' },
   { key: 'packs', labelKey: 'autoGestion.packs.heading', icon: 'solar:box-line-duotone' },
   { key: 'estados', labelKey: 'autoGestion.statuses.heading', icon: 'solar:tag-line-duotone' },
   { key: 'colores', labelKey: 'autoGestion.colors.heading', icon: 'solar:palette-line-duotone' },
@@ -67,7 +70,7 @@ const META: Record<TabKey, { labelKey: TranslationKey; icon: string }> = Object.
 // as three clear areas instead of one long flat list.
 const GROUPS: { titleKey: TranslationKey; keys: TabKey[] }[] = [
   { titleKey: 'autoGestion.group.treatments', keys: ['catalogo', 'treatments', 'prices', 'colores', 'packs'] },
-  { titleKey: 'autoGestion.group.agenda', keys: ['horarios', 'disponibilidad', 'feriados', 'estados'] },
+  { titleKey: 'autoGestion.group.agenda', keys: ['horarios', 'disponibilidad', 'almuerzos', 'feriados', 'estados'] },
   {
     titleKey: 'autoGestion.group.bot',
     keys: ['cotizadores', 'promos', 'texts', 'intros', 'faq', 'consents'],
@@ -133,6 +136,7 @@ export function AutoGestionTabs() {
       {tab === 'promos' && <PromocionesSection />}
       {tab === 'horarios' && <HorariosSection />}
       {tab === 'disponibilidad' && <DisponibilidadSection initialFocus={initialDispo} />}
+      {tab === 'almuerzos' && <AlmuerzosSection />}
       {tab === 'catalogo' && <CatalogoSection onNavigate={setTab} />}
       {tab === 'packs' && <PacksSection />}
       {tab === 'estados' && <EstadosSection />}
