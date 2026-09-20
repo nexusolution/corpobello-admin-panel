@@ -2787,6 +2787,11 @@ export function CalendarView() {
     const ds = toDateInput(props.value)
     const dayMap = turnosByDaySucursalRef.current.get(ds)
     const openSucs = new Set(sedeMarkersRef.current(props.value).map((m) => m.sucursal))
+    // A band is drawn for any sucursal that is programmed-open OR merely has a
+    // turno (so an admin's exceptional turno is still visible), but ONLY the
+    // programmed-open ones paint the coloured availability "fondo" — an
+    // exceptional turno gets a neutral band and never makes its sucursal look
+    // normally available in Vista Mes (Andrés 2026-09-20, punto 1).
     const bandSucs = SUCURSALES.filter((s) => openSucs.has(s) || dayMap?.has(s))
     if (bandSucs.length === 0) return el
     // Show up to 4 circles per band; more collapse into a "+X" pill so the cell
@@ -2805,7 +2810,9 @@ export function CalendarView() {
             <div
               key={suc}
               className='cb-month-band'
-              style={{ background: hexToRgba(sucursalColor(suc), 0.16) }}
+              style={{
+                background: openSucs.has(suc) ? hexToRgba(sucursalColor(suc), 0.16) : 'transparent',
+              }}
               title={sucursalLabel(suc)}>
               <div className='cb-month-circles'>
                 {shown.map((tt) => (
