@@ -2094,7 +2094,7 @@ export const dictionaries = {
     'autoGestion.catalog.loading': 'Loading catalog…',
     'autoGestion.catalog.error': 'Could not save',
     'autoGestion.catalog.footNote': 'Turn length and colour are set here; professionals and availability in Availability; price in Prices.',
-    'autoGestion.colors.subtitle': 'Pick each treatment colour to tell them apart in the agenda. Used for the turno treatment bar and the treatment picker.',
+    'autoGestion.colors.subtitle': "Pick each treatment colour to tell them apart in the agenda. Used for the appointment's treatment bar and the treatment picker.",
     'autoGestion.colors.reset': 'Reset',
     'autoGestion.colors.empty': 'No treatments in the catalog.',
     'autoGestion.colors.error': 'Could not save',
