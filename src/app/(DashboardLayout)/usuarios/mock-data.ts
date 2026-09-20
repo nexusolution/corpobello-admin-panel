@@ -198,7 +198,7 @@ export const MOCK_USERS: AppUser[] = [
     createdAt: '2025-03-12T08:00:00Z',
     phone: '+54 11 5555-0167',
     location: 'Merlo, Buenos Aires',
-    bio: 'Operadora del turno tarde en Merlo. Actualmente inactiva.',
+    bio: 'Secretaría del turno tarde en Merlo. Actualmente inactiva.',
     operatorDetails: {
       bookingsThisMonth: 0,
       callsHandled: 0,
