@@ -22,6 +22,10 @@ interface DayScheduleProps {
   date: Date
   columns: DayColumn[]
   turnos: CalendarEvent[]
+  // Legacy "Todo el día" turnos on this date: shown in a small top section so they
+  // never disappear from Vista Día, though patient turnos are timed now (punto 4).
+  allDayTurnos?: CalendarEvent[]
+  noTimeLabel?: string
   resourceIdFor: (e: CalendarEvent) => string
   // Deep-link from the ficha (Reservas → turno): scroll to this turno's card and
   // flash it briefly, keeping the agenda context (Andrés punto 3). Cleared via
@@ -78,6 +82,8 @@ export function DaySchedule({
   date,
   columns,
   turnos,
+  allDayTurnos,
+  noTimeLabel,
   resourceIdFor,
   flashEventId,
   onFlashDone,
@@ -191,6 +197,34 @@ export function DaySchedule({
         <div className='text-lg font-bold text-dark dark:text-white capitalize'>{headerDate}</div>
         <div className='text-xs text-link dark:text-darklink mt-0.5'>{subtitle}</div>
       </div>
+
+      {allDayTurnos && allDayTurnos.length > 0 && (
+        <div className='px-4 py-2.5 border-b border-border dark:border-darkborder bg-lightwarning/40 dark:bg-lightwarning/10'>
+          <div className='text-[11px] font-semibold uppercase tracking-wide text-link dark:text-darklink mb-1.5'>
+            {noTimeLabel}
+          </div>
+          <div className='flex flex-wrap gap-2'>
+            {allDayTurnos.map((e) => {
+              const tc = treatmentColor(e.treatmentSlug, treatmentName(e.treatmentSlug))
+              return (
+                <button
+                  key={e.id}
+                  type='button'
+                  data-eventid={e.id}
+                  onClick={() => onOpenTurno(e)}
+                  className='flex items-center gap-2 rounded-md pl-0 pr-2.5 py-1 text-left overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition'
+                  style={{ backgroundColor: cardBg(e.status) }}>
+                  <span className='self-stretch' style={{ width: 6, backgroundColor: tc }} />
+                  <span className='text-[12px] font-semibold text-black truncate max-w-[220px]'>
+                    {e.patientName || e.title}
+                    {e.treatmentSlug ? ` · ${treatmentName(e.treatmentSlug)}` : ''}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <div ref={scrollRef} className='overflow-x-auto cb-hscroll'>
         <table

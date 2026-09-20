@@ -689,11 +689,18 @@ function EventDialog({
   const [sucursal, setSucursal] = useState(draft.sucursal)
   const [status, setStatus] = useState<TurnoStatus>(draft.status)
   const [charged, setCharged] = useState(draft.charged)
-  const [allDay, setAllDay] = useState(draft.allDay)
+  // Patient turnos are ALWAYS timed now (Andrés 2026-09-20, punto 4a): a clinical
+  // turno must have inicio+fin because it drives disponibilidad, duración y
+  // superposiciones. "Todo el día" stays only for administrative closures in
+  // Autogestión. Opening a legacy all-day turno converts it to a timed one with a
+  // sensible default time the user can adjust.
+  // Held false (no setter, no toggle) so every existing allDay branch stays valid
+  // while patient turnos are always timed.
+  const [allDay] = useState(false)
   const [startStr, setStartStr] = useState(draft.startStr)
-  const [endStr, setEndStr] = useState(draft.endStr)
-  const [startTime, setStartTime] = useState(draft.startTime)
-  const [endTime, setEndTime] = useState(draft.endTime)
+  const [endStr, setEndStr] = useState(draft.allDay ? draft.startStr : draft.endStr)
+  const [startTime, setStartTime] = useState(draft.allDay ? '09:00' : draft.startTime)
+  const [endTime, setEndTime] = useState(draft.allDay ? '09:30' : draft.endTime)
   const [observaciones, setObservaciones] = useState(draft.observaciones)
   // Depósito/seña on the turno (Etapa 2 signed scope): importe + fecha + recibido.
   // Preserved on reprogramación / cambio de sucursal (persistMove copies them).
@@ -1329,45 +1336,16 @@ function EventDialog({
             </label>
           </div>
 
-          <label className='flex items-center gap-2 cursor-pointer select-none'>
-            <input
-              type='checkbox'
-              checked={allDay}
-              onChange={(e) => setAllDay(e.target.checked)}
-              className='h-4 w-4 rounded border-border dark:border-darkborder accent-primary'
-            />
-            <span className='text-sm text-dark dark:text-white'>{t('turno.allDay')}</span>
-          </label>
-
-          {allDay ? (
-            // Multi-day range (feriados/bloqueos/eventos de varios días).
-            <div className='grid grid-cols-2 gap-3'>
-              <DateField
-                label={t('agendaCal.fieldStart')}
-                value={startStr}
-                onChange={(v) => {
-                  setStartStr(v)
-                  if (endStr < v) setEndStr(v)
-                }}
-              />
-              <DateField
-                label={t('agendaCal.fieldEnd')}
-                value={endStr}
-                min={startStr}
-                onChange={setEndStr}
-              />
-            </div>
-          ) : (
-            // Normal turno: a single date + hora inicio/fin (Andrés 2026-09-12).
-            <DateField
-              label={t('turno.date')}
-              value={startStr}
-              onChange={(v) => {
-                setStartStr(v)
-                setEndStr(v)
-              }}
-            />
-          )}
+          {/* Patient turnos are always timed (punto 4a): single date + hora
+              inicio/fin. "Todo el día" moved out to Autogestión closures. */}
+          <DateField
+            label={t('turno.date')}
+            value={startStr}
+            onChange={(v) => {
+              setStartStr(v)
+              setEndStr(v)
+            }}
+          />
 
           {!allDay && (
             <div className='grid grid-cols-2 gap-3'>
@@ -2108,6 +2086,15 @@ export function CalendarView() {
     () =>
       visibleEvents.filter(
         (e) => !e.allDay && e.status !== 'cancelado' && toDateInput(e.start) === toDateInput(date),
+      ),
+    [visibleEvents, date],
+  )
+  // Legacy all-day turnos on this date (patient turnos are timed now, punto 4a):
+  // surfaced in a small top section of Vista Día so they never disappear.
+  const dayAllDayTurnos = useMemo(
+    () =>
+      visibleEvents.filter(
+        (e) => e.allDay && e.status !== 'cancelado' && toDateInput(e.start) === toDateInput(date),
       ),
     [visibleEvents, date],
   )
@@ -3196,6 +3183,8 @@ export function CalendarView() {
             date={date}
             columns={dayHybridResources}
             turnos={dayTurnos}
+            allDayTurnos={dayAllDayTurnos}
+            noTimeLabel={t('agenda.noTimeEvents')}
             resourceIdFor={dayResourceIdFor}
             flashEventId={flashEventId}
             onFlashDone={() => setFlashEventId(null)}
