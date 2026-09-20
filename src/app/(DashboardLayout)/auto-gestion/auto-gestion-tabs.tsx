@@ -59,6 +59,21 @@ const TABS: { key: TabKey; labelKey: TranslationKey; icon: string }[] = [
   { key: 'consents', labelKey: 'autoGestion.consents.heading', icon: 'solar:document-add-line-duotone' },
 ]
 
+const META: Record<TabKey, { labelKey: TranslationKey; icon: string }> = Object.fromEntries(
+  TABS.map((tb) => [tb.key, { labelKey: tb.labelKey, icon: tb.icon }]),
+) as Record<TabKey, { labelKey: TranslationKey; icon: string }>
+
+// Left-nav sections (Andrés 2026-09-20): the 15 tabs grouped so the menu reads
+// as three clear areas instead of one long flat list.
+const GROUPS: { titleKey: TranslationKey; keys: TabKey[] }[] = [
+  { titleKey: 'autoGestion.group.treatments', keys: ['catalogo', 'treatments', 'prices', 'colores', 'packs'] },
+  { titleKey: 'autoGestion.group.agenda', keys: ['horarios', 'disponibilidad', 'feriados', 'estados'] },
+  {
+    titleKey: 'autoGestion.group.bot',
+    keys: ['cotizadores', 'promos', 'texts', 'intros', 'faq', 'consents'],
+  },
+]
+
 export function AutoGestionTabs() {
   const { t } = useTranslation()
   const [tab, setTab] = useState<TabKey>('catalogo')
@@ -67,24 +82,33 @@ export function AutoGestionTabs() {
     // Tabs on the LEFT as a vertical nav on desktop (Andrés 2026-09-20); on narrow
     // screens they stack on top as wrapping chips so the page stays usable.
     <div className='flex flex-col gap-4 md:flex-row md:gap-6'>
-      <nav className='flex flex-wrap gap-1 md:w-60 md:shrink-0 md:flex-col md:flex-nowrap'>
-        {TABS.map((tb) => {
-          const active = tb.key === tab
-          return (
-            <button
-              key={tb.key}
-              type='button'
-              onClick={() => setTab(tb.key)}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap rounded-md transition-colors md:w-full md:justify-start ${
-                active
-                  ? 'bg-lightprimary text-primary'
-                  : 'text-link dark:text-darklink hover:text-primary hover:bg-lightprimary/40'
-              }`}>
-              <Icon icon={tb.icon} height={17} width={17} className='shrink-0' />
-              {t(tb.labelKey)}
-            </button>
-          )
-        })}
+      <nav className='md:w-60 md:shrink-0 md:sticky md:top-4 md:self-start md:max-h-[calc(100vh-2rem)] md:overflow-y-auto space-y-4'>
+        {GROUPS.map((g) => (
+          <div key={g.titleKey}>
+            <p className='px-2 mb-1 text-[11px] font-semibold uppercase tracking-wide text-link/70 dark:text-darklink/70'>
+              {t(g.titleKey)}
+            </p>
+            <div className='flex flex-wrap gap-1 md:flex-col md:flex-nowrap'>
+              {g.keys.map((key) => {
+                const active = key === tab
+                return (
+                  <button
+                    key={key}
+                    type='button'
+                    onClick={() => setTab(key)}
+                    className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap rounded-md transition-colors md:w-full md:justify-start ${
+                      active
+                        ? 'bg-lightprimary text-primary'
+                        : 'text-link dark:text-darklink hover:text-primary hover:bg-lightprimary/40'
+                    }`}>
+                    <Icon icon={META[key].icon} height={17} width={17} className='shrink-0' />
+                    {t(META[key].labelKey)}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       <div className='min-w-0 flex-1'>
