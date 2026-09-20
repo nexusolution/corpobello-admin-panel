@@ -19,6 +19,10 @@ export type DayPattern =
       type: 'monthly_cycle'
       ordinal?: number
       anchorWeekday?: Weekday
+      // Feriado exception (Andrés #10): when true (default) and the anchor weekday
+      // (e.g. 2nd Monday) is a holiday, ONLY the anchor entry shifts to the
+      // previous ordinal (1st Monday). Set false to disable that exception.
+      shiftAnchorOnHoliday?: boolean
       entries: { weekOffset: number; weekday: Weekday }[]
     }
 
@@ -128,8 +132,9 @@ export function matchesPattern(
         // Feriado exception: if the anchor (e.g. 2nd Monday) is a holiday, the
         // anchor-Monday jornada moves to the previous ordinal (1st Monday). Only
         // that entry shifts; the rest still compute from the original anchor.
+        const shiftOnHoliday = pattern.shiftAnchorOnHoliday !== false
         const anchorIsHoliday =
-          !!isHoliday && ord > 1 && isHoliday(anchor.toISOString().slice(0, 10))
+          shiftOnHoliday && !!isHoliday && ord > 1 && isHoliday(anchor.toISOString().slice(0, 10))
         for (const e of pattern.entries) {
           const shift = anchorIsHoliday && e.weekOffset === 0 && e.weekday === aw
           const base = shift ? nthWeekdayOfMonth(cy, cm, aw, ord - 1) : anchor

@@ -156,9 +156,15 @@ function patternSummary(p: DayPattern, locale: string): string {
     }
     case 'monthly_cycle': {
       const wk = locale === 'es' ? 'sem' : 'wk'
-      const anchorTxt = locale === 'es' ? '2º lunes' : '2nd Mon'
+      const anchorTxt = locale === 'es' ? 'Ciclo desde el 2º lunes' : 'Cycle from 2nd Mon'
       const parts = p.entries.map((e) => `+${e.weekOffset} ${wk} ${weekdayLabel(e.weekday, locale)}`)
-      return `${anchorTxt} → ${parts.join(', ')}`
+      const feriado =
+        p.shiftAnchorOnHoliday !== false
+          ? locale === 'es'
+            ? ' · si el 2º lunes es feriado, adelanta esa jornada'
+            : ' · if 2nd Mon is a holiday, that day moves up'
+          : ''
+      return `${anchorTxt} → ${parts.join(', ')}${feriado}`
     }
     default:
       return ''
@@ -179,6 +185,7 @@ type Draft = {
   groupA: Weekday[]
   groupB: Weekday[]
   cycleEntries: { weekOffset: number; weekday: Weekday }[]
+  holidayShift: boolean // monthly_cycle: adelantar la jornada ancla si el 2º lunes es feriado
   openMin: number
   closeMin: number
   active: boolean
@@ -199,6 +206,7 @@ function emptyDraft(): Draft {
     groupA: [5],
     groupB: [6],
     cycleEntries: [{ weekOffset: 0, weekday: 1 }],
+    holidayShift: true,
     openMin: 8 * 60,
     closeMin: 20 * 60,
     active: true,
@@ -224,6 +232,7 @@ function ruleToDraft(r: AvailabilityRule): Draft {
   }
   if (r.pattern.type === 'monthly_cycle') {
     d.cycleEntries = r.pattern.entries.length ? r.pattern.entries : [{ weekOffset: 0, weekday: 1 }]
+    d.holidayShift = r.pattern.shiftAnchorOnHoliday !== false
   }
   d.openMin = r.openMin
   d.closeMin = r.closeMin
@@ -237,7 +246,13 @@ function draftToRule(d: Draft): AvailabilityRule {
   if (d.patternType === 'weekly') pattern = { type: 'weekly', weekdays: [...d.weekly].sort() }
   else if (d.patternType === 'monthly_ordinal') pattern = { type: 'monthly_ordinal', days: d.monthly }
   else if (d.patternType === 'monthly_cycle')
-    pattern = { type: 'monthly_cycle', ordinal: 2, anchorWeekday: 1, entries: d.cycleEntries }
+    pattern = {
+      type: 'monthly_cycle',
+      ordinal: 2,
+      anchorWeekday: 1,
+      shiftAnchorOnHoliday: d.holidayShift,
+      entries: d.cycleEntries,
+    }
   else pattern = { type: 'alternating', anchorMonday: d.anchorMonday, groups: [d.groupA, d.groupB] }
   return {
     id: d.id,
@@ -701,6 +716,17 @@ function RuleEditor({
               className='text-xs text-primary font-medium hover:underline'>
               + {t('autoGestion.availability.addEntry')}
             </button>
+
+            {/* Feriado exception (Andrés #10): visible + editable, not hidden. */}
+            <label className='flex items-start gap-2 cursor-pointer select-none pt-1'>
+              <input
+                type='checkbox'
+                checked={draft.holidayShift}
+                onChange={(e) => set({ holidayShift: e.target.checked })}
+                className='h-4 w-4 mt-0.5 rounded border-border dark:border-darkborder accent-primary'
+              />
+              <span className='text-xs text-dark dark:text-white'>{t('autoGestion.availability.holidayShift')}</span>
+            </label>
           </div>
         )}
 
