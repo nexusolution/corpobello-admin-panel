@@ -199,7 +199,45 @@ export function isTreatmentActive(
   return openWindowsFor(dateStr, sucursal, slug, rules, professionalId, isHoliday).length > 0
 }
 
-/** Distinct professional ids (non-generic) scheduled for a treatment that day. */
+// A special jornada (monthly cycle / alternating / week-of-month) REPLACES a
+// professional's habitual weekly availability — a professional is in ONE place per
+// day (Andrés 2026-09-20 #11). Higher priority wins.
+function rulePriority(pattern: DayPattern): number {
+  switch (pattern.type) {
+    case 'monthly_cycle':
+      return 3
+    case 'alternating':
+    case 'monthly_ordinal':
+      return 2
+    default:
+      return 1 // weekly = habitual
+  }
+}
+
+/** The sucursal(es) a professional actually works on a date, after resolving that
+ *  a special jornada replaces the habitual one: only the highest-priority matching
+ *  rules of that professional count. Empty when the professional has no rule that
+ *  day (then no replacement applies). */
+export function professionalSucursalesOn(
+  dateStr: string,
+  professionalId: string,
+  rules: readonly AvailabilityRule[],
+  isHoliday?: (dateStr: string) => boolean,
+): Set<string> {
+  const matching = rules.filter(
+    (r) => r.active && r.professionalId === professionalId && matchesPattern(dateStr, r.pattern, isHoliday),
+  )
+  if (matching.length === 0) return new Set<string>()
+  let maxP = 1
+  for (const r of matching) maxP = Math.max(maxP, rulePriority(r.pattern))
+  const out = new Set<string>()
+  for (const r of matching) if (rulePriority(r.pattern) === maxP) out.add(r.sucursal)
+  return out
+}
+
+/** Distinct professional ids (non-generic) scheduled for a treatment that day —
+ *  respecting the replacement rule, so a professional only appears at the sucursal
+ *  their special jornada resolves to (not their replaced habitual one). */
 export function professionalsFor(
   dateStr: string,
   sucursal: string,
@@ -210,6 +248,8 @@ export function professionalsFor(
   const set = new Set<string>()
   for (const r of rules) {
     if (ruleApplies(r, sucursal, slug) && matchesPattern(dateStr, r.pattern, isHoliday) && r.professionalId) {
+      const resolved = professionalSucursalesOn(dateStr, r.professionalId, rules, isHoliday)
+      if (resolved.size > 0 && !resolved.has(sucursal)) continue
       set.add(r.professionalId)
     }
   }
@@ -228,6 +268,15 @@ export function availabilityFor(
 ): AvailabilityWindow {
   const windows = openWindowsFor(dateStr, sucursal, slug, rules, professionalId, isHoliday)
   if (windows.length === 0) return { open: false }
+
+  // Replacement (Andrés #11): when asking for a specific professional, this
+  // sucursal only counts if it's the one their special jornada resolves to that
+  // day — a special day (Caballito cycle, Merlo/Moreno alternation) replaces the
+  // habitual one, so the professional is never "in two branches at once".
+  if (professionalId) {
+    const resolved = professionalSucursalesOn(dateStr, professionalId, rules, isHoliday)
+    if (resolved.size > 0 && !resolved.has(sucursal)) return { open: false }
+  }
 
   for (const ex of exclusions) {
     if (!ex.active || ex.sucursal !== sucursal) continue
@@ -274,6 +323,35 @@ export function anyTreatmentAvailability(
       openMin = Math.min(openMin, w.openMin ?? openMin)
       closeMin = Math.max(closeMin, w.closeMin ?? closeMin)
     }
+  }
+  return open ? { open: true, openMin, closeMin } : { open: false }
+}
+
+/**
+ * Generic (unassigned) availability only — rules with NO professional, i.e. "this
+ * sucursal is open for anyone" (panel-only helper). Used by the Month shading to
+ * OR generic openings alongside the per-professional (replacement-aware) ones, so
+ * a professional's replaced habitual branch doesn't light up but a genuinely
+ * unassigned opening still does (Andrés #11).
+ */
+export function genericAvailability(
+  dateStr: string,
+  sucursal: string,
+  slug: string,
+  rules: readonly AvailabilityRule[],
+  isHoliday?: (dateStr: string) => boolean,
+): AvailabilityWindow {
+  let openMin = Number.POSITIVE_INFINITY
+  let closeMin = Number.NEGATIVE_INFINITY
+  let open = false
+  for (const r of rules) {
+    if (!r.active || r.professionalId != null || r.sucursal !== sucursal) continue
+    if (r.treatmentSlugs.length > 0 && !r.treatmentSlugs.includes(slug)) continue
+    if (r.treatmentExclude && r.treatmentExclude.includes(slug)) continue
+    if (!matchesPattern(dateStr, r.pattern, isHoliday)) continue
+    open = true
+    openMin = Math.min(openMin, r.openMin)
+    closeMin = Math.max(closeMin, r.closeMin)
   }
   return open ? { open: true, openMin, closeMin } : { open: false }
 }

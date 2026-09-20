@@ -66,6 +66,7 @@ import { fetchTreatmentColors } from '@/lib/data/treatment-colors-config'
 import {
   availabilityFor,
   anyTreatmentAvailability,
+  genericAvailability,
   professionalsFor,
   type AvailabilityRule,
   type AvailabilityExclusion,
@@ -1865,32 +1866,35 @@ export function CalendarView() {
   const sucursalOpen = useCallback(
     (ds: string, sucursal: string) => {
       const slugs = treatmentFilterSlugs.length ? treatmentFilterSlugs : catalogSlugs
+      // Resolve per REAL professional (not "any professional") so a special jornada
+      // REPLACES the habitual one and a professional never shows in two branches the
+      // same day (Andrés #11). Generic (unassigned) rules are OR'd in separately.
+      // Cross-sucursal EXCLUSIONS stay ignored here (booking-time concern, and two
+      // DIFFERENT professionals can work two branches the same day — #11/#12).
+      // isHoliday enables the 2nd-Monday feriado shift (monthly_cycle, #10).
+      const realProfs = professionals.map((p) => p.value)
       const profs: (string | undefined)[] = professionalFilterIds.length
         ? professionalFilterIds
-        : [undefined]
+        : realProfs.length
+          ? realProfs
+          : [undefined]
+      const hol = (d: string) => isSucursalClosed(d, sucursal)
       let open = false
       let openMin = Number.POSITIVE_INFINITY
       let closeMin = Number.NEGATIVE_INFINITY
-      for (const slug of slugs)
-        for (const p of profs) {
-          // Whether a sucursal is "working that day" is a RULE question
-          // (professional + treatment + sucursal). Cross-sucursal EXCLUSIONS are a
-          // booking-time concern and must NOT hide a whole sucursal from the Month
-          // shading — so exclusions are ignored here (Andrés #11/#12: two sucursales
-          // can work the same day with different professionals). isHoliday enables
-          // the 2nd-Monday feriado shift for the monthly_cycle pattern (Andrés #10).
-          const w = availabilityFor(ds, sucursal, slug, availRules, [], p, (d) =>
-            isSucursalClosed(d, sucursal),
-          )
-          if (w.open) {
-            open = true
-            openMin = Math.min(openMin, w.openMin ?? openMin)
-            closeMin = Math.max(closeMin, w.closeMin ?? closeMin)
-          }
-        }
+      const take = (w: { open: boolean; openMin?: number; closeMin?: number }) => {
+        if (!w.open) return
+        open = true
+        openMin = Math.min(openMin, w.openMin ?? openMin)
+        closeMin = Math.max(closeMin, w.closeMin ?? closeMin)
+      }
+      for (const slug of slugs) {
+        take(genericAvailability(ds, sucursal, slug, availRules, hol))
+        for (const p of profs) take(availabilityFor(ds, sucursal, slug, availRules, [], p, hol))
+      }
       return open ? { open: true, openMin, closeMin } : { open: false }
     },
-    [treatmentFilterSlugs, professionalFilterIds, catalogSlugs, availRules, isSucursalClosed],
+    [treatmentFilterSlugs, professionalFilterIds, professionals, catalogSlugs, availRules, isSucursalClosed],
   )
 
   const shadeWindow = useCallback(
