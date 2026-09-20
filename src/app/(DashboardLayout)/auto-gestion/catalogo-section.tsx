@@ -244,7 +244,7 @@ export function CatalogoSection({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
                   }}
-                  placeholder={t('autoGestion.catalog.durationUnit')}
+                  placeholder={t('autoGestion.catalog.durationAuto')}
                   className='w-14 px-1.5 py-1 rounded-md border border-border dark:border-darkborder bg-background text-xs text-dark dark:text-white text-right focus:outline-none focus:border-primary'
                 />
                 <span>{t('autoGestion.catalog.durationUnit')}</span>
