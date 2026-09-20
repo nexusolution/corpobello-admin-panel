@@ -1534,7 +1534,12 @@ type RbcLocalizer = {
 // Day-only concern here, so this view ignores resources.
 function weekMonToSat(date: Date, localizer: RbcLocalizer): Date[] {
   const base = localizer.startOf(date, 'day')
-  const back = (base.getDay() + 6) % 7 // days since the Monday of this week
+  const wd = base.getDay() // 0=Sun … 6=Sat
+  // Sunday is a non-working day: instead of rolling it BACK to the week that just
+  // ended, roll it FORWARD to the upcoming Mon–Sat, so landing on a Sunday (e.g.
+  // "today") shows the current working week, consistent with the Month (Andrés
+  // 2026-09-20). Mon–Sat map to their own week's Monday.
+  const back = wd === 0 ? -1 : wd - 1
   const monday = localizer.add(base, -back, 'day')
   return [0, 1, 2, 3, 4, 5].map((i) => localizer.add(monday, i, 'day'))
 }
@@ -2137,7 +2142,10 @@ export function CalendarView() {
   const weekDays = useMemo(() => {
     const base = new Date(date)
     base.setHours(0, 0, 0, 0)
-    const back = (base.getDay() + 6) % 7
+    const wd = base.getDay() // 0=Sun … 6=Sat
+    // Match weekMonToSat: a Sunday rolls FORWARD to the upcoming Mon–Sat working
+    // week (not back to the one that ended), so it stays consistent with the Month.
+    const back = wd === 0 ? -1 : wd - 1
     const monday = new Date(base)
     monday.setDate(base.getDate() - back)
     return [0, 1, 2, 3, 4, 5].map((i) => {
@@ -2462,7 +2470,8 @@ export function CalendarView() {
         } else if (view === Views.WEEK) {
           const base = new Date(date)
           base.setHours(0, 0, 0, 0)
-          const back = (base.getDay() + 6) % 7
+          const wd = base.getDay()
+          const back = wd === 0 ? -1 : wd - 1 // Sunday → upcoming week's Monday
           const monday = new Date(base)
           monday.setDate(base.getDate() - back)
           setDate(monday)
