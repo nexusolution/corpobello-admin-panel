@@ -36,10 +36,18 @@ export function TimeField({
     }
     return out
   }, [minMinutes, maxMinutes, step])
+  // On open, scroll the list so the current value is centered (not stuck at the
+  // top / earliest hour) — Andrés 2026-09: editing a 10:00 turno must open at 10:00.
+  // Runs on a frame so the popover content is laid out and scrollable first.
   useEffect(() => {
     if (!open) return
-    const el = listRef.current?.querySelector<HTMLElement>('[data-selected="true"]')
-    el?.scrollIntoView({ block: 'center' })
+    const raf = requestAnimationFrame(() => {
+      const cont = listRef.current
+      const el = cont?.querySelector<HTMLElement>('[data-selected="true"]')
+      if (!cont || !el) return
+      cont.scrollTop = el.offsetTop - cont.clientHeight / 2 + el.clientHeight / 2
+    })
+    return () => cancelAnimationFrame(raf)
   }, [open])
 
   const trigger =

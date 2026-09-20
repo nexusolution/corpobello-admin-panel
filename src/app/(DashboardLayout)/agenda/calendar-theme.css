@@ -536,7 +536,7 @@
   }
 }
 .cb-flash {
-  animation: cb-flash 2.5s ease-out;
+  animation: cb-flash 3.5s ease-out;
   position: relative;
   z-index: 5;
 }

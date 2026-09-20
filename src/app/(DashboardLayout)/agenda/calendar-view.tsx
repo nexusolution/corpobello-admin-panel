@@ -830,6 +830,9 @@ function EventDialog({
     !!patientId &&
     !!startStr &&
     !!endStr &&
+    // Sucursal required for NEW turnos to avoid incomplete records (Andrés #4);
+    // existing turnos with a missing sucursal stay editable so they can be fixed.
+    (isEdit || !!sucursal) &&
     (allDay
       ? endStr >= startStr
       : !!startTime &&
@@ -2008,9 +2011,6 @@ export function CalendarView() {
       if (dayMap) for (const s of dayMap.keys()) if (s !== NONE_RESOURCE) sucs.add(s)
       const orderedSucs = SUCURSALES.filter((s) => sucs.has(s))
       const cols: DayCol[] = []
-      // Professionals that have a column somewhere today, so a null-sucursal turno
-      // for one of them routes to their column instead of "Sin asignar" (punto 4).
-      const spProfIds = new Set<string>()
       let hasUnassigned = false
       for (const suc of orderedSucs) {
         // "Who works here today" = professionals with a PROFESSIONAL-SPECIFIC
@@ -2040,7 +2040,6 @@ export function CalendarView() {
           })
         } else {
           for (const p of profList) {
-            spProfIds.add(p.value)
             cols.push({
               resourceId: `sp:${suc}:${p.value}`,
               resourceTitle: p.label,
@@ -2050,15 +2049,22 @@ export function CalendarView() {
           }
         }
       }
-      // Turnos with no sucursal (or an unrecognised one) live under the NONE key
-      // and are never iterated above. They surface in the catch-all ONLY when they
-      // can't be routed to a professional column — a null-sucursal turno whose
-      // professional already has a column goes there instead (Andrés punto 4).
+      // Null/unknown-sucursal turnos live under the NONE key. They show under a
+      // "Sin asignar" sucursal group, subdivided by PROFESSIONAL (Andrés 2026-09:
+      // Sucursal = Sin asignar, Profesional = Andrés), so the professional is not
+      // lost and the missing sucursal is flagged for correction. A turno with no
+      // (active) professional falls to the plain "Sin asignar" catch-all.
+      const noneProfIds = new Set<string>()
+      let noneUnassigned = false
       for (const tt of dayMap?.get(NONE_RESOURCE) ?? []) {
-        if (tt.professionalId && spProfIds.has(tt.professionalId)) continue
-        hasUnassigned = true
+        if (tt.professionalId && professionals.some((p) => p.value === tt.professionalId))
+          noneProfIds.add(tt.professionalId)
+        else noneUnassigned = true
       }
-      if (hasUnassigned)
+      for (const p of professionals.filter((x) => noneProfIds.has(x.value))) {
+        cols.push({ resourceId: `sp::${p.value}`, resourceTitle: p.label, sucursal: '', sucColor: '#94a3b8' })
+      }
+      if (hasUnassigned || noneUnassigned)
         cols.push({
           resourceId: NONE_RESOURCE,
           resourceTitle: t('agenda.noProfessional'),
@@ -2084,13 +2090,12 @@ export function CalendarView() {
   const hybridResourceIdFor = useCallback(
     (e: CalendarEvent, colIds: Set<string>) => {
       const suc = e.sucursal || ''
-      if (e.professionalId) {
-        const exact = `sp:${suc}:${e.professionalId}`
-        if (colIds.has(exact)) return exact
-        // Sucursal missing/unknown → fall back to this professional's column.
-        for (const id of colIds) {
-          if (id.startsWith('sp:') && id.endsWith(`:${e.professionalId}`)) return id
-        }
+      // Exact (sucursal, profesional). For a null-sucursal turno this is
+      // `sp::<prof>`, i.e. the "Sin asignar" group's professional column, which
+      // computeDayColumns creates — so the professional shows even without a
+      // sucursal (Andrés 2026-09, punto 4).
+      if (e.professionalId && colIds.has(`sp:${suc}:${e.professionalId}`)) {
+        return `sp:${suc}:${e.professionalId}`
       }
       if (colIds.has(`su:${suc}`)) return `su:${suc}`
       return NONE_RESOURCE
@@ -2859,27 +2864,29 @@ export function CalendarView() {
     // exceptional turno gets a neutral band and never makes its sucursal look
     // normally available in Vista Mes (Andrés 2026-09-20, punto 1).
     const bandSucs = SUCURSALES.filter((s) => openSucs.has(s) || dayMap?.has(s))
-    if (bandSucs.length === 0) return el
-    // Show up to 4 circles per band; more collapse into a "+X" pill so the cell
-    // never gets crowded (Andrés 2026-09-16).
-    // Circles shown per band before the "+N" pill, adaptive to how many sucursales
-    // work that day (Andrés spec: 1 sede → 9, 2 → 5, 3 → 3). Each band keeps its
-    // own "+N" so the number reflects that sucursal, not the whole day.
-    const cap = bandSucs.length === 1 ? 9 : bandSucs.length === 2 ? 5 : 3
+    // Turnos with no sucursal still get a NEUTRAL band so their treatment circle
+    // shows in Vista Mes (never with a sucursal colour) — Andrés 2026-09, punto 4.
+    const hasNone = (dayMap?.get(NONE_RESOURCE)?.length ?? 0) > 0
+    const bandKeys = hasNone ? [...bandSucs, NONE_RESOURCE] : bandSucs
+    if (bandKeys.length === 0) return el
+    // Circles shown per band before the "+N" pill, adaptive to how many bands work
+    // that day (Andrés spec: 1 → 9, 2 → 5, 3+ → 3). Each band keeps its own "+N".
+    const cap = bandKeys.length === 1 ? 9 : bandKeys.length === 2 ? 5 : 3
     const overlay = (
       <div className='cb-month-bands'>
-        {bandSucs.map((suc) => {
-          const turnos = dayMap?.get(suc) ?? []
+        {bandKeys.map((key) => {
+          const isNone = key === NONE_RESOURCE
+          const turnos = dayMap?.get(key) ?? []
           const shown = turnos.slice(0, cap)
           const extra = turnos.length - shown.length
           return (
             <div
-              key={suc}
+              key={key}
               className='cb-month-band'
               style={{
-                background: openSucs.has(suc) ? hexToRgba(sucursalColor(suc), 0.16) : 'transparent',
+                background: !isNone && openSucs.has(key) ? hexToRgba(sucursalColor(key), 0.16) : 'transparent',
               }}
-              title={sucursalLabel(suc)}>
+              title={isNone ? t('agenda.noSucursal') : sucursalLabel(key)}>
               <div className='cb-month-circles'>
                 {shown.map((tt) => (
                   <span
@@ -2902,7 +2909,7 @@ export function CalendarView() {
     )
     return cloneElement(
       el,
-      { title: bandSucs.map((s) => sucursalLabel(s)).join(' · ') },
+      { title: bandKeys.map((k) => (k === NONE_RESOURCE ? t('agenda.noSucursal') : sucursalLabel(k))).join(' · ') },
       overlay,
     )
   }, [])
@@ -3090,6 +3097,12 @@ export function CalendarView() {
               {sucursalLabel(s)}
             </span>
           ))}
+          {/* Andrés #1: white/neutral = an exceptional turno on a day without
+              programmed availability. */}
+          <span className='inline-flex items-center gap-1.5'>
+            <span className='h-2.5 w-2.5 rounded-full border border-border dark:border-darkborder bg-card' />
+            {t('agenda.exceptionLegend')}
+          </span>
         </div>
       )}
 

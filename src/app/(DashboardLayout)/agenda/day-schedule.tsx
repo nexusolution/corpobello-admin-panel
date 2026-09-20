@@ -209,7 +209,7 @@ export function DaySchedule({
       window.setTimeout(() => {
         el.classList.remove('cb-flash')
         onFlashDone?.()
-      }, 2600)
+      }, 3600)
     }
     // Try now and on the next frame (the card may mount a tick after this runs).
     run()
