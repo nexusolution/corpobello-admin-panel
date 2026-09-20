@@ -3215,6 +3215,7 @@ export function CalendarView() {
             days={weekDays}
             focusDate={date}
             columnsForDay={computeDayColumns}
+            resourceIdFor={hybridResourceIdFor}
             turnos={weekTurnos}
             onOpenTurno={onSelectEvent}
             onOpenDay={openDayFromMonth}
@@ -3226,10 +3227,10 @@ export function CalendarView() {
             cardBg={(status) => lightenHex(statusColorFor(status))}
             sucursalLabel={sucursalLabel}
             sucursalColor={sucursalColor}
-            professionalName={professionalName}
             locale={locale}
             lunchLabel={t('agenda.lunch')}
             newLabel={t('agendaCal.new')}
+            emptyLabel={t('agenda.noProfessional')}
           />
         </div>
       )}

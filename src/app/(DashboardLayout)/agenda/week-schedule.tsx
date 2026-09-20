@@ -17,6 +17,9 @@ interface WeekScheduleProps {
   // The selected day, centered horizontally when the week loads/changes.
   focusDate?: Date
   columnsForDay: (day: Date) => DayColumn[]
+  // Map a turno to its column id within a given day's column set (same hybrid
+  // resolver the Day view uses), so each day can split into professional subcolumns.
+  resourceIdFor: (e: CalendarEvent, colIds: Set<string>) => string
   turnos: CalendarEvent[]
   onOpenTurno: (e: CalendarEvent) => void
   onOpenDay: (day: Date) => void
@@ -26,10 +29,10 @@ interface WeekScheduleProps {
   cardBg: (status: string) => string
   sucursalLabel: (s: string) => string
   sucursalColor: (s: string) => string
-  professionalName: (id?: string | null) => string
   locale: string
   lunchLabel: string
   newLabel: string
+  emptyLabel: string
 }
 
 const LUNCH_HOUR = 13
@@ -52,6 +55,7 @@ export function WeekSchedule({
   days,
   focusDate,
   columnsForDay,
+  resourceIdFor,
   turnos,
   onOpenTurno,
   onOpenDay,
@@ -61,10 +65,10 @@ export function WeekSchedule({
   cardBg,
   sucursalLabel,
   sucursalColor,
-  professionalName,
   locale,
   lunchLabel,
   newLabel,
+  emptyLabel,
 }: WeekScheduleProps) {
   const dayData = days.map((day) => ({ day, ds: toKey(day), cols: columnsForDay(day) }))
 
@@ -185,21 +189,45 @@ export function WeekSchedule({
   }
   const hours: number[] = []
   for (let h = startH; h <= endH; h++) hours.push(h)
-  const rowOf = (h: number) => 2 + hours.indexOf(h)
 
-  // Bucket turnos by dayKey -> start hour (side-by-side within the same hour).
-  const buckets = new Map<string, Map<number, CalendarEvent[]>>()
-  const lunchTurnos = new Set<string>()
-  for (const d of dayData) buckets.set(d.ds, new Map())
+  // Per day, split into a subcolumn per WORKING (professional · sucursal), like the
+  // Day view (Andrés #14). A day with nobody working still gets one placeholder
+  // column so all six days show. Flatten to grid columns with their start index.
+  type Flat = {
+    day: Date
+    ds: string
+    cols: DayColumn[]
+    startCol: number // 1-based grid column of its first subcolumn (col 1 = gutter)
+    colIds: Set<string>
+  }
+  const flat: Flat[] = []
+  let colIdx = 2
+  for (const d of dayData) {
+    const cols = d.cols.length
+      ? d.cols
+      : [{ resourceId: 'none', resourceTitle: emptyLabel, sucursal: '', sucColor: '#94a3b8' }]
+    flat.push({ day: d.day, ds: d.ds, cols, startCol: colIdx, colIds: new Set(cols.map((c) => c.resourceId)) })
+    colIdx += cols.length
+  }
+
+  // Bucket turnos: dayKey → columnId → start hour → turnos.
+  const buckets = new Map<string, Map<string, Map<number, CalendarEvent[]>>>()
+  for (const f of flat) buckets.set(f.ds, new Map())
   for (const e of turnos) {
     const ds = toKey(e.start)
-    const dayBucket = buckets.get(ds)
-    if (!dayBucket) continue
+    const f = flat.find((x) => x.ds === ds)
+    if (!f) continue
+    const rid = resourceIdFor(e, f.colIds)
+    const dayB = buckets.get(ds)!
+    let colB = dayB.get(rid)
+    if (!colB) {
+      colB = new Map()
+      dayB.set(rid, colB)
+    }
     const h = e.start.getHours()
-    if (h === LUNCH_HOUR) lunchTurnos.add(ds)
-    const arr = dayBucket.get(h)
+    const arr = colB.get(h)
     if (arr) arr.push(e)
-    else dayBucket.set(h, [e])
+    else colB.set(h, [e])
   }
 
   const dateAtHour = (day: Date, h: number) => {
@@ -207,6 +235,7 @@ export function WeekSchedule({
     d.setHours(h, 0, 0, 0)
     return d
   }
+  const profIdOf = (rid: string) => (rid.startsWith('sp:') ? rid.slice(rid.indexOf(':', 3) + 1) : undefined)
   const dayTitle = (day: Date) => {
     const raw = new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'short' })
       .format(day)
@@ -214,23 +243,14 @@ export function WeekSchedule({
       .replace('.', '')
     return raw.charAt(0).toUpperCase() + raw.slice(1)
   }
-  const daySubtitle = (cols: DayColumn[]) => {
-    const sucSet: string[] = []
-    for (const c of cols) if (c.sucursal && !sucSet.includes(c.sucursal)) sucSet.push(c.sucursal)
-    const profCount = cols.filter((c) => c.resourceId.startsWith('sp:')).length || cols.length
-    return {
-      text: `${sucSet.map(sucursalLabel).join(' + ')} (${profCount} ${
-        profCount === 1 ? 'profesional' : 'profesionales'
-      })`,
-      sucursales: sucSet,
-    }
+  const daySucs = (cols: DayColumn[]) => {
+    const s: string[] = []
+    for (const c of cols) if (c.sucursal && !s.includes(c.sucursal)) s.push(c.sucursal)
+    return s
   }
 
   const renderCard = (e: CalendarEvent) => {
     const tc = treatmentColor(e.treatmentSlug, treatmentName(e.treatmentSlug))
-    const prof = professionalName(e.professionalId)
-    const suc = e.sucursal ? sucursalLabel(e.sucursal) : ''
-    const meta = [prof, suc].filter(Boolean).join(' · ')
     return (
       <button
         key={e.id}
@@ -238,29 +258,24 @@ export function WeekSchedule({
         onClick={() => onOpenTurno(e)}
         className='flex items-stretch min-w-0 flex-1 text-left rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition'
         style={{ backgroundColor: cardBg(e.status) }}>
-        <span className='shrink-0 self-stretch' style={{ width: 8, backgroundColor: tc }} />
-        <span className='flex-1 min-w-0 py-1.5 px-2'>
-          <span className='flex items-baseline justify-between gap-1.5'>
-            <span className='font-bold text-[12px] leading-tight text-black truncate'>
-              {e.patientName || e.title}
-            </span>
-            <span className='shrink-0 text-[10px] font-semibold text-black whitespace-nowrap'>
-              {fmtTime(e.start)} · {fmtTime(e.end)}
-            </span>
+        <span className='shrink-0 self-stretch' style={{ width: 6, backgroundColor: tc }} />
+        <span className='flex-1 min-w-0 py-1 px-1.5'>
+          <span className='block font-bold text-[11px] leading-tight text-black truncate'>
+            {e.patientName || e.title}
+          </span>
+          <span className='block text-[10px] font-semibold text-black whitespace-nowrap'>
+            {fmtTime(e.start)} · {fmtTime(e.end)}
           </span>
           {e.treatmentSlug && (
-            <span className='block text-[11px] leading-tight truncate mt-0.5 text-black'>
+            <span className='block text-[10px] leading-tight truncate text-black'>
               {treatmentName(e.treatmentSlug)}
             </span>
-          )}
-          {meta && (
-            <span className='block text-[10px] leading-tight truncate text-gray-500 mt-0.5'>{meta}</span>
           )}
         </span>
         {e.charged && (
           <span
-            className='shrink-0 self-stretch flex items-center justify-center text-white font-bold text-base'
-            style={{ width: 30, backgroundColor: PAY_GREEN }}
+            className='shrink-0 self-stretch flex items-center justify-center text-white font-bold text-sm'
+            style={{ width: 22, backgroundColor: PAY_GREEN }}
             title='$'>
             $
           </span>
@@ -269,61 +284,79 @@ export function WeekSchedule({
     )
   }
 
+  const DAY_H = 46 // fixed height of the day-header row (row 1)
+  const SUB_H = 30 // fixed height of the subcolumn-header row (row 2)
+  const rowOf = (h: number) => 3 + hours.indexOf(h)
+
   const cells: ReactNode[] = []
 
-  // Corner + day headers (one column per day).
+  // Corner (spans both header rows).
   cells.push(
     <div
       key='corner'
-      className='bg-card border-b border-r border-border dark:border-darkborder sticky top-0 left-0 z-30'
-      style={{ gridColumn: 1, gridRow: 1 }}
+      className='bg-card border-b border-r border-border dark:border-darkborder sticky left-0 z-40'
+      style={{ gridColumn: 1, gridRow: '1 / span 2', top: 0 }}
     />,
   )
-  dayData.forEach((d, i) => {
-    const sub = daySubtitle(d.cols)
-    // Layer the sucursal tint over an opaque card base so the sticky header never
-    // lets scrolled turnos bleed through.
+
+  // Row 1: day headers, each spanning its subcolumns; clickable → Day view.
+  flat.forEach((f) => {
+    const sucs = daySucs(f.cols)
     const tintLayer =
-      sub.sucursales.length === 0
+      sucs.length === 0
         ? null
-        : sub.sucursales.length === 1
-          ? `linear-gradient(${tintHex(sucursalColor(sub.sucursales[0]))}, ${tintHex(
-              sucursalColor(sub.sucursales[0]),
-            )})`
-          : `linear-gradient(135deg, ${sub.sucursales
+        : sucs.length === 1
+          ? `linear-gradient(${tintHex(sucursalColor(sucs[0]))}, ${tintHex(sucursalColor(sucs[0]))})`
+          : `linear-gradient(135deg, ${sucs
               .map((s, k) => {
-                const from = Math.round((k * 100) / sub.sucursales.length)
-                const to = Math.round(((k + 1) * 100) / sub.sucursales.length)
+                const from = Math.round((k * 100) / sucs.length)
+                const to = Math.round(((k + 1) * 100) / sucs.length)
                 return `${tintHex(sucursalColor(s))} ${from}% ${to}%`
               })
               .join(', ')})`
     const dayBg = tintLayer ? `${tintLayer}, var(--card)` : 'var(--card)'
     cells.push(
       <button
-        key={`h-${d.ds}`}
+        key={`h-${f.ds}`}
         type='button'
-        onClick={() => onOpenDay(d.day)}
-        title={dayTitle(d.day)}
-        data-daycol={d.ds}
-        className='text-center px-1 py-2 border-b border-l border-border dark:border-darkborder cursor-pointer hover:brightness-95 transition sticky top-0 z-20'
-        style={{ gridColumn: 2 + i, gridRow: 1, background: dayBg }}>
-        <div className='text-sm font-bold text-dark dark:text-white capitalize'>{dayTitle(d.day)}</div>
-        <div className='text-[11px] text-link dark:text-darklink leading-tight'>{sub.text}</div>
-        {sub.sucursales.length >= 2 && (
-          <div className='mt-0.5 flex items-center justify-center gap-2 flex-wrap'>
-            {sub.sucursales.map((s) => (
-              <span key={s} className='inline-flex items-center gap-1 text-[10px] text-link dark:text-darklink'>
-                <span className='h-2 w-2 rounded-full' style={{ backgroundColor: sucursalColor(s) }} />
-                {sucursalLabel(s)}
-              </span>
-            ))}
-          </div>
+        onClick={() => onOpenDay(f.day)}
+        title={dayTitle(f.day)}
+        data-daycol={f.ds}
+        className='text-center px-1 border-b border-l border-border dark:border-darkborder cursor-pointer hover:brightness-95 transition sticky z-20 flex flex-col items-center justify-center'
+        style={{ gridColumn: `${f.startCol} / span ${f.cols.length}`, gridRow: 1, top: 0, height: DAY_H, background: dayBg }}>
+        <div className='text-sm font-bold text-dark dark:text-white capitalize leading-tight'>{dayTitle(f.day)}</div>
+        {sucs.length > 0 && (
+          <div className='text-[10px] text-link dark:text-darklink leading-tight'>{sucs.map(sucursalLabel).join(' + ')}</div>
         )}
       </button>,
     )
   })
 
-  // Time gutter labels.
+  // Row 2: subcolumn headers — "profesional · sucursal".
+  flat.forEach((f) => {
+    f.cols.forEach((c, j) => {
+      const col = f.startCol + j
+      const prof = c.resourceId.startsWith('sp:') ? c.resourceTitle : c.resourceId === 'none' ? emptyLabel : ''
+      const sucTxt = c.sucursal ? sucursalLabel(c.sucursal) : ''
+      cells.push(
+        <div
+          key={`sh-${f.ds}-${col}`}
+          className={`px-1 flex items-center justify-center gap-1 text-[11px] font-semibold text-dark dark:text-white border-b border-border dark:border-darkborder bg-card sticky z-20 ${
+            j === 0 ? 'border-l border-border dark:border-darkborder' : 'border-l border-border/40 dark:border-darkborder/40'
+          }`}
+          style={{ gridColumn: col, gridRow: 2, top: DAY_H, height: SUB_H }}>
+          {c.sucursal && <span className='h-2 w-2 rounded-full shrink-0' style={{ backgroundColor: c.sucColor }} />}
+          <span className='truncate'>
+            {prof}
+            {prof && sucTxt ? ' · ' : ''}
+            <span className='text-link dark:text-darklink font-normal'>{sucTxt}</span>
+          </span>
+        </div>,
+      )
+    })
+  })
+
+  // Time gutter (col 1).
   for (const h of hours) {
     cells.push(
       <div
@@ -336,66 +369,58 @@ export function WeekSchedule({
     )
   }
 
-  // Body cells: one per (day, hour). Turnos of that hour render side by side.
+  // Body: one cell per (subcolumn, hour). Same-professional sobre-turnos side by side.
   for (const h of hours) {
-    dayData.forEach((d, i) => {
-      const list = (buckets.get(d.ds)?.get(h) ?? []).slice().sort((a, b) => a.start.getTime() - b.start.getTime())
-      const isLunch = h === LUNCH_HOUR && !lunchTurnos.has(d.ds)
-      cells.push(
-        <div
-          key={`c-${d.ds}-${h}`}
-          className='p-1 border-b border-l border-border/60 dark:border-darkborder/60'
-          style={{ gridColumn: 2 + i, gridRow: rowOf(h) }}>
-          {isLunch ? (
-            <div className='h-full rounded-md bg-gray-100 dark:bg-white/5 text-link dark:text-darklink text-[10px] font-medium uppercase tracking-wide flex items-center justify-center py-2'>
-              {lunchLabel}
-            </div>
-          ) : list.length > 0 ? (
-            <div className='flex items-stretch gap-1'>{list.map(renderCard)}</div>
-          ) : (
-            <button
-              type='button'
-              onClick={() => {
-                const start = dateAtHour(d.day, h)
-                const end = new Date(start.getTime() + 30 * 60000)
-                onCreate(start, end)
-              }}
-              aria-label={newLabel}
-              className='w-full h-full min-h-[52px] rounded-md hover:bg-primary/5 transition-colors'
-            />
-          )}
-        </div>,
-      )
+    flat.forEach((f) => {
+      f.cols.forEach((c, j) => {
+        const col = f.startCol + j
+        const list = (buckets.get(f.ds)?.get(c.resourceId)?.get(h) ?? [])
+          .slice()
+          .sort((a, b) => a.start.getTime() - b.start.getTime())
+        const isLunch = h === LUNCH_HOUR && list.length === 0
+        cells.push(
+          <div
+            key={`c-${f.ds}-${col}-${h}`}
+            className={`p-1 border-b border-border/60 dark:border-darkborder/60 ${
+              j === 0 ? 'border-l border-border dark:border-darkborder' : 'border-l border-border/40 dark:border-darkborder/40'
+            }`}
+            style={{ gridColumn: col, gridRow: rowOf(h) }}>
+            {isLunch ? (
+              <div className='h-full rounded-md bg-gray-100 dark:bg-white/5 text-link dark:text-darklink text-[9px] font-medium uppercase tracking-wide flex items-center justify-center py-2'>
+                {lunchLabel}
+              </div>
+            ) : list.length > 0 ? (
+              <div className='flex items-stretch gap-1'>{list.map(renderCard)}</div>
+            ) : (
+              <button
+                type='button'
+                onClick={() => {
+                  const start = dateAtHour(f.day, h)
+                  const end = new Date(start.getTime() + 30 * 60000)
+                  onCreate(start, end, c.sucursal || undefined, profIdOf(c.resourceId))
+                }}
+                aria-label={newLabel}
+                className='w-full h-full min-h-[52px] rounded-md hover:bg-primary/5 transition-colors'
+              />
+            )}
+          </div>,
+        )
+      })
     })
   }
 
-  // Auto-expand a day's column (header + body share the grid column) by its
-  // busiest overlap, so many simultaneous turnos stay readable instead of being
-  // squeezed into slivers. Quiet days keep the base width; the week still scrolls
-  // horizontally when a busy day makes the total exceed the viewport. Andrés #14
-  // stays intact: one column per day, quick panorama, click a header for detail.
-  const BASE_DAY = 160 // px for a day with at most 1 turno in any hour
-  const PER_CARD = 150 // px per side-by-side card on a busy day
-  const overlapOf = (ds: string) => {
-    let m = 1
-    const b = buckets.get(ds)
-    if (b) for (const arr of b.values()) if (arr.length > m) m = arr.length
-    return m
-  }
-  const dayMins = dayData.map((d) => {
-    const ov = overlapOf(d.ds)
-    return ov <= 1 ? BASE_DAY : ov * PER_CARD
-  })
-  const gridTemplateColumns = `56px ${dayData
-    .map((d, i) => `minmax(${dayMins[i]}px, ${Math.max(1, overlapOf(d.ds))}fr)`)
-    .join(' ')}`
-  const gridTemplateRows = `auto repeat(${hours.length}, minmax(56px, auto))`
-  const minWidth = 56 + dayMins.reduce((a, b) => a + b, 0)
+  // Each subcolumn keeps a readable min width; the week scrolls horizontally when
+  // the working professionals across the days exceed the viewport (Andrés #14).
+  const SUB_MIN = 150
+  const totalSubcols = flat.reduce((n, f) => n + f.cols.length, 0)
+  const gridTemplateColumns = `56px repeat(${totalSubcols}, minmax(${SUB_MIN}px, 1fr))`
+  const gridTemplateRows = `${DAY_H}px ${SUB_H}px repeat(${hours.length}, minmax(56px, auto))`
+  const minWidth = 56 + totalSubcols * SUB_MIN
 
   return (
-    // Bounded, self-contained scroll box: both scrollbars stay on screen so a
-    // wide (busy) week is reachable without scrolling the whole page down, while
-    // the day headers (top) and the time column (left) stay pinned.
+    // Bounded, self-contained scroll box: both scrollbars stay on screen so a wide
+    // (many professionals) week is reachable without scrolling the whole page down,
+    // while the day + subcolumn headers (top) and the time column (left) stay pinned.
     <div
       ref={scrollRef}
       className='rounded-lg border border-border dark:border-darkborder bg-card overflow-auto max-h-[calc(100vh-210px)] cb-hscroll'>
