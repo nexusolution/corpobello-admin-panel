@@ -893,10 +893,16 @@ function EventDialog({
     // PLACED onto the day for the first time: a new turno, or an existing one whose
     // day/sucursal/range changed. Editing an existing turno in place (e.g. a
     // Profesional's status-only update, or notes) must still save.
+    // A professional change must RE-VALIDATE too (Andrés 2026-10 #3): reassigning
+    // a turno to another professional re-checks that they perform the treatment and
+    // have availability at that sucursal/date/time.
     const placementChanged =
       !isEdit ||
       startStr !== draft.startStr ||
       sucursal !== draft.sucursal ||
+      professionalId !== draft.professionalId ||
+      startTime !== draft.startTime ||
+      endTime !== draft.endTime ||
       (allDay && (endStr || startStr) !== (draft.endStr || draft.startStr))
     // Feriado / branch-closure ENFORCEMENT (Andrés 2026-09-15): a day closed via
     // Autogestión → Feriados must not simply warn. Users without permission are
@@ -951,33 +957,63 @@ function EventDialog({
       })
       return
     }
-    // Disponibilidad ENFORCEMENT by role (Andrés 2026-09-20, punto 1): if the
-    // selected professional has NO programmed availability at that sucursal/date,
-    // Secretaría/Operador is BLOCKED (must ask an Admin); Admin may authorise a
-    // one-off EXCEPTION or jump to Autogestión to edit the availability. The
-    // exception turno exists and shows, but the Month fondo still reflects only
-    // programmed availability (handled in dateCellWrapper). Only on placement.
-    if (hasClosedDay && !closedByFeriado && placementChanged) {
-      const who = professionalId
-        ? professionals.find((p) => p.value === professionalId)?.label || ''
+    // Compatibilidad del PROFESIONAL con el turno (Andrés 2026-09-20 punto 1 +
+    // 2026-10 punto 3): al colocar/mover un turno o CAMBIAR de profesional se
+    // revalida todo y se listan TODAS las incompatibilidades a la vez:
+    //   (1) que el profesional realice el tratamiento,
+    //   (2) que tenga disponibilidad programada en esa sucursal/fecha.
+    // Secretaría queda BLOQUEADA (pedir a un Admin); el Admin puede autorizar una
+    // excepción puntual o ir a Autogestión a editar los tratamientos/disponibilidad
+    // de ese profesional. El turno excepcional existe y se muestra, pero el fondo
+    // del Mes sigue reflejando solo la disponibilidad programada (dateCellWrapper).
+    // La superposición y el almuerzo se validan aparte, más abajo.
+    const whoLabel = professionalId
+      ? professionals.find((p) => p.value === professionalId)?.label || ''
+      : ''
+    const sucTxt = sucursal ? sucursalLabel(sucursal) : ''
+    // Does the professional perform this treatment at all (any active own rule that
+    // covers it)? Independent of date/sucursal — that is the availability check.
+    const performsSelectedTreatment =
+      !professionalId ||
+      !treatmentSlug ||
+      rules.some(
+        (r) =>
+          r.active &&
+          r.professionalId === professionalId &&
+          (r.treatmentSlugs.length === 0 || r.treatmentSlugs.includes(treatmentSlug)) &&
+          !(r.treatmentExclude && r.treatmentExclude.includes(treatmentSlug)),
+      )
+    const incompat: string[] = []
+    if (!performsSelectedTreatment) {
+      const treatmentLabel = treatmentSlug
+        ? treatments.find((tt) => tt.value === treatmentSlug)?.label || treatmentSlug
         : ''
-      const sucTxt = sucursal ? sucursalLabel(sucursal) : ''
-      const lead = who
-        ? t('turno.noAvailWho', { name: who, sucursal: sucTxt })
-        : t('turno.noAvailBranch', { sucursal: sucTxt })
+      incompat.push(t('turno.incompatTreatment', { name: whoLabel, treatment: treatmentLabel }))
+    }
+    if (hasClosedDay) {
+      incompat.push(
+        whoLabel
+          ? t('turno.noAvailWho', { name: whoLabel, sucursal: sucTxt })
+          : t('turno.noAvailBranch', { sucursal: sucTxt }),
+      )
+    }
+    if (incompat.length > 0 && !closedByFeriado && placementChanged) {
       const commonSwal = {
         background: isDarkNow ? '#2a3547' : '#ffffff',
         color: isDarkNow ? '#ffffff' : '#2a3547',
         width: '400px',
         customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
       }
+      const listHtml = `<ul style="text-align:left;margin:0 0 .6em;padding-left:1.15em">${incompat
+        .map((i) => `<li style="margin:.15em 0">${i}</li>`)
+        .join('')}</ul>`
       if (isAdmin) {
         const res = await Swal.fire({
           ...commonSwal,
           icon: 'warning',
           iconColor: '#ffae1f',
-          title: t('turno.noAvailTitle'),
-          text: `${lead} ${t('turno.noAvailAdminTail')}`,
+          title: t('turno.incompatTitle'),
+          html: `${listHtml}<div>${t('turno.noAvailAdminTail')}</div>`,
           showConfirmButton: true,
           showDenyButton: true,
           showCancelButton: true,
@@ -1037,8 +1073,8 @@ function EventDialog({
         await Swal.fire({
           ...commonSwal,
           icon: 'error',
-          title: t('turno.noAvailTitle'),
-          text: `${lead} ${t('turno.noAvailStaffTail')}`,
+          title: t('turno.incompatTitle'),
+          html: `${listHtml}<div>${t('turno.noAvailStaffTail')}</div>`,
           confirmButtonText: t('turno.closedBlockedOk'),
           confirmButtonColor: '#5d87ff',
         })
