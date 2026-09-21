@@ -54,7 +54,7 @@ function Select({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full appearance-none [-webkit-appearance:none] [-moz-appearance:none] [&::-ms-expand]:hidden pr-8 ${FIELD}`}>
+        className={`cb-native-select w-full pr-8 ${FIELD}`}>
         {children}
       </select>
       <Icon

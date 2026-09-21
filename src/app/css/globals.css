@@ -291,3 +291,16 @@ input[type="time"] {
   font-size: 0.9rem !important;
   padding: 0.5rem 1rem !important;
 }
+
+/* Custom selects (Autogestión) render their own chevron, so hard-hide the native
+   dropdown arrow across browsers — Tailwind's appearance-none alone left a second
+   arrow in some browsers (Andrés 2026-09-21). */
+select.cb-native-select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: none;
+}
+select.cb-native-select::-ms-expand {
+  display: none;
+}
