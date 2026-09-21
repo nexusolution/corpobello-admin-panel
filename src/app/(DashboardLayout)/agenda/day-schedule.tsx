@@ -190,6 +190,46 @@ export function DaySchedule({
   }
   const slotH = Math.max(24, Math.round(scaleMin * 1.4))
 
+  // Lunch as ONE continuous block (Andrés punto 4): instead of a grey band per
+  // slot, merge each column's consecutive "pure lunch" slots (no turno) into a
+  // single rowSpan cell. lunchTopByCol maps the top slot of each run to its span;
+  // lunchSkipByCol lists the covered slots to skip so the rowSpan fills them.
+  const lunchTopByCol = new Map<string, Map<number, number>>()
+  const lunchSkipByCol = new Map<string, Set<number>>()
+  for (const c of columns) {
+    const lw = lunchByCol.get(c.resourceId)
+    if (!lw) continue
+    const starting = startingByCol.get(c.resourceId)
+    const occ = occupiedByCol.get(c.resourceId)
+    const tops = new Map<number, number>()
+    const skip = new Set<number>()
+    let runTop: number | null = null
+    let runLen = 0
+    const flush = () => {
+      if (runTop != null && runLen > 0) tops.set(runTop, runLen)
+      runTop = null
+      runLen = 0
+    }
+    for (const slotMin of slots) {
+      const isLunch = slotMin >= lw.startMin && slotMin < lw.endMin
+      const hasTurno = (starting?.get(slotMin)?.length ?? 0) > 0 || (occ?.has(slotMin) ?? false)
+      if (isLunch && !hasTurno) {
+        if (runTop == null) {
+          runTop = slotMin
+          runLen = 1
+        } else {
+          runLen++
+          skip.add(slotMin)
+        }
+      } else {
+        flush()
+      }
+    }
+    flush()
+    lunchTopByCol.set(c.resourceId, tops)
+    lunchSkipByCol.set(c.resourceId, skip)
+  }
+
   // Always give each column a readable min width (72px time gutter + 170px/col),
   // so on a phone the day table scrolls horizontally instead of squeezing cards
   // into slivers. On desktop the table is wider than this, so nothing scrolls.
@@ -351,13 +391,37 @@ export function DaySchedule({
                   {fmtMin(slotMin)}
                 </td>
                 {columns.map((c, i) => {
+                  // Covered by a lunch rowSpan above: render no cell at all.
+                  if (lunchSkipByCol.get(c.resourceId)?.has(slotMin)) return null
                   const groupStart = groups.some((g) => g.start === i)
                   const cell = (startingByCol.get(c.resourceId)?.get(slotMin) ?? []).slice()
                   cell.sort((a, b) => a.start.getTime() - b.start.getTime())
                   const occupied = occupiedByCol.get(c.resourceId)?.has(slotMin) ?? false
                   const lw = lunchByCol.get(c.resourceId) ?? null
-                  const isLunch = !!lw && slotMin >= lw.startMin && slotMin < lw.endMin
-                  const isLunchTop = isLunch && slotMin - scaleMin < (lw as LunchWindow).startMin
+                  const lunchSpan = lunchTopByCol.get(c.resourceId)?.get(slotMin)
+                  // A single continuous ALMUERZO block spanning its whole duration
+                  // (Andrés punto 4): "ALMUERZO · 13:00 a 14:00", centred, clickable.
+                  if (lunchSpan && lw) {
+                    const rangeSep = locale === 'es' ? 'a' : 'to'
+                    return (
+                      <td
+                        key={c.resourceId}
+                        rowSpan={lunchSpan}
+                        style={{ height: slotH * lunchSpan }}
+                        className={`align-top p-1 border-b border-border/60 dark:border-darkborder/60 ${
+                          groupStart && i > 0 ? 'border-l border-border dark:border-darkborder' : ''
+                        }`}>
+                        <button
+                          type='button'
+                          onClick={() => onEditLunch(c)}
+                          title={lunchLabel}
+                          className='w-full h-full rounded-md bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-link dark:text-darklink text-[11px] font-semibold uppercase tracking-wide text-center flex items-center justify-center transition-colors'
+                          style={{ minHeight: slotH * lunchSpan - 8 }}>
+                          {lunchLabel} · {fmtMin(lw.startMin)} {rangeSep} {fmtMin(lw.endMin)}
+                        </button>
+                      </td>
+                    )
+                  }
                   return (
                     <td
                       key={c.resourceId}
@@ -423,17 +487,6 @@ export function DaySchedule({
                         // Slot covered by a turno that started earlier: busy, not
                         // clickable (a faint tint distinguishes it from a free slot).
                         <div className='w-full h-full rounded bg-black/[0.03] dark:bg-white/[0.04]' style={{ minHeight: slotH - 8 }} />
-                      ) : isLunch ? (
-                        // Click the ALMUERZO block to move/remove lunch just for
-                        // this day (Andrés punto 5).
-                        <button
-                          type='button'
-                          onClick={() => onEditLunch(c)}
-                          title={lunchLabel}
-                          className='w-full rounded-md bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-link dark:text-darklink text-[10px] font-medium uppercase tracking-wide text-center flex items-center justify-center transition-colors'
-                          style={{ minHeight: slotH - 8 }}>
-                          {isLunchTop ? lunchLabel : ''}
-                        </button>
                       ) : (
                         <button
                           type='button'
