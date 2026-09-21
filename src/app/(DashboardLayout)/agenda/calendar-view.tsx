@@ -242,6 +242,12 @@ function sucursalLabel(s: string): string {
 // Resource id for turnos with no sucursal set, in the "columns by branch" view.
 const NONE_RESOURCE = '__sin__'
 
+// sessionStorage key for the "Editar disponibilidad" round-trip (Andrés punto 1c):
+// when an admin jumps from a blocked turno to Autogestión to fix the availability,
+// the turno draft is stashed here so we can re-open it, with its data intact, once
+// the availability is saved. Shared with the Disponibilidad section.
+export const RETURN_TURNO_KEY = 'cb:agenda:returnTurno'
+
 // ── date <-> <input type="date"> helpers (local, never UTC — avoids day shift) ─
 function toDateInput(d: Date): string {
   const y = d.getFullYear()
@@ -983,6 +989,36 @@ function EventDialog({
           // professional + sucursal (+ the date's weekday) so the admin doesn't
           // have to hunt for it (Andrés #1b).
           if (typeof window !== 'undefined') {
+            // Stash the current (edited) turno so we can re-open it, data intact,
+            // once the admin saves the availability and comes back (Andrés #1c).
+            const snapshot: Draft = {
+              id: draft.id,
+              patientId,
+              patientName,
+              treatmentSlug,
+              professionalId,
+              sucursal,
+              status,
+              charged,
+              allDay: false,
+              startStr,
+              endStr,
+              startTime,
+              endTime,
+              observaciones,
+              packId,
+              depositAmount,
+              depositDate,
+              depositReceived,
+            }
+            try {
+              sessionStorage.setItem(
+                RETURN_TURNO_KEY,
+                JSON.stringify({ draft: snapshot, view: backView, date: backDate }),
+              )
+            } catch {
+              // sessionStorage unavailable (private mode): skip the round-trip.
+            }
             const qs = new URLSearchParams({ tab: 'disponibilidad' })
             if (professionalId) qs.set('prof', professionalId)
             if (sucursal) qs.set('suc', sucursal)
@@ -2931,6 +2967,34 @@ export function CalendarView() {
     setDate(new Date(ev.start))
     setFlashEventId(ev.id)
   }, [events, eventParam])
+
+  // Return trip from "Editar disponibilidad" (Andrés punto 1c): after the admin
+  // saves the availability in Autogestión and chooses to come back, we land here
+  // with the stashed turno in sessionStorage. Restore the agenda context (view +
+  // date) and re-open the editor with the data the admin had loaded. Runs once.
+  const restoredReturnRef = useRef(false)
+  useEffect(() => {
+    if (restoredReturnRef.current) return
+    restoredReturnRef.current = true
+    let raw: string | null = null
+    try {
+      raw = sessionStorage.getItem(RETURN_TURNO_KEY)
+      if (raw) sessionStorage.removeItem(RETURN_TURNO_KEY)
+    } catch {
+      return
+    }
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw) as { draft: Draft; view?: string; date?: string }
+      if (!parsed?.draft) return
+      if (parsed.date) setDate(new Date(`${parsed.date}T00:00:00`))
+      if (parsed.view === Views.DAY || parsed.view === Views.WEEK) setColumnMode('professional')
+      if (parsed.view) setView(parsed.view as View)
+      setDraft(parsed.draft)
+    } catch {
+      // Malformed payload: ignore.
+    }
+  }, [])
 
   const messages = useMemo(
     () => ({

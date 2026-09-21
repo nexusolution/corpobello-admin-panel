@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 import { Icon } from '@iconify/react'
 import Swal from 'sweetalert2'
 import moment from 'moment'
@@ -262,6 +263,11 @@ function draftToRule(d: Draft): AvailabilityRule {
   }
 }
 
+// Same sessionStorage key the agenda uses to stash a turno before jumping here
+// (Andrés #1c). Kept as a local literal so this bundle does not import the huge
+// agenda module just for a string.
+const RETURN_TURNO_KEY = 'cb:agenda:returnTurno'
+
 export function DisponibilidadSection({
   initialFocus,
 }: {
@@ -270,6 +276,7 @@ export function DisponibilidadSection({
   initialFocus?: { prof: string; suc: string; date: string } | null
 } = {}) {
   const { t, locale } = useTranslation() as { t: TFn; locale: string }
+  const router = useRouter()
   const [rules, setRules] = useState<AvailabilityRule[]>([])
   const [exclusions, setExclusions] = useState<AvailabilityExclusion[]>([])
   const [treatments, setTreatments] = useState<Treatment[]>([])
@@ -360,6 +367,28 @@ export function DisponibilidadSection({
     }
     setDraft(null)
     void reload()
+    // If we arrived here from a blocked turno ("Editar disponibilidad"), offer to
+    // go back to that turno with its data intact (Andrés #1c). The turno is stashed
+    // in sessionStorage; the agenda re-opens it on return.
+    let hasReturn = false
+    try {
+      hasReturn = !!sessionStorage.getItem(RETURN_TURNO_KEY)
+    } catch {
+      hasReturn = false
+    }
+    if (hasReturn) {
+      const res = await Swal.fire({
+        icon: 'success',
+        iconColor: '#13deb9',
+        title: t('autoGestion.availability.savedTitle'),
+        text: t('autoGestion.availability.returnToTurno'),
+        showCancelButton: true,
+        confirmButtonText: t('autoGestion.availability.returnGo'),
+        cancelButtonText: t('autoGestion.availability.returnStay'),
+        confirmButtonColor: '#5d87ff',
+      })
+      if (res.isConfirmed) router.push('/agenda')
+    }
   }
 
   async function removeRule(r: AvailabilityRule) {
