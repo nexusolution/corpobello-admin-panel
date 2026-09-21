@@ -870,10 +870,14 @@ function EventDialog({
     const end = new Date(`${endBound}T00:00:00`)
     for (const d = new Date(`${startStr}T00:00:00`); d <= end; d.setDate(d.getDate() + 1)) {
       const ds = toDateInput(d)
+      // requireOwnRule (last arg) only when a professional is selected: they must
+      // have their OWN programmed availability at this sucursal/date — a branch
+      // open thanks to a generic or another professional's rule is not enough
+      // (Andrés 2026-10 #1). Without a professional we stay at sucursal level.
       const open = treatmentSlug
-        ? availabilityFor(ds, sucursal, treatmentSlug, rules, exclusions, pid).open
+        ? availabilityFor(ds, sucursal, treatmentSlug, rules, exclusions, pid, undefined, !!pid).open
         : pid
-          ? catalogSlugs.some((s) => availabilityFor(ds, sucursal, s, rules, exclusions, pid).open)
+          ? catalogSlugs.some((s) => availabilityFor(ds, sucursal, s, rules, exclusions, pid, undefined, true).open)
           : anyTreatmentAvailability(ds, sucursal, catalogSlugs, rules, exclusions).open
       if (!open) return true
     }

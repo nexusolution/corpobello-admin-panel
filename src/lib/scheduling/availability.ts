@@ -158,17 +158,24 @@ export function matchesPattern(
 
 // When `professionalId` is given, only that professional's rules plus generic
 // (null-professional) rules match; when omitted, any professional's rules match.
+// With `requireOwnRule`, generic rules are NOT counted for a specific professional
+// (Andrés 2026-10 #1): a branch that is "open" thanks to a generic or another
+// professional's rule does not, by itself, mean the selected professional works
+// there that day — booking validation must check the full combination
+// (profesional + sucursal + fecha).
 function ruleApplies(
   rule: AvailabilityRule,
   sucursal: string,
   slug: string,
   professionalId?: string,
+  requireOwnRule?: boolean,
 ): boolean {
   if (!rule.active || rule.sucursal !== sucursal) return false
   if (rule.treatmentSlugs.length > 0 && !rule.treatmentSlugs.includes(slug)) return false
   if (rule.treatmentExclude && rule.treatmentExclude.includes(slug)) return false
-  if (professionalId && rule.professionalId != null && rule.professionalId !== professionalId) {
-    return false
+  if (professionalId) {
+    if (rule.professionalId != null && rule.professionalId !== professionalId) return false
+    if (requireOwnRule && rule.professionalId == null) return false
   }
   return true
 }
@@ -180,10 +187,13 @@ export function openWindowsFor(
   rules: readonly AvailabilityRule[],
   professionalId?: string,
   isHoliday?: (dateStr: string) => boolean,
+  requireOwnRule?: boolean,
 ): { openMin: number; closeMin: number }[] {
   return rules
     .filter(
-      (r) => ruleApplies(r, sucursal, slug, professionalId) && matchesPattern(dateStr, r.pattern, isHoliday),
+      (r) =>
+        ruleApplies(r, sucursal, slug, professionalId, requireOwnRule) &&
+        matchesPattern(dateStr, r.pattern, isHoliday),
     )
     .map((r) => ({ openMin: r.openMin, closeMin: r.closeMin }))
 }
@@ -265,8 +275,11 @@ export function availabilityFor(
   exclusions: readonly AvailabilityExclusion[] = [],
   professionalId?: string,
   isHoliday?: (dateStr: string) => boolean,
+  // Booking validation (Andrés #1): require the SELECTED professional's own rule,
+  // ignoring generic (unassigned) rules that only keep the branch open.
+  requireOwnRule?: boolean,
 ): AvailabilityWindow {
-  const windows = openWindowsFor(dateStr, sucursal, slug, rules, professionalId, isHoliday)
+  const windows = openWindowsFor(dateStr, sucursal, slug, rules, professionalId, isHoliday, requireOwnRule)
   if (windows.length === 0) return { open: false }
 
   // Replacement (Andrés #11): when asking for a specific professional, this
