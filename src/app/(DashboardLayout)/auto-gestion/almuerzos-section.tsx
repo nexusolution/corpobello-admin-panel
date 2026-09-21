@@ -47,22 +47,15 @@ function Select({
   children: ReactNode
   className?: string
 }) {
+  // Plain native select: it already shows a single built-in chevron. (Adding our
+  // own overlay chevron produced a doubled arrow — Andrés 2026-09-21.)
   return (
-    <div className={`relative inline-block ${className ?? ''}`}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={`cb-native-select w-full pr-8 ${FIELD}`}>
-
-        {children}
-      </select>
-      <Icon
-        icon='tabler:chevron-down'
-        height={15}
-        width={15}
-        className='pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-link dark:text-darklink'
-      />
-    </div>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`${FIELD} w-full pr-8 ${className ?? ''}`}>
+      {children}
+    </select>
   )
 }
 
