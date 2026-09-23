@@ -152,7 +152,11 @@ function patternSummary(p: DayPattern, locale: string): string {
     case 'monthly_cycle': {
       const wk = locale === 'es' ? 'sem' : 'wk'
       const anchorTxt = locale === 'es' ? 'Ciclo desde el 2º lunes' : 'Cycle from 2nd Mon'
-      const parts = p.entries.map((e) => `+${e.weekOffset} ${wk} ${weekdayLabel(e.weekday, locale)}`)
+      const dayTxt = locale === 'es' ? 'día' : 'day'
+      const parts =
+        p.dayOffsets && p.dayOffsets.length > 0
+          ? p.dayOffsets.map((o) => `${dayTxt} +${o}`)
+          : (p.entries ?? []).map((e) => `+${e.weekOffset} ${wk} ${weekdayLabel(e.weekday, locale)}`)
       const feriado =
         p.shiftAnchorOnHoliday !== false
           ? locale === 'es'
@@ -180,6 +184,9 @@ type Draft = {
   groupA: Weekday[]
   groupB: Weekday[]
   cycleEntries: { weekOffset: number; weekday: Weekday }[]
+  // Preferred monthly_cycle form (Andrés #9): comma-separated day offsets from the
+  // 2nd Monday, e.g. "0, 9, 17". When set, it wins over cycleEntries.
+  cycleDayOffsets: string
   holidayShift: boolean // monthly_cycle: adelantar la jornada ancla si el 2º lunes es feriado
   openMin: number
   closeMin: number
@@ -201,12 +208,22 @@ function emptyDraft(): Draft {
     groupA: [5],
     groupB: [6],
     cycleEntries: [{ weekOffset: 0, weekday: 1 }],
+    cycleDayOffsets: '0, 9, 17',
     holidayShift: true,
     openMin: 8 * 60,
     closeMin: 20 * 60,
     active: true,
     label: '',
   }
+}
+
+// Parse "0, 9, 17" → [0, 9, 17] (deduped, sorted, non-negative). Empty → [].
+function parseDayOffsets(s: string): number[] {
+  const out = s
+    .split(',')
+    .map((x) => parseInt(x.trim(), 10))
+    .filter((n) => Number.isFinite(n) && n >= 0)
+  return [...new Set(out)].sort((a, b) => a - b)
 }
 
 function ruleToDraft(r: AvailabilityRule): Draft {
@@ -226,7 +243,8 @@ function ruleToDraft(r: AvailabilityRule): Draft {
     d.groupB = r.pattern.groups[1] ?? []
   }
   if (r.pattern.type === 'monthly_cycle') {
-    d.cycleEntries = r.pattern.entries.length ? r.pattern.entries : [{ weekOffset: 0, weekday: 1 }]
+    d.cycleEntries = r.pattern.entries?.length ? r.pattern.entries : [{ weekOffset: 0, weekday: 1 }]
+    d.cycleDayOffsets = r.pattern.dayOffsets?.length ? r.pattern.dayOffsets.join(', ') : ''
     d.holidayShift = r.pattern.shiftAnchorOnHoliday !== false
   }
   d.openMin = r.openMin
@@ -240,14 +258,18 @@ function draftToRule(d: Draft): AvailabilityRule {
   let pattern: DayPattern
   if (d.patternType === 'weekly') pattern = { type: 'weekly', weekdays: [...d.weekly].sort() }
   else if (d.patternType === 'monthly_ordinal') pattern = { type: 'monthly_ordinal', days: d.monthly }
-  else if (d.patternType === 'monthly_cycle')
+  else if (d.patternType === 'monthly_cycle') {
+    const offs = parseDayOffsets(d.cycleDayOffsets)
     pattern = {
       type: 'monthly_cycle',
       ordinal: 2,
       anchorWeekday: 1,
       shiftAnchorOnHoliday: d.holidayShift,
-      entries: d.cycleEntries,
+      // Prefer explicit day offsets (Andrés #9); keep entries only as a fallback
+      // for legacy rules that have no offsets set.
+      ...(offs.length > 0 ? { dayOffsets: offs } : { entries: d.cycleEntries }),
     }
+  }
   else pattern = { type: 'alternating', anchorMonday: d.anchorMonday, groups: [d.groupA, d.groupB] }
   return {
     id: d.id,
@@ -621,7 +643,9 @@ function RuleEditor({
     draft.closeMin > draft.openMin &&
     (draft.patternType !== 'weekly' || draft.weekly.length > 0) &&
     (draft.patternType !== 'monthly_ordinal' || draft.monthly.length > 0) &&
-    (draft.patternType !== 'monthly_cycle' || draft.cycleEntries.length > 0) &&
+    (draft.patternType !== 'monthly_cycle' ||
+      draft.cycleEntries.length > 0 ||
+      parseDayOffsets(draft.cycleDayOffsets).length > 0) &&
     (draft.patternType !== 'alternating' || (!!draft.anchorMonday && (draft.groupA.length > 0 || draft.groupB.length > 0)))
 
   return (
@@ -717,51 +741,18 @@ function RuleEditor({
         {draft.patternType === 'monthly_cycle' && (
           <div className='space-y-2'>
             <p className='text-[11px] text-link dark:text-darklink'>{t('autoGestion.availability.cycleHint')}</p>
-            {draft.cycleEntries.map((row, i) => (
-              <div key={i} className='flex items-center gap-2'>
-                <span className='text-xs text-link dark:text-darklink'>+</span>
-                <input
-                  type='number'
-                  min={0}
-                  max={8}
-                  value={row.weekOffset}
-                  onChange={(e) =>
-                    set({
-                      cycleEntries: draft.cycleEntries.map((r, j) =>
-                        j === i ? { ...r, weekOffset: Math.max(0, parseInt(e.target.value, 10) || 0) } : r,
-                      ),
-                    })
-                  }
-                  className={`${FIELD} w-16`}
-                />
-                <span className='text-xs text-link dark:text-darklink'>{t('autoGestion.availability.weekOffset')}</span>
-                <Select
-                  value={row.weekday}
-                  onChange={(v) =>
-                    set({
-                      cycleEntries: draft.cycleEntries.map((r, j) =>
-                        j === i ? { ...r, weekday: parseInt(v, 10) as Weekday } : r,
-                      ),
-                    })
-                  }>
-                  {WEEKDAY_ORDER.map((w) => (
-                    <option key={w} value={w}>{weekdayLabel(w, locale)}</option>
-                  ))}
-                </Select>
-                <button
-                  type='button'
-                  onClick={() => set({ cycleEntries: draft.cycleEntries.filter((_, j) => j !== i) })}
-                  className='text-link dark:text-darklink hover:text-error'>
-                  <Icon icon='solar:close-circle-line-duotone' height={18} width={18} />
-                </button>
-              </div>
-            ))}
-            <button
-              type='button'
-              onClick={() => set({ cycleEntries: [...draft.cycleEntries, { weekOffset: 0, weekday: 1 }] })}
-              className='text-xs text-primary font-medium hover:underline'>
-              + {t('autoGestion.availability.addEntry')}
-            </button>
+            <label className='flex flex-col gap-1'>
+              <span className='text-xs font-medium text-dark dark:text-white'>{t('autoGestion.availability.dayOffsets')}</span>
+              <input
+                type='text'
+                inputMode='numeric'
+                value={draft.cycleDayOffsets}
+                onChange={(e) => set({ cycleDayOffsets: e.target.value })}
+                placeholder='0, 9, 17'
+                className={`${FIELD} w-full`}
+              />
+              <span className='text-[11px] text-link dark:text-darklink'>{t('autoGestion.availability.dayOffsetsHint')}</span>
+            </label>
 
             {/* Feriado exception (Andrés #10): visible + editable, not hidden. */}
             <label className='flex items-start gap-2 cursor-pointer select-none pt-1'>

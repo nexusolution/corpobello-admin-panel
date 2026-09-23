@@ -20,10 +20,16 @@ export type DayPattern =
       ordinal?: number
       anchorWeekday?: Weekday
       // Feriado exception (Andrés #10): when true (default) and the anchor weekday
-      // (e.g. 2nd Monday) is a holiday, ONLY the anchor entry shifts to the
+      // (e.g. 2nd Monday) is a holiday, ONLY the day-0 jornada shifts to the
       // previous ordinal (1st Monday). Set false to disable that exception.
       shiftAnchorOnHoliday?: boolean
-      entries: { weekOffset: number; weekday: Weekday }[]
+      // Preferred, unambiguous form (Andrés #9): whole-day offsets from the anchor
+      // (day 0 = the anchor itself), e.g. Carol [0, 9, 17] / Andrés [24, 33, 38].
+      // A date this many days after the 2nd Monday belongs to that month's cycle,
+      // even when it spills into the following month. Falls back to `entries`.
+      dayOffsets?: number[]
+      // Legacy form: a date at `weekOffset` weeks after the anchor week, on `weekday`.
+      entries?: { weekOffset: number; weekday: Weekday }[]
     }
 
 export interface AvailabilityRule {
@@ -115,38 +121,47 @@ export function matchesPattern(
       return (groups[idx] ?? []).includes(weekday)
     }
     case 'monthly_cycle': {
-      if (!pattern.entries || pattern.entries.length === 0) return false
       const ord = pattern.ordinal ?? 2
       const aw = pattern.anchorWeekday ?? 1
+      const offsets = pattern.dayOffsets
+      const useOffsets = !!offsets && offsets.length > 0
+      if (!useOffsets && (!pattern.entries || pattern.entries.length === 0)) return false
       const dt = new Date(`${dateStr}T12:00:00.000Z`)
       const y = dt.getUTCFullYear()
       const m = dt.getUTCMonth()
       // The date can belong to THIS month's cycle or the PREVIOUS month's cycle
-      // (entries with a larger weekOffset spill into the next month).
+      // (offsets up to ~38 days spill into the following month).
       const candidates: [number, number][] = [
         [y, m],
         m === 0 ? [y - 1, 11] : [y, m - 1],
       ]
+      const sameYMD = (t: Date) =>
+        t.getUTCFullYear() === dt.getUTCFullYear() &&
+        t.getUTCMonth() === dt.getUTCMonth() &&
+        t.getUTCDate() === dt.getUTCDate()
       for (const [cy, cm] of candidates) {
         const anchor = nthWeekdayOfMonth(cy, cm, aw, ord)
-        // Feriado exception: if the anchor (e.g. 2nd Monday) is a holiday, the
-        // anchor-Monday jornada moves to the previous ordinal (1st Monday). Only
-        // that entry shifts; the rest still compute from the original anchor.
+        // Feriado exception: if the anchor (e.g. 2nd Monday) is a holiday, only the
+        // day-0 jornada moves to the previous ordinal (1st Monday); every other
+        // date still computes from the ORIGINAL anchor (Andrés #10).
         const shiftOnHoliday = pattern.shiftAnchorOnHoliday !== false
         const anchorIsHoliday =
           shiftOnHoliday && !!isHoliday && ord > 1 && isHoliday(anchor.toISOString().slice(0, 10))
-        for (const e of pattern.entries) {
-          const shift = anchorIsHoliday && e.weekOffset === 0 && e.weekday === aw
-          const base = shift ? nthWeekdayOfMonth(cy, cm, aw, ord - 1) : anchor
-          const dayFromMonday = (e.weekday + 6) % 7 // Mon=0 … Sun=6 (anchor is a Monday)
-          const target = new Date(base.getTime())
-          target.setUTCDate(base.getUTCDate() + (shift ? 0 : e.weekOffset * 7 + dayFromMonday))
-          if (
-            target.getUTCFullYear() === dt.getUTCFullYear() &&
-            target.getUTCMonth() === dt.getUTCMonth() &&
-            target.getUTCDate() === dt.getUTCDate()
-          )
-            return true
+        if (useOffsets) {
+          for (const off of offsets) {
+            const target = new Date(anchor.getTime())
+            target.setUTCDate(anchor.getUTCDate() + (anchorIsHoliday && off === 0 ? -7 : off))
+            if (sameYMD(target)) return true
+          }
+        } else {
+          for (const e of pattern.entries!) {
+            const shift = anchorIsHoliday && e.weekOffset === 0 && e.weekday === aw
+            const base = shift ? nthWeekdayOfMonth(cy, cm, aw, ord - 1) : anchor
+            const dayFromMonday = (e.weekday + 6) % 7 // Mon=0 … Sun=6 (anchor is a Monday)
+            const target = new Date(base.getTime())
+            target.setUTCDate(base.getUTCDate() + (shift ? 0 : e.weekOffset * 7 + dayFromMonday))
+            if (sameYMD(target)) return true
+          }
         }
       }
       return false
