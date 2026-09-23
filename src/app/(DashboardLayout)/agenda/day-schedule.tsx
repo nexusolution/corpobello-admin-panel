@@ -54,6 +54,9 @@ interface DayScheduleProps {
   // handler to edit/remove it just for this day.
   lunchFor: (col: DayColumn) => LunchWindow | null
   onEditLunch: (col: DayColumn) => void
+  // Drag-reschedule (Andrés #19-A): dropping a card onto a cell moves it to that
+  // slot (startMin) + column (professional/sucursal); the parent validates + confirms.
+  onMoveTurno?: (turnoId: string, target: { startMin: number; sucursal: string | null; professionalId: string | null }) => void
 }
 
 // Solid green cobro block on the right of a charged turno (matches the reference).
@@ -112,7 +115,11 @@ export function DaySchedule({
   resetHoursLabel,
   lunchFor,
   onEditLunch,
+  onMoveTurno,
 }: DayScheduleProps) {
+  // Column → professional id (sp:<suc>:<prof> or sp::<prof>); undefined otherwise.
+  const profIdOfCol = (c: DayColumn): string | null =>
+    c.resourceId.startsWith('sp:') ? c.resourceId.slice(c.resourceId.indexOf(':', 3) + 1) || null : null
   // Long, capitalised date header, e.g. "Lunes 5 de octubre de 2026".
   const rawDate = new Intl.DateTimeFormat(locale, {
     weekday: 'long',
@@ -426,6 +433,28 @@ export function DaySchedule({
                     <td
                       key={c.resourceId}
                       style={{ height: slotH }}
+                      onDragOver={
+                        onMoveTurno
+                          ? (ev) => {
+                              ev.preventDefault()
+                              ev.dataTransfer.dropEffect = 'move'
+                            }
+                          : undefined
+                      }
+                      onDrop={
+                        onMoveTurno
+                          ? (ev) => {
+                              ev.preventDefault()
+                              const id = ev.dataTransfer.getData('text/plain')
+                              if (id)
+                                onMoveTurno(id, {
+                                  startMin: slotMin,
+                                  sucursal: c.sucursal || null,
+                                  professionalId: profIdOfCol(c),
+                                })
+                            }
+                          : undefined
+                      }
                       className={`align-top p-1 border-b border-border/60 dark:border-darkborder/60 ${
                         groupStart && i > 0 ? 'border-l border-border dark:border-darkborder' : ''
                       }`}>
@@ -441,8 +470,13 @@ export function DaySchedule({
                                     key={e.id}
                                     type='button'
                                     data-eventid={e.id}
+                                    draggable={!!onMoveTurno}
+                                    onDragStart={(ev) => {
+                                      ev.dataTransfer.setData('text/plain', e.id)
+                                      ev.dataTransfer.effectAllowed = 'move'
+                                    }}
                                     onClick={() => onOpenTurno(e)}
-                                    className='flex items-stretch flex-1 min-w-0 text-left rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition'
+                                    className='flex items-stretch flex-1 min-w-0 text-left rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition cursor-grab active:cursor-grabbing'
                                     style={{ backgroundColor: cardBg(e.status) }}>
                                     {/* Treatment-colour bar (thick) */}
                                     <span className='shrink-0 self-stretch' style={{ width: 8, backgroundColor: tc }} />

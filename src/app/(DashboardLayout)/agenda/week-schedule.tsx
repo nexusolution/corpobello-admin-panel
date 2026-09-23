@@ -36,6 +36,12 @@ interface WeekScheduleProps {
   lunchLabel: string
   newLabel: string
   emptyLabel: string
+  // Drag-reschedule (Andrés #19-C): dropping a card onto a cell moves it to that
+  // day (dateStr) + hour (startMin) + subcolumn (professional/sucursal).
+  onMoveTurno?: (
+    turnoId: string,
+    target: { dateStr: string; startMin: number; sucursal: string | null; professionalId: string | null },
+  ) => void
 }
 
 const PAY_GREEN = '#16a34a'
@@ -72,6 +78,7 @@ export function WeekSchedule({
   lunchLabel,
   newLabel,
   emptyLabel,
+  onMoveTurno,
 }: WeekScheduleProps) {
   const dayData = days.map((day) => ({ day, ds: toKey(day), cols: columnsForDay(day) }))
 
@@ -258,8 +265,13 @@ export function WeekSchedule({
       <button
         key={e.id}
         type='button'
+        draggable={!!onMoveTurno}
+        onDragStart={(ev) => {
+          ev.dataTransfer.setData('text/plain', e.id)
+          ev.dataTransfer.effectAllowed = 'move'
+        }}
         onClick={() => onOpenTurno(e)}
-        className='flex items-stretch min-w-0 flex-1 text-left rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition'
+        className='flex items-stretch min-w-0 flex-1 text-left rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition cursor-grab active:cursor-grabbing'
         style={{ backgroundColor: cardBg(e.status) }}>
         <span className='shrink-0 self-stretch' style={{ width: 6, backgroundColor: tc }} />
         <span className='flex-1 min-w-0 py-1 px-1.5'>
@@ -385,6 +397,29 @@ export function WeekSchedule({
         cells.push(
           <div
             key={`c-${f.ds}-${col}-${h}`}
+            onDragOver={
+              onMoveTurno
+                ? (ev) => {
+                    ev.preventDefault()
+                    ev.dataTransfer.dropEffect = 'move'
+                  }
+                : undefined
+            }
+            onDrop={
+              onMoveTurno
+                ? (ev) => {
+                    ev.preventDefault()
+                    const id = ev.dataTransfer.getData('text/plain')
+                    if (id)
+                      onMoveTurno(id, {
+                        dateStr: f.ds,
+                        startMin: h * 60,
+                        sucursal: c.sucursal || null,
+                        professionalId: profIdOf(c.resourceId) || null,
+                      })
+                  }
+                : undefined
+            }
             className={`p-1 border-b border-border/60 dark:border-darkborder/60 ${
               j === 0 ? 'border-l border-border dark:border-darkborder' : 'border-l border-border/40 dark:border-darkborder/40'
             }`}

@@ -10,6 +10,7 @@ import {
   type CSSProperties,
   type ReactElement,
   type ReactNode,
+  type DragEvent as ReactDragEvent,
 } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { computeAge } from '@/lib/age'
@@ -86,7 +87,7 @@ import {
   type ProfessionalTreatments,
 } from '@/lib/data/professional-treatments'
 import { RescheduleDialog, type RescheduleTurno } from './reschedule-dialog'
-import type { RescheduleCtx } from '@/lib/scheduling/reschedule'
+import { validateMove, minToHHMM, type RescheduleCtx } from '@/lib/scheduling/reschedule'
 import {
   fetchPackConfigs,
   fetchActivePacks,
@@ -2359,14 +2360,16 @@ export function CalendarView() {
     [availRules, availExclusions, lunchConfig, lunchOverrides, profTreatments, isSucursalClosed, events],
   )
 
-  // Apply a reschedule from the contextual calendar (Andrés #19-F): preserve every
-  // field, move only date/time/sucursal, audit it, then offer a brief Undo.
-  const confirmReschedule = useCallback(
-    async (next: { dateStr: string; startTime: string; endTime: string; sucursal: string }) => {
-      const turno = rescheduleTurno
-      if (!turno) return
-      const orig = events.find((e) => e.id === turno.id)
-      setRescheduleTurno(null)
+  // Persist a move (reschedule / drag) preserving EVERY field except date/time/
+  // sucursal/professional, audit it, then offer a brief Undo (Andrés #19-F). Shared
+  // by the contextual calendar and the drag-and-drop drops.
+  const applyMoveWithUndo = useCallback(
+    async (
+      turnoId: string,
+      next: { start: Date; end: Date; sucursal: string | null; professionalId: string | null },
+      forcedBy?: string | null,
+    ) => {
+      const orig = events.find((e) => e.id === turnoId)
       if (!orig) return
       const isDarkNow =
         typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
@@ -2375,7 +2378,6 @@ export function CalendarView() {
         status: orig.status,
         charged: orig.charged,
         patientId: orig.patientId,
-        professionalId: orig.professionalId,
         treatmentSlug: orig.treatmentSlug,
         observaciones: orig.observaciones,
         packId: orig.packId,
@@ -2384,25 +2386,38 @@ export function CalendarView() {
         depositReceived: orig.depositReceived,
         allDay: false,
       }
-      const s = dateTime(next.dateStr, next.startTime)
-      const e = dateTime(next.dateStr, next.endTime)
-      const err = await updateCalendarEvent(turno.id, { ...base, start: s, end: e, sucursal: next.sucursal })
+      const err = await updateCalendarEvent(turnoId, {
+        ...base,
+        start: next.start,
+        end: next.end,
+        sucursal: next.sucursal,
+        professionalId: next.professionalId,
+      })
       if (err) {
         void Swal.fire({ icon: 'error', title: t('reschedule.error'), text: err, width: '360px' })
         return
       }
+      const parts = [`${t('turnoAudit.rescheduledTo')} ${toDateInput(next.start)} ${toTimeInput(next.start)}`]
+      if (next.sucursal !== orig.sucursal)
+        parts.push(`${t('turnoAudit.sucursal')}: ${next.sucursal ? sucursalLabel(next.sucursal) : t('turno.none')}`)
+      if (next.professionalId !== orig.professionalId)
+        parts.push(
+          `${t('turnoAudit.professional')}: ${
+            next.professionalId
+              ? professionals.find((p) => p.value === next.professionalId)?.label || next.professionalId
+              : t('turno.none')
+          }`,
+        )
+      if (forcedBy) parts.push(t('turnoAudit.forcedNote'))
       void logTurnoAudit({
-        calendarEventId: turno.id,
+        calendarEventId: turnoId,
         patientId: orig.patientId,
         action: 'rescheduled',
-        detail: `${t('turnoAudit.rescheduledTo')} ${next.dateStr} ${next.startTime}${
-          next.sucursal !== orig.sucursal ? ` · ${sucursalLabel(next.sucursal)}` : ''
-        }`,
+        detail: parts.join(' · '),
         changedBy: actorId,
-        changedByName: actorName,
+        changedByName: forcedBy || actorName,
       })
       reload()
-      // Undo (Andrés #19-F): a short window to revert an accidental move.
       const res = await Swal.fire({
         toast: true,
         position: 'bottom-end',
@@ -2417,16 +2432,201 @@ export function CalendarView() {
         color: isDarkNow ? '#ffffff' : '#2a3547',
       })
       if (res.isConfirmed) {
-        await updateCalendarEvent(turno.id, {
+        await updateCalendarEvent(turnoId, {
           ...base,
           start: orig.start,
           end: orig.end,
           sucursal: orig.sucursal,
+          professionalId: orig.professionalId,
         })
         reload()
       }
     },
-    [rescheduleTurno, events, reload, actorId, actorName, sucursalLabel, t],
+    [events, reload, actorId, actorName, sucursalLabel, professionals, t],
+  )
+
+  // Contextual calendar (Andrés #19-E): the dialog already showed the before/after
+  // summary, so just persist (same professional; only date/time/sucursal move).
+  const confirmReschedule = useCallback(
+    async (next: { dateStr: string; startTime: string; endTime: string; sucursal: string }) => {
+      const turno = rescheduleTurno
+      setRescheduleTurno(null)
+      if (!turno) return
+      const orig = events.find((e) => e.id === turno.id)
+      await applyMoveWithUndo(turno.id, {
+        start: dateTime(next.dateStr, next.startTime),
+        end: dateTime(next.dateStr, next.endTime),
+        sucursal: next.sucursal,
+        professionalId: orig?.professionalId ?? null,
+      })
+    },
+    [rescheduleTurno, events, applyMoveWithUndo],
+  )
+
+  // Drag-and-drop drop (Andrés #19-A/C/D): validate the target, show a before/after
+  // summary (or, on incompatibilities, the role-gated block/exception like the
+  // editor), then persist with Undo. `target` carries whatever the drop changes;
+  // unspecified fields keep the turno's current value.
+  const attemptMove = useCallback(
+    async (
+      turnoId: string,
+      target: {
+        dateStr?: string
+        startMin?: number
+        sucursal?: string | null
+        professionalId?: string | null
+      },
+    ) => {
+      if (isProfesional) return
+      const orig = events.find((e) => e.id === turnoId)
+      if (!orig) return
+      const isAdmin = role === 'admin'
+      const isDarkNow =
+        typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+      const durationMin = Math.max(5, Math.round((orig.end.getTime() - orig.start.getTime()) / 60000))
+      const dateStr = target.dateStr ?? toDateInput(orig.start)
+      const startMin =
+        target.startMin ?? orig.start.getHours() * 60 + orig.start.getMinutes()
+      const sucursal = target.sucursal !== undefined ? target.sucursal : orig.sucursal
+      const professionalId = target.professionalId !== undefined ? target.professionalId : orig.professionalId
+      // No-op guard: nothing actually changed.
+      const sameSlot =
+        dateStr === toDateInput(orig.start) &&
+        startMin === orig.start.getHours() * 60 + orig.start.getMinutes() &&
+        (sucursal ?? '') === (orig.sucursal ?? '') &&
+        (professionalId ?? '') === (orig.professionalId ?? '')
+      if (sameSlot) return
+      const start = dateTime(dateStr, minToHHMM(startMin))
+      const end = new Date(start.getTime() + durationMin * 60000)
+      const check = validateMove(
+        {
+          dateStr,
+          startMin,
+          durationMin,
+          sucursal: sucursal ?? '',
+          professionalId: professionalId ?? undefined,
+          treatmentSlug: orig.treatmentSlug ?? '',
+          excludeId: turnoId,
+        },
+        rescheduleCtx,
+        (ev) => events.find((x) => x.id === ev.id)?.patientName ?? t('turno.none'),
+      )
+      const commonSwal = {
+        background: isDarkNow ? '#2a3547' : '#ffffff',
+        color: isDarkNow ? '#ffffff' : '#2a3547',
+        width: '400px',
+        customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
+      }
+      const profLabel = professionalId
+        ? professionals.find((p) => p.value === professionalId)?.label || ''
+        : ''
+      const sucLabel = sucursal ? sucursalLabel(sucursal) : t('turno.none')
+      const summaryHtml =
+        `<div style="text-align:left">` +
+        `<div>${t('reschedule.from')}: ${toDateInput(orig.start)} · ${toTimeInput(orig.start)} · ${
+          orig.professionalId
+            ? professionals.find((p) => p.value === orig.professionalId)?.label || orig.professionalId
+            : t('turno.none')
+        } · ${orig.sucursal ? sucursalLabel(orig.sucursal) : t('turno.none')}</div>` +
+        `<div style="font-weight:600;margin-top:.25em">${t('reschedule.toLabel')}: ${dateStr} · ${minToHHMM(
+          startMin,
+        )} · ${profLabel || t('turno.none')} · ${sucLabel}</div></div>`
+
+      if (check.ok) {
+        const res = await Swal.fire({
+          ...commonSwal,
+          icon: 'question',
+          iconColor: '#5d87ff',
+          title: t('reschedule.confirmMoveTitle'),
+          html: summaryHtml,
+          showCancelButton: true,
+          confirmButtonText: t('reschedule.confirm'),
+          cancelButtonText: t('reschedule.cancel'),
+          confirmButtonColor: '#5d87ff',
+          cancelButtonColor: isDarkNow ? '#3f4a5d' : '#e5e7eb',
+        })
+        if (!res.isConfirmed) return
+        await applyMoveWithUndo(turnoId, { start, end, sucursal, professionalId })
+        return
+      }
+
+      // Incompatibilities → list them all (Andrés #19-B).
+      const issues: string[] = []
+      if (!check.performsTreatment) {
+        const treatmentLabel = orig.treatmentSlug
+          ? treatments.find((x) => x.value === orig.treatmentSlug)?.label || orig.treatmentSlug
+          : ''
+        issues.push(t('turno.incompatTreatment', { name: profLabel, treatment: treatmentLabel }))
+      }
+      if (!check.hasAvailability)
+        issues.push(
+          profLabel
+            ? t('turno.noAvailWho', { name: profLabel, sucursal: sucLabel })
+            : t('turno.noAvailBranch', { sucursal: sucLabel }),
+        )
+      else if (!check.fitsWindow) issues.push(t('reschedule.incompatDuration'))
+      if (check.lunchConflict) issues.push(t('reschedule.incompatLunch'))
+      if (check.overlap)
+        issues.push(t('reschedule.incompatOverlap', { name: check.overlap.name, range: check.overlap.range }))
+      const listHtml = `<ul style="text-align:left;margin:0 0 .6em;padding-left:1.15em">${issues
+        .map((i) => `<li style="margin:.15em 0">${i}</li>`)
+        .join('')}</ul>`
+      const capabilityIssue = !check.performsTreatment
+
+      if (isAdmin) {
+        const res = await Swal.fire({
+          ...commonSwal,
+          icon: 'warning',
+          iconColor: '#ffae1f',
+          title: t('turno.incompatTitle'),
+          html: `${listHtml}<div>${t('turno.noAvailAdminTail')}</div>`,
+          showConfirmButton: true,
+          showDenyButton: true,
+          showCancelButton: true,
+          confirmButtonText: t('turno.noAvailAuthorize'),
+          denyButtonText: t('turno.noAvailEditDispo'),
+          cancelButtonText: t('reschedule.cancel'),
+          confirmButtonColor: '#5d87ff',
+          denyButtonColor: '#13deb9',
+          cancelButtonColor: isDarkNow ? '#3f4a5d' : '#e5e7eb',
+        })
+        if (res.isDenied) {
+          if (typeof window !== 'undefined') {
+            const qs = new URLSearchParams({ tab: capabilityIssue ? 'profesionales' : 'disponibilidad' })
+            if (professionalId) qs.set('prof', professionalId)
+            if (!capabilityIssue) {
+              if (sucursal) qs.set('suc', sucursal)
+              qs.set('date', dateStr)
+            }
+            window.location.href = `/auto-gestion?${qs.toString()}`
+          }
+          return
+        }
+        if (!res.isConfirmed) return
+        await applyMoveWithUndo(turnoId, { start, end, sucursal, professionalId }, actorName)
+      } else {
+        await Swal.fire({
+          ...commonSwal,
+          icon: 'error',
+          title: t('turno.incompatTitle'),
+          html: `${listHtml}<div>${t('turno.noAvailStaffTail')}</div>`,
+          confirmButtonText: t('turno.closedBlockedOk'),
+          confirmButtonColor: '#5d87ff',
+        })
+      }
+    },
+    [
+      events,
+      role,
+      isProfesional,
+      rescheduleCtx,
+      applyMoveWithUndo,
+      professionals,
+      treatments,
+      sucursalLabel,
+      actorName,
+      t,
+    ],
   )
   const reloadLunch = useCallback(() => {
     void fetchLunch().then(({ config, overrides }) => {
@@ -2659,6 +2859,10 @@ export function CalendarView() {
   // day's turnos. A ref keeps dateCellWrapper (empty-deps) able to open it.
   const [dayPanelDate, setDayPanelDate] = useState<string | null>(null)
   const openDayPanelRef = useRef((ds: string) => setDayPanelDate(ds))
+  // Month drag-reschedule (Andrés #19-D): dropping a circle on another day moves
+  // the turno to that day (keeping time/professional/sucursal). Ref for empty-deps.
+  const attemptMoveRef = useRef(attemptMove)
+  attemptMoveRef.current = attemptMove
 
   // "Sesión N/M" per turno: order a pack's non-cancelled turnos by date and
   // label each with its position + the pack total. Shown discreetly on the card.
@@ -3301,6 +3505,8 @@ export function CalendarView() {
       style?: CSSProperties
       children?: ReactNode
       title?: string
+      onDragOver?: (ev: ReactDragEvent) => void
+      onDrop?: (ev: ReactDragEvent) => void
     }>
     const ds = toDateInput(props.value)
     const dayMap = turnosByDaySucursalRef.current.get(ds)
@@ -3315,7 +3521,20 @@ export function CalendarView() {
     // shows in Vista Mes (never with a sucursal colour) — Andrés 2026-09, punto 4.
     const hasNone = (dayMap?.get(NONE_RESOURCE)?.length ?? 0) > 0
     const bandKeys = hasNone ? [...bandSucs, NONE_RESOURCE] : bandSucs
-    if (bandKeys.length === 0) return el
+    // Every day is a drop target for Month drag (Andrés #19-D): drop a turno's
+    // circle here to move it to this day (keeping time/professional/sucursal).
+    const dropProps = {
+      onDragOver: (ev: ReactDragEvent) => {
+        ev.preventDefault()
+        ev.dataTransfer.dropEffect = 'move'
+      },
+      onDrop: (ev: ReactDragEvent) => {
+        ev.preventDefault()
+        const id = ev.dataTransfer.getData('text/plain')
+        if (id) void attemptMoveRef.current(id, { dateStr: ds })
+      },
+    }
+    if (bandKeys.length === 0) return cloneElement(el, dropProps)
     // Circles shown per band before the "+N" pill, adaptive to how many bands work
     // that day (Andrés spec: 1 → 9, 2 → 5, 3+ → 3). Each band keeps its own "+N".
     const cap = bandKeys.length === 1 ? 9 : bandKeys.length === 2 ? 5 : 3
@@ -3339,6 +3558,21 @@ export function CalendarView() {
                   <span
                     key={tt.id}
                     className='cb-month-dot'
+                    draggable
+                    onDragStart={(ev) => {
+                      ev.dataTransfer.setData('text/plain', tt.id)
+                      ev.dataTransfer.effectAllowed = 'move'
+                    }}
+                    onDragOver={(ev) => {
+                      ev.preventDefault()
+                      ev.dataTransfer.dropEffect = 'move'
+                    }}
+                    onDrop={(ev) => {
+                      ev.preventDefault()
+                      ev.stopPropagation()
+                      const id = ev.dataTransfer.getData('text/plain')
+                      if (id) void attemptMoveRef.current(id, { dateStr: ds })
+                    }}
                     // Rich tooltip (Andrés #19-D): hora · paciente · tratamiento ·
                     // profesional · sucursal · estado.
                     title={[
@@ -3351,7 +3585,11 @@ export function CalendarView() {
                     ]
                       .filter(Boolean)
                       .join(' · ')}
-                    style={{ backgroundColor: statusColorRef.current(tt.status) }}
+                    style={{
+                      backgroundColor: statusColorRef.current(tt.status),
+                      pointerEvents: 'auto',
+                      cursor: 'grab',
+                    }}
                   />
                 ))}
                 {extra > 0 && (
@@ -3376,7 +3614,10 @@ export function CalendarView() {
     )
     return cloneElement(
       el,
-      { title: bandKeys.map((k) => (k === NONE_RESOURCE ? t('agenda.noSucursal') : sucursalLabel(k))).join(' · ') },
+      {
+        title: bandKeys.map((k) => (k === NONE_RESOURCE ? t('agenda.noSucursal') : sucursalLabel(k))).join(' · '),
+        ...dropProps,
+      },
       overlay,
     )
   }, [])
@@ -3712,6 +3953,7 @@ export function CalendarView() {
             lunchLabel={t('agenda.lunch')}
             newLabel={t('agendaCal.new')}
             emptyLabel={t('agenda.noProfessional')}
+            onMoveTurno={(id, target) => void attemptMove(id, target)}
           />
         </div>
       )}
@@ -3745,6 +3987,7 @@ export function CalendarView() {
             resetHoursLabel={t('agenda.resetHours')}
             lunchFor={(col) => lunchFor(col.sucursal, profIdOfResource(col.resourceId), toDateInput(date))}
             onEditLunch={openLunchEditor}
+            onMoveTurno={(id, target) => void attemptMove(id, target)}
           />
         </div>
       )}
