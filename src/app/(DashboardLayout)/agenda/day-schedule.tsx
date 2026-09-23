@@ -464,10 +464,18 @@ export function DaySchedule({
                       {cell.length > 0 ? (
                         <div className='space-y-1.5'>
                           {overlapClusters(cell).map((cluster, ci) => (
-                            <div key={ci} className='flex items-stretch gap-1.5'>
+                            <div key={ci} className='flex items-start gap-1.5'>
                               {cluster.map((e) => {
                                 const tc = treatmentColor(e.treatmentSlug, treatmentName(e.treatmentSlug))
                                 const solo = cluster.length === 1
+                                // Exact vertical position by minute (Andrés #13): a
+                                // turno that starts later than the slot sits lower,
+                                // and its height reflects its duration, so overlapping
+                                // turnos read at their real start/end while staying
+                                // side by side.
+                                const pxPerMin = slotH / scaleMin
+                                const offsetPx = Math.max(0, (minOfDay(e.start) - slotMin) * pxPerMin)
+                                const durPx = Math.max(0, (minOfDay(e.end) - minOfDay(e.start)) * pxPerMin)
                                 return (
                                   <button
                                     key={e.id}
@@ -479,8 +487,13 @@ export function DaySchedule({
                                       ev.dataTransfer.effectAllowed = 'move'
                                     }}
                                     onClick={() => onOpenTurno(e)}
-                                    className='flex items-stretch flex-1 min-w-0 text-left rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition cursor-grab active:cursor-grabbing'
-                                    style={{ backgroundColor: cardBg(e.status), color: cardText?.(e.status) ?? '#000' }}>
+                                    className='relative z-[1] flex items-stretch flex-1 min-w-0 text-left rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition cursor-grab active:cursor-grabbing'
+                                    style={{
+                                      backgroundColor: cardBg(e.status),
+                                      color: cardText?.(e.status) ?? '#000',
+                                      marginTop: offsetPx,
+                                      minHeight: durPx,
+                                    }}>
                                     {/* Treatment-colour bar (thick) */}
                                     <span className='shrink-0 self-stretch' style={{ width: 8, backgroundColor: tc }} />
                                     <span className='flex-1 min-w-0 py-1.5 px-2.5'>
