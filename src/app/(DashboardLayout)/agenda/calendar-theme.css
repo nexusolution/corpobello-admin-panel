@@ -81,13 +81,22 @@
 .rbc-month-view .rbc-day-bg {
   position: relative;
 }
-/* Vertical stack of equal per-sucursal bands filling the day cell. */
+/* Vertical stack of equal per-sucursal bands (50/50, or thirds for 3 sucursales).
+   Inset from the cell edges by a NEUTRAL gap + rounded frame so a day's colours
+   never touch the neighbouring days' colours and each date reads as a contained
+   block (Andrés #12). */
 .cb-month-bands {
   position: absolute;
-  inset: 0;
+  inset: 4px;
   display: flex;
   flex-direction: column;
   pointer-events: none;
+  border-radius: 7px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+.dark .cb-month-bands {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 .cb-month-band {
   flex: 1 1 0;
@@ -183,6 +192,36 @@
 }
 .dark .rbc-today {
   background: rgba(93, 135, 255, 0.14);
+}
+
+/* Stronger, more visible separators between month day cells so contiguous dates
+   with colours don't blend together (Andrés #12). */
+.rbc-month-view .rbc-day-bg + .rbc-day-bg {
+  border-left: 1px solid #d3dbe4;
+}
+.dark .rbc-month-view .rbc-day-bg + .rbc-day-bg {
+  border-left: 1px solid #3b475c;
+}
+.rbc-month-view .rbc-month-row + .rbc-month-row {
+  border-top: 1px solid #d3dbe4;
+}
+.dark .rbc-month-view .rbc-month-row + .rbc-month-row {
+  border-top: 1px solid #3b475c;
+}
+/* Keep the day number clearly above the colours with a subtle neutral chip. */
+.rbc-month-view .rbc-date-cell {
+  position: relative;
+  z-index: 2;
+}
+.rbc-month-view .rbc-date-cell .rbc-button-link {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.72);
+}
+.dark .rbc-month-view .rbc-date-cell .rbc-button-link {
+  background: rgba(38, 48, 65, 0.72);
 }
 
 /* Month view: mark TODAY with a clear border around the whole cell + a bold,
