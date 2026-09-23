@@ -1638,18 +1638,41 @@ function EventDialog({
         </div>
 
         <div className='px-5 py-3 shrink-0 border-t border-border dark:border-darkborder flex flex-wrap items-center justify-between gap-2'>
-          {isEdit && canDelete ? (
-            <button
-              type='button'
-              onClick={remove}
-              disabled={saving}
-              className='inline-flex items-center gap-1.5 px-2.5 py-2 rounded-md text-sm font-medium text-error hover:bg-lighterror/60 transition-colors disabled:opacity-50'>
-              <Icon icon='tabler:trash' height={16} width={16} />
-              {t('agendaCal.delete')}
-            </button>
-          ) : (
-            <span />
-          )}
+          {/* Secondary actions as compact icon buttons with tooltips (Andrés):
+              Delete + Close session grouped together on the left. */}
+          <div className='flex items-center gap-1'>
+            {isEdit && canDelete && (
+              <button
+                type='button'
+                onClick={remove}
+                disabled={saving}
+                title={t('agendaCal.delete')}
+                aria-label={t('agendaCal.delete')}
+                className='inline-flex items-center justify-center h-9 w-9 rounded-md text-error hover:bg-lighterror/60 transition-colors disabled:opacity-50'>
+                <Icon icon='tabler:trash' height={18} width={18} />
+              </button>
+            )}
+            {isEdit && patientId && (
+              <button
+                type='button'
+                onClick={() =>
+                  onCloseSession({
+                    patientId,
+                    ...(treatmentSlug && { treatmentSlug }),
+                    ...(professionalId && { professionalId }),
+                    calendarEventId: draft.id!,
+                    sessionDate: allDay
+                      ? new Date(`${startStr}T12:00:00`).toISOString()
+                      : dateTime(startStr, startTime).toISOString(),
+                  })
+                }
+                title={t('turno.closeSession')}
+                aria-label={t('turno.closeSession')}
+                className='inline-flex items-center justify-center h-9 w-9 rounded-md text-primary hover:bg-lightprimary transition-colors'>
+                <Icon icon='solar:clipboard-heart-line-duotone' height={18} width={18} />
+              </button>
+            )}
+          </div>
           <div className='flex flex-wrap items-center justify-end gap-2'>
             {isEdit && canEditFull && !allDay && (
               <button
@@ -1668,25 +1691,6 @@ function EventDialog({
                 className='inline-flex items-center gap-1.5 px-2.5 py-2 rounded-md text-sm font-medium text-primary hover:bg-lightprimary transition-colors'>
                 <Icon icon='solar:calendar-search-line-duotone' height={16} width={16} />
                 {t('reschedule.button')}
-              </button>
-            )}
-            {isEdit && patientId && (
-              <button
-                type='button'
-                onClick={() =>
-                  onCloseSession({
-                    patientId,
-                    ...(treatmentSlug && { treatmentSlug }),
-                    ...(professionalId && { professionalId }),
-                    calendarEventId: draft.id!,
-                    sessionDate: allDay
-                      ? new Date(`${startStr}T12:00:00`).toISOString()
-                      : dateTime(startStr, startTime).toISOString(),
-                  })
-                }
-                className='inline-flex items-center gap-1.5 px-2.5 py-2 rounded-md text-sm font-medium text-primary hover:bg-lightprimary transition-colors'>
-                <Icon icon='solar:clipboard-heart-line-duotone' height={16} width={16} />
-                {t('turno.closeSession')}
               </button>
             )}
             <button

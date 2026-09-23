@@ -1,7 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import Swal from 'sweetalert2'
+import moment from 'moment'
+import { es } from 'date-fns/locale'
 
 import {
   Dialog,
@@ -9,6 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Calendar as DatePickerCalendar } from '@/components/ui/calendar'
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
 import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
 import {
@@ -32,6 +36,101 @@ type Option = { value: string; label: string }
 
 const FIELD_CLS =
   'w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+
+// Label with a leading icon for a friendlier, scannable form.
+function FieldLabel({ icon, children }: { icon: string; children: ReactNode }) {
+  return (
+    <label className='flex items-center gap-1.5 text-xs font-medium text-dark dark:text-white mb-1'>
+      <Icon icon={icon} height={14} width={14} className='text-link dark:text-darklink' />
+      {children}
+    </label>
+  )
+}
+
+// Native select styled with a single chevron (hides the OS default arrow).
+function SelectField({
+  value,
+  onChange,
+  children,
+}: {
+  value: string
+  onChange: (v: string) => void
+  children: ReactNode
+}) {
+  return (
+    <div className='relative'>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${FIELD_CLS} appearance-none pr-9 cursor-pointer`}>
+        {children}
+      </select>
+      <Icon
+        icon='solar:alt-arrow-down-line-duotone'
+        height={16}
+        width={16}
+        className='pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-link dark:text-darklink'
+      />
+    </div>
+  )
+}
+
+function dateToInput(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+// Popover date picker (localised, DD MMM YYYY) — replaces the native mm/dd/yyyy
+// input so the format is consistent and the control is friendlier.
+function DateField({
+  value,
+  onChange,
+  locale,
+  placeholder,
+}: {
+  value: string
+  onChange: (v: string) => void
+  locale: string
+  placeholder: string
+}) {
+  const [open, setOpen] = useState(false)
+  const date = value ? new Date(`${value}T00:00:00`) : undefined
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type='button' className={`${FIELD_CLS} flex items-center justify-between gap-2 text-left`}>
+          <span className={date ? '' : 'text-link dark:text-darklink'}>
+            {date ? moment(date).format('DD MMM YYYY') : placeholder}
+          </span>
+          <Icon
+            icon='solar:calendar-mark-line-duotone'
+            height={16}
+            width={16}
+            className='text-link dark:text-darklink shrink-0'
+          />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className='w-auto p-0' align='start'>
+        <DatePickerCalendar
+          mode='single'
+          selected={date}
+          defaultMonth={date}
+          captionLayout='dropdown'
+          startMonth={new Date(2020, 0)}
+          endMonth={new Date(2035, 11)}
+          locale={locale === 'es' ? es : undefined}
+          onSelect={(d: Date | undefined) => {
+            if (!d) return
+            onChange(dateToInput(d))
+            setOpen(false)
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 function isoToDateInput(iso: string): string {
   const d = new Date(iso)
@@ -81,7 +180,7 @@ export function EvolucionForm({
     nextFollowup?: string
   }
 }) {
-  const { t } = useTranslation() as { t: TFn }
+  const { t, locale } = useTranslation() as { t: TFn; locale: string }
   const { role } = useCurrentUser()
   const isProfesional = role === 'profesional'
   const editing = !!evolucion
@@ -232,53 +331,39 @@ export function EvolucionForm({
 
         <div className='space-y-3'>
           <div>
-            <label className='block text-xs font-medium text-dark dark:text-white mb-1'>
-              {t('ficha.form.treatment')}
-            </label>
-            <select
-              value={treatmentSlug}
-              onChange={(e) => setTreatmentSlug(e.target.value)}
-              className={FIELD_CLS}>
+            <FieldLabel icon='solar:hand-heart-line-duotone'>{t('ficha.form.treatment')}</FieldLabel>
+            <SelectField value={treatmentSlug} onChange={setTreatmentSlug}>
               <option value=''>{t('ficha.form.none')}</option>
               {treatments.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
-            </select>
+            </SelectField>
           </div>
 
           {!isProfesional && (
             <div>
-              <label className='block text-xs font-medium text-dark dark:text-white mb-1'>
-                {t('ficha.form.professional')}
-              </label>
-              <select
-                value={professionalId}
-                onChange={(e) => setProfessionalId(e.target.value)}
-                className={FIELD_CLS}>
+              <FieldLabel icon='solar:user-rounded-line-duotone'>{t('ficha.form.professional')}</FieldLabel>
+              <SelectField value={professionalId} onChange={setProfessionalId}>
                 <option value=''>{t('ficha.form.none')}</option>
                 {professionals.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
-              </select>
+              </SelectField>
             </div>
           )}
 
           <div>
-            <label className='block text-xs font-medium text-dark dark:text-white mb-1'>
-              {t('ficha.form.date')}
-            </label>
-            <input
-              type='date'
+            <FieldLabel icon='solar:calendar-mark-line-duotone'>{t('ficha.form.date')}</FieldLabel>
+            <DateField
               value={sessionDate}
-              onChange={(e) => setSessionDate(e.target.value)}
-              className={FIELD_CLS}
+              onChange={setSessionDate}
+              locale={locale}
+              placeholder={t('turno.chooseDate')}
             />
           </div>
 
           <div>
-            <label className='block text-xs font-medium text-dark dark:text-white mb-1'>
-              {t('ficha.form.notes')}
-            </label>
+            <FieldLabel icon='solar:notebook-line-duotone'>{t('ficha.form.notes')}</FieldLabel>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -289,9 +374,7 @@ export function EvolucionForm({
           </div>
 
           <div>
-            <label className='block text-xs font-medium text-dark dark:text-white mb-1'>
-              {t('ficha.form.photos')}
-            </label>
+            <FieldLabel icon='solar:gallery-line-duotone'>{t('ficha.form.photos')}</FieldLabel>
             <div className='flex flex-wrap gap-2'>
               {existingPhotos.map((p) => (
                 <div
@@ -344,33 +427,39 @@ export function EvolucionForm({
           </div>
 
           <div>
-            <label className='block text-xs font-medium text-dark dark:text-white mb-1'>
-              {t('ficha.form.followup')}
-            </label>
-            <div className='flex items-center gap-2 mb-2'>
-              {[3, 6, 12].map((m) => (
-                <button
-                  key={m}
-                  type='button'
-                  onClick={() => setNextFollowup(addMonthsToInput(sessionDate, m))}
-                  className='px-2.5 py-1 rounded-md border border-border dark:border-darkborder text-xs font-medium text-dark dark:text-white hover:border-primary hover:text-primary transition-colors'>
-                  {t('ficha.form.months', { n: String(m) })}
-                </button>
-              ))}
+            <FieldLabel icon='solar:calendar-date-line-duotone'>{t('ficha.form.followup')}</FieldLabel>
+            <div className='flex flex-wrap items-center gap-2 mb-2'>
+              {[3, 6, 12].map((m) => {
+                const active = nextFollowup === addMonthsToInput(sessionDate, m)
+                return (
+                  <button
+                    key={m}
+                    type='button'
+                    onClick={() => setNextFollowup(addMonthsToInput(sessionDate, m))}
+                    className={`px-2.5 py-1 rounded-md border text-xs font-medium transition-colors ${
+                      active
+                        ? 'border-primary bg-lightprimary text-primary'
+                        : 'border-border dark:border-darkborder text-dark dark:text-white hover:border-primary hover:text-primary'
+                    }`}>
+                    {t('ficha.form.months', { n: String(m) })}
+                  </button>
+                )
+              })}
               {nextFollowup && (
                 <button
                   type='button'
                   onClick={() => setNextFollowup('')}
-                  className='text-xs text-link dark:text-darklink hover:text-error'>
+                  className='inline-flex items-center gap-1 text-xs text-link dark:text-darklink hover:text-error'>
+                  <Icon icon='tabler:x' height={12} width={12} />
                   {t('ficha.form.clear')}
                 </button>
               )}
             </div>
-            <input
-              type='date'
+            <DateField
               value={nextFollowup}
-              onChange={(e) => setNextFollowup(e.target.value)}
-              className={FIELD_CLS}
+              onChange={setNextFollowup}
+              locale={locale}
+              placeholder={t('turno.chooseDate')}
             />
           </div>
         </div>
@@ -380,14 +469,16 @@ export function EvolucionForm({
             type='button'
             onClick={handleSaveDraft}
             disabled={saving}
-            className='px-3 py-2 rounded-md text-sm font-medium border border-border dark:border-darkborder text-dark dark:text-white hover:border-primary disabled:opacity-50 transition-colors'>
+            className='inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium border border-border dark:border-darkborder text-dark dark:text-white hover:border-primary disabled:opacity-50 transition-colors'>
+            <Icon icon='solar:diskette-line-duotone' height={16} width={16} />
             {t('ficha.form.saveDraft')}
           </button>
           <button
             type='button'
             onClick={handleSignClose}
             disabled={saving}
-            className='px-3 py-2 rounded-md text-sm font-medium bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors'>
+            className='inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors'>
+            <Icon icon='solar:check-circle-line-duotone' height={16} width={16} />
             {t('ficha.form.close')}
           </button>
         </div>
