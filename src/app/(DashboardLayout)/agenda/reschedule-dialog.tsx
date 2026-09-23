@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '@iconify/react'
 import moment from 'moment'
 import { es } from 'date-fns/locale'
@@ -73,6 +73,18 @@ export function RescheduleDialog({
 }) {
   const [selected, setSelected] = useState<Date | undefined>(undefined)
   const [pickedTime, setPickedTime] = useState<string>('')
+  // Match the times panel height to the calendar column, then scroll inside it.
+  const leftColRef = useRef<HTMLDivElement>(null)
+  const [leftH, setLeftH] = useState<number | undefined>(undefined)
+  useEffect(() => {
+    const el = leftColRef.current
+    if (!el) return
+    const update = () => setLeftH(el.offsetHeight)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   const today = useMemo(() => {
     const d = new Date()
@@ -169,21 +181,22 @@ export function RescheduleDialog({
         </div>
 
         <div className='px-4 py-3 space-y-4'>
-          {/* Current turno summary */}
-          <div className='rounded-md bg-lightprimary/30 dark:bg-white/[0.03] px-3 py-2 text-sm'>
-            <p className='font-medium text-dark dark:text-white'>{turno.patientName}</p>
-            <p className='text-link dark:text-darklink text-xs mt-0.5'>
+          {/* Current turno summary — solid contrast so the name/meta read clearly. */}
+          <div className='rounded-lg border border-primary/20 dark:border-darkborder bg-primary/5 dark:bg-white/[0.04] px-3.5 py-2.5 text-sm'>
+            <p className='font-semibold text-dark dark:text-white'>{turno.patientName}</p>
+            <p className='text-dark/70 dark:text-darklink text-xs mt-0.5'>
               {treatmentLabel} · {professionalLabel} · {sucursalLabel(turno.sucursal)}
             </p>
-            <p className='text-link dark:text-darklink text-xs'>
+            <p className='text-dark/70 dark:text-darklink text-xs mt-0.5 inline-flex items-center gap-1'>
+              <Icon icon='solar:clock-circle-line-duotone' height={13} width={13} />
               {t('reschedule.current')}: {moment(turno.start).format('DD MMM YYYY')} · {originalTime} {t('reschedule.to')}{' '}
               {`${pad2(turno.end.getHours())}:${pad2(turno.end.getMinutes())}`}
             </p>
           </div>
 
-          <div className='flex flex-col gap-4 md:flex-row'>
+          <div className='flex flex-col gap-4 md:flex-row md:items-start'>
             {/* Calendar */}
-            <div className='md:shrink-0'>
+            <div ref={leftColRef} className='md:shrink-0'>
               <DatePickerCalendar
                 mode='single'
                 selected={selected}
@@ -211,42 +224,49 @@ export function RescheduleDialog({
               </div>
             </div>
 
-            {/* Slots */}
-            <div className='flex-1 min-w-0 rounded-md border border-border dark:border-darkborder p-3'>
+            {/* Slots — same height as the calendar column; the list scrolls. */}
+            <div
+              className='flex-1 min-w-0 rounded-md border border-border dark:border-darkborder p-3 flex flex-col'
+              style={leftH ? { height: leftH } : undefined}>
               {!selected ? (
-                <div className='flex h-full min-h-[180px] flex-col items-center justify-center text-center gap-2 text-link dark:text-darklink'>
+                <div className='flex flex-1 min-h-[180px] flex-col items-center justify-center text-center gap-2 text-link dark:text-darklink'>
                   <Icon icon='solar:calendar-mark-line-duotone' height={30} width={30} className='opacity-50' />
                   <p className='text-sm'>{t('reschedule.pickDate')}</p>
                 </div>
               ) : (
-                <div className='space-y-2'>
-                  <p className='text-sm font-semibold text-dark dark:text-white capitalize'>
-                    {new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long' }).format(selected)}
+                <div className='flex flex-col h-full min-h-0'>
+                  <div className='shrink-0'>
+                    <p className='text-sm font-semibold text-dark dark:text-white capitalize'>
+                      {new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long' }).format(selected)}
+                    </p>
                     {targetSucursal && (
-                      <span className='ml-2 inline-flex items-center gap-1 text-xs font-normal text-link dark:text-darklink'>
+                      <span className='inline-flex items-center gap-1 text-xs font-normal text-link dark:text-darklink'>
                         <span className='h-2 w-2 rounded-full' style={{ background: SUC_COLOR[targetSucursal] }} />
                         {sucursalLabel(targetSucursal)}
                         {targetSucursal !== turno.sucursal && ` · ${t('reschedule.sucursalChanges')}`}
                       </span>
                     )}
-                  </p>
-                  {slots.length === 0 ? (
-                    <p className='text-sm text-link dark:text-darklink italic'>{t('reschedule.noSlots')}</p>
-                  ) : (
-                    <>
-                      <p className='text-[11px] font-medium uppercase tracking-wide text-link dark:text-darklink'>
+                    {slots.length > 0 && (
+                      <p className='text-[11px] font-medium uppercase tracking-wide text-link dark:text-darklink mt-1'>
                         {t('reschedule.availableTimes')}
                       </p>
-                      {!originalStillFree && (
-                        <p className='text-[11px] text-error'>{t('reschedule.originalTaken')}</p>
-                      )}
-                      <div className='flex flex-wrap gap-1.5'>
+                    )}
+                    {slots.length > 0 && !originalStillFree && (
+                      <p className='text-[11px] text-error'>{t('reschedule.originalTaken')}</p>
+                    )}
+                  </div>
+
+                  {slots.length === 0 ? (
+                    <p className='text-sm text-link dark:text-darklink italic mt-2'>{t('reschedule.noSlots')}</p>
+                  ) : (
+                    <div className='flex-1 min-h-0 overflow-y-auto cb-hscroll -mr-1 pr-1 mt-1.5'>
+                      <div className='grid grid-cols-3 gap-1.5'>
                         {slots.map((s) => (
                           <button
                             key={s}
                             type='button'
                             onClick={() => setPickedTime(s)}
-                            className={`px-2.5 py-1.5 rounded-md border text-sm transition-colors ${
+                            className={`px-2 py-1.5 rounded-md border text-sm text-center transition-colors ${
                               pickedTime === s
                                 ? 'border-primary bg-lightprimary text-primary font-semibold'
                                 : 'border-border dark:border-darkborder text-dark dark:text-white hover:border-primary'
@@ -260,13 +280,13 @@ export function RescheduleDialog({
                           </button>
                         ))}
                       </div>
-                    </>
+                    </div>
                   )}
                   {onViewDay && (
                     <button
                       type='button'
                       onClick={() => onViewDay(selectedStr)}
-                      className='mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline'>
+                      className='shrink-0 mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline'>
                       <Icon icon='solar:calendar-search-line-duotone' height={14} width={14} />
                       {t('reschedule.viewDay')}
                     </button>
@@ -276,20 +296,27 @@ export function RescheduleDialog({
             </div>
           </div>
 
-          {/* Before / after summary */}
+          {/* Before → after summary (Andrés): clear from/to with an arrow. */}
           {selected && targetSucursal && pickedTime && (
-            <div className='rounded-md border border-border dark:border-darkborder px-3 py-2 text-sm'>
-              <p className='text-xs font-semibold uppercase tracking-wide text-link dark:text-darklink mb-1'>
+            <div className='rounded-lg border border-primary/25 bg-primary/5 dark:bg-white/[0.03] px-3.5 py-3'>
+              <p className='text-[11px] font-semibold uppercase tracking-wide text-link dark:text-darklink mb-2'>
                 {t('reschedule.summary')}
               </p>
-              <p className='text-link dark:text-darklink text-xs'>
-                {t('reschedule.from')}: {moment(turno.start).format('DD MMM YYYY')} · {originalTime} ·{' '}
-                {sucursalLabel(turno.sucursal)}
-              </p>
-              <p className='text-dark dark:text-white text-xs font-medium'>
-                {t('reschedule.toLabel')}: {moment(selected).format('DD MMM YYYY')} · {pickedTime} ·{' '}
-                {sucursalLabel(targetSucursal)}
-              </p>
+              <div className='flex items-center gap-3 flex-wrap'>
+                <div className='text-xs'>
+                  <div className='text-[10px] uppercase tracking-wide text-link dark:text-darklink'>{t('reschedule.from')}</div>
+                  <div className='text-dark/70 dark:text-darklink line-through decoration-error/50'>
+                    {moment(turno.start).format('DD MMM YYYY')} · {originalTime} · {sucursalLabel(turno.sucursal)}
+                  </div>
+                </div>
+                <Icon icon='solar:arrow-right-line-duotone' height={18} width={18} className='text-primary shrink-0' />
+                <div className='text-xs'>
+                  <div className='text-[10px] uppercase tracking-wide text-primary'>{t('reschedule.toLabel')}</div>
+                  <div className='text-dark dark:text-white font-semibold'>
+                    {moment(selected).format('DD MMM YYYY')} · {pickedTime} · {sucursalLabel(targetSucursal)}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
