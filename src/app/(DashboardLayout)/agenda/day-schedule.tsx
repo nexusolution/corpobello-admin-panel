@@ -38,6 +38,8 @@ interface DayScheduleProps {
   treatmentColor: (slug: string | null | undefined, name?: string) => string
   treatmentName: (slug?: string | null) => string
   cardBg: (status: string) => string
+  // Text colour for cards, so it adapts to the theme (dark cards need light text).
+  cardText?: (status: string) => string
   sucursalLabel: (s: string) => string
   locale: string
   emptyLabel: string
@@ -104,6 +106,7 @@ export function DaySchedule({
   treatmentColor,
   treatmentName,
   cardBg,
+  cardText,
   sucursalLabel,
   locale,
   emptyLabel,
@@ -300,9 +303,9 @@ export function DaySchedule({
                   data-eventid={e.id}
                   onClick={() => onOpenTurno(e)}
                   className='flex items-center gap-2 rounded-md pl-0 pr-2.5 py-1 text-left overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition'
-                  style={{ backgroundColor: cardBg(e.status) }}>
+                  style={{ backgroundColor: cardBg(e.status), color: cardText?.(e.status) ?? '#000' }}>
                   <span className='self-stretch' style={{ width: 6, backgroundColor: tc }} />
-                  <span className='text-[12px] font-semibold text-black truncate max-w-[220px]'>
+                  <span className='text-[12px] font-semibold truncate max-w-[220px]'>
                     {e.patientName || e.title}
                     {e.treatmentSlug ? ` · ${treatmentName(e.treatmentSlug)}` : ''}
                   </span>
@@ -477,27 +480,27 @@ export function DaySchedule({
                                     }}
                                     onClick={() => onOpenTurno(e)}
                                     className='flex items-stretch flex-1 min-w-0 text-left rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition cursor-grab active:cursor-grabbing'
-                                    style={{ backgroundColor: cardBg(e.status) }}>
+                                    style={{ backgroundColor: cardBg(e.status), color: cardText?.(e.status) ?? '#000' }}>
                                     {/* Treatment-colour bar (thick) */}
                                     <span className='shrink-0 self-stretch' style={{ width: 8, backgroundColor: tc }} />
                                     <span className='flex-1 min-w-0 py-1.5 px-2.5'>
                                       <span className='flex items-baseline justify-between gap-2'>
-                                        <span className='font-bold text-[13px] leading-tight text-black truncate'>
+                                        <span className='font-bold text-[13px] leading-tight truncate'>
                                           {e.patientName || e.title}
                                         </span>
                                         {solo && (
-                                          <span className='shrink-0 text-[11px] font-semibold text-black whitespace-nowrap'>
+                                          <span className='shrink-0 text-[11px] font-semibold whitespace-nowrap'>
                                             {fmtTime(e.start)} · {fmtTime(e.end)}
                                           </span>
                                         )}
                                       </span>
                                       {!solo && (
-                                        <span className='block text-[11px] font-semibold text-black leading-tight'>
+                                        <span className='block text-[11px] font-semibold leading-tight'>
                                           {fmtTime(e.start)} · {fmtTime(e.end)}
                                         </span>
                                       )}
                                       {e.treatmentSlug && (
-                                        <span className='block text-[11px] leading-tight truncate mt-0.5 text-black'>
+                                        <span className='block text-[11px] leading-tight truncate mt-0.5 opacity-90'>
                                           {treatmentName(e.treatmentSlug)}
                                         </span>
                                       )}

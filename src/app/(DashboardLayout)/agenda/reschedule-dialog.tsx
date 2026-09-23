@@ -159,7 +159,7 @@ export function RescheduleDialog({
   return (
     <div className='fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4' onClick={onClose}>
       <div
-        className='w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg bg-white dark:bg-darkgray shadow-xl'
+        className='w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg bg-card shadow-xl'
         onClick={(e) => e.stopPropagation()}>
         <div className='flex items-center justify-between border-b border-border dark:border-darkborder px-4 py-3'>
           <h3 className='text-base font-semibold text-dark dark:text-white'>{t('reschedule.title')}</h3>

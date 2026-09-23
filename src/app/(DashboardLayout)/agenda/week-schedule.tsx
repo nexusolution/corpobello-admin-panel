@@ -30,6 +30,7 @@ interface WeekScheduleProps {
   treatmentColor: (slug: string | null | undefined, name?: string) => string
   treatmentName: (slug?: string | null) => string
   cardBg: (status: string) => string
+  cardText?: (status: string) => string
   sucursalLabel: (s: string) => string
   sucursalColor: (s: string) => string
   locale: string
@@ -72,6 +73,7 @@ export function WeekSchedule({
   treatmentColor,
   treatmentName,
   cardBg,
+  cardText,
   sucursalLabel,
   sucursalColor,
   locale,
@@ -272,17 +274,17 @@ export function WeekSchedule({
         }}
         onClick={() => onOpenTurno(e)}
         className='flex items-stretch min-w-0 flex-1 text-left rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition cursor-grab active:cursor-grabbing'
-        style={{ backgroundColor: cardBg(e.status) }}>
+        style={{ backgroundColor: cardBg(e.status), color: cardText?.(e.status) ?? '#000' }}>
         <span className='shrink-0 self-stretch' style={{ width: 6, backgroundColor: tc }} />
         <span className='flex-1 min-w-0 py-1 px-1.5'>
-          <span className='block font-bold text-[11px] leading-tight text-black truncate'>
+          <span className='block font-bold text-[11px] leading-tight truncate'>
             {e.patientName || e.title}
           </span>
-          <span className='block text-[10px] font-semibold text-black whitespace-nowrap'>
+          <span className='block text-[10px] font-semibold whitespace-nowrap'>
             {fmtTime(e.start)} · {fmtTime(e.end)}
           </span>
           {e.treatmentSlug && (
-            <span className='block text-[10px] leading-tight truncate text-black'>
+            <span className='block text-[10px] leading-tight truncate opacity-90'>
               {treatmentName(e.treatmentSlug)}
             </span>
           )}

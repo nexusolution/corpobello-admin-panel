@@ -171,6 +171,18 @@ function lightenHex(hex: string, factor = 0.6): string {
   return `rgb(${r}, ${g}, ${b})`
 }
 
+// Dark-mode turno card: blend the estado colour toward the dark surface so the
+// card reads as a tinted dark chip (light text on top) instead of a bright pastel.
+function darkCardBg(hex: string, factor = 0.74): string {
+  const h = hex.replace('#', '')
+  const base = [42, 53, 71] // #2a3547 (dark card surface)
+  const mix = (c: number, b: number) => Math.round(c + (b - c) * factor)
+  const r = mix(parseInt(h.slice(0, 2), 16), base[0]!)
+  const g = mix(parseInt(h.slice(2, 4), 16), base[1]!)
+  const b = mix(parseInt(h.slice(4, 6), 16), base[2]!)
+  return `rgb(${r}, ${g}, ${b})`
+}
+
 // Turno treatment colour. The palette is keyed by CATEGORY slugs (depilacion,
 // endolift…), but a turno stores the MENU slug (depilacion-laser, verrugas-
 // lunares…), so a direct lookup misses and falls back to grey. Try the direct
@@ -1773,6 +1785,18 @@ export function CalendarView() {
   const { t, locale } = useTranslation()
   const { role, name: actorName, userId: actorId } = useCurrentUser()
   const isProfesional = role === 'profesional'
+  // Reactive dark-mode flag so turno cards can adapt their colours to the theme
+  // (Andrés: cards stayed bright-pastel in dark mode). Tracks the <html> class.
+  const [isDarkMode, setIsDarkMode] = useState(false)
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const el = document.documentElement
+    const update = () => setIsDarkMode(el.classList.contains('dark'))
+    update()
+    const obs = new MutationObserver(update)
+    obs.observe(el, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -3920,8 +3944,10 @@ export function CalendarView() {
           // .rbc-event, painted from these CSS vars so they span the whole block.
           className: event.charged ? 'cb-charged' : undefined,
           style: {
-            backgroundColor: lightenHex(statusColorFor(event.status)),
-            color: '#1f2937',
+            backgroundColor: isDarkMode
+              ? darkCardBg(statusColorFor(event.status))
+              : lightenHex(statusColorFor(event.status)),
+            color: isDarkMode ? '#e6ebf2' : '#1f2937',
             border: 'none',
             ['--cb-treat' as string]: treatmentColorResolved(
               event.treatmentSlug,
@@ -3950,7 +3976,10 @@ export function CalendarView() {
             }
             treatmentColor={treatmentColorResolved}
             treatmentName={treatmentName}
-            cardBg={(status) => lightenHex(statusColorFor(status))}
+            cardBg={(status) =>
+              isDarkMode ? darkCardBg(statusColorFor(status)) : lightenHex(statusColorFor(status))
+            }
+            cardText={() => (isDarkMode ? '#e6ebf2' : '#141a21')}
             sucursalLabel={sucursalLabel}
             sucursalColor={sucursalColor}
             locale={locale}
@@ -3979,7 +4008,10 @@ export function CalendarView() {
             }
             treatmentColor={treatmentColorResolved}
             treatmentName={treatmentName}
-            cardBg={(status) => lightenHex(statusColorFor(status))}
+            cardBg={(status) =>
+              isDarkMode ? darkCardBg(statusColorFor(status)) : lightenHex(statusColorFor(status))
+            }
+            cardText={() => (isDarkMode ? '#e6ebf2' : '#141a21')}
             sucursalLabel={sucursalLabel}
             locale={locale}
             emptyLabel={t('agenda.noProfessional')}
@@ -4082,7 +4114,7 @@ export function CalendarView() {
             className='fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4'
             onClick={() => setDayPanelDate(null)}>
             <div
-              className='w-full max-w-md max-h-[85vh] overflow-y-auto rounded-lg bg-white dark:bg-darkgray shadow-xl'
+              className='w-full max-w-md max-h-[85vh] overflow-y-auto rounded-lg bg-card shadow-xl'
               onClick={(e) => e.stopPropagation()}>
               <div className='flex items-center justify-between border-b border-border dark:border-darkborder px-4 py-3'>
                 <h3 className='text-base font-semibold text-dark dark:text-white'>
