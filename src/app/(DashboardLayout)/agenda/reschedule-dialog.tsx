@@ -171,7 +171,7 @@ export function RescheduleDialog({
   return (
     <div className='fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4' onClick={onClose}>
       <div
-        className='w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg bg-card shadow-xl'
+        className='w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-lg bg-card shadow-xl'
         onClick={(e) => e.stopPropagation()}>
         <div className='flex items-center justify-between border-b border-border dark:border-darkborder px-4 py-3'>
           <h3 className='text-base font-semibold text-dark dark:text-white'>{t('reschedule.title')}</h3>
@@ -198,6 +198,7 @@ export function RescheduleDialog({
             {/* Calendar */}
             <div ref={leftColRef} className='md:shrink-0'>
               <DatePickerCalendar
+                className='[--cell-size:2.5rem]'
                 mode='single'
                 selected={selected}
                 onSelect={onSelectDate}
@@ -266,14 +267,15 @@ export function RescheduleDialog({
                             key={s}
                             type='button'
                             onClick={() => setPickedTime(s)}
-                            className={`px-2 py-1.5 rounded-md border text-sm text-center transition-colors ${
+                            title={s === originalTime ? t('reschedule.same') : undefined}
+                            className={`flex flex-col items-center justify-center min-h-[42px] px-1 py-1 rounded-md border text-sm leading-none transition-colors ${
                               pickedTime === s
                                 ? 'border-primary bg-lightprimary text-primary font-semibold'
                                 : 'border-border dark:border-darkborder text-dark dark:text-white hover:border-primary'
                             }`}>
-                            {s}
+                            <span>{s}</span>
                             {s === originalTime && (
-                              <span className='ml-1 text-[10px] text-link dark:text-darklink'>
+                              <span className='mt-0.5 text-[9px] text-link dark:text-darklink'>
                                 ({t('reschedule.same')})
                               </span>
                             )}
