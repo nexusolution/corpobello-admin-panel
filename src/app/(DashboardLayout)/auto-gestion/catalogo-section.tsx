@@ -17,6 +17,14 @@ import { fetchMenuOverrides } from '@/lib/data/menu-overrides'
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
 import { fetchTreatmentColors, saveTreatmentColor } from '@/lib/data/treatment-colors-config'
 import { getTreatmentColor } from '@/lib/treatment-colors'
+import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
+import {
+  fetchProfessionalTreatments,
+  saveProfessionalTreatments,
+  professionalDoesTreatment,
+  toggleProfessionalTreatment,
+  type ProfessionalTreatments,
+} from '@/lib/data/professional-treatments'
 import { Switch } from '@/components/ui/switch'
 import { useTranslation } from '@/lib/i18n/context'
 
@@ -34,6 +42,11 @@ export function CatalogoSection({
   const [newLabel, setNewLabel] = useState('')
   const [busy, setBusy] = useState(false)
   const [editing, setEditing] = useState<{ slug: string; label: string } | null>(null)
+  // Reverse-direction capability editor (Andrés #8): per treatment, which
+  // professionals perform it. Same config as the Profesionales tab.
+  const [professionals, setProfessionals] = useState<{ id: string; name: string }[]>([])
+  const [ptConfigs, setPtConfigs] = useState<Map<string, ProfessionalTreatments>>(new Map())
+  const [expandedSlug, setExpandedSlug] = useState<string | null>(null)
 
   function reload() {
     setLoading(true)
@@ -45,7 +58,25 @@ export function CatalogoSection({
   }
   useEffect(() => {
     void reload()
+    void fetchAppUsers().then(({ data }) =>
+      setProfessionals(data.filter((u) => u.status === 'active').map((u) => ({ id: u.id, name: u.fullName }))),
+    )
+    void fetchProfessionalTreatments().then(({ data }) => setPtConfigs(data))
   }, [])
+
+  async function toggleProfessional(slug: string, professionalId: string, enabled: boolean) {
+    const next = toggleProfessionalTreatment(ptConfigs.get(professionalId), slug, enabled)
+    setPtConfigs((prev) => {
+      const m = new Map(prev)
+      m.set(professionalId, { professionalId, mode: next.mode, slugs: next.slugs })
+      return m
+    })
+    const err = await saveProfessionalTreatments(professionalId, next.mode, next.slugs)
+    if (err) {
+      await Swal.fire({ icon: 'error', title: t('autoGestion.catalog.error'), text: err, width: '360px' })
+      void fetchProfessionalTreatments().then(({ data }) => setPtConfigs(data))
+    }
+  }
 
   const colorOf = useMemo(
     () => (it: TreatmentCatalogItem) => colors.get(it.slug) ?? getTreatmentColor(`${it.slug} ${it.label}`).hex,
@@ -168,7 +199,8 @@ export function CatalogoSection({
       ) : (
         <div className='rounded-md border border-border dark:border-darkborder divide-y divide-border dark:divide-darkborder'>
           {items.map((it, i) => (
-            <div key={it.slug} className='flex items-center gap-3 px-3 py-2.5'>
+            <div key={it.slug}>
+            <div className='flex items-center gap-3 px-3 py-2.5'>
               <div className='flex flex-col'>
                 <button
                   type='button'
@@ -250,6 +282,16 @@ export function CatalogoSection({
                 <span>{t('autoGestion.catalog.durationUnit')}</span>
               </label>
 
+              <button
+                type='button'
+                onClick={() => setExpandedSlug((s) => (s === it.slug ? null : it.slug))}
+                title={t('autoGestion.catalog.professionals')}
+                className={`rounded p-1 transition-colors ${
+                  expandedSlug === it.slug ? 'text-primary bg-lightprimary' : 'text-link dark:text-darklink hover:text-primary'
+                }`}>
+                <Icon icon='solar:users-group-rounded-line-duotone' height={16} width={16} />
+              </button>
+
               <Switch checked={it.active} onCheckedChange={(v) => toggleActive(it, v)} />
 
               {it.isCustom && (
@@ -261,6 +303,35 @@ export function CatalogoSection({
                   <Icon icon='tabler:trash' height={16} width={16} />
                 </button>
               )}
+            </div>
+
+            {expandedSlug === it.slug && (
+              <div className='px-3 pb-3 pt-1 bg-lightprimary/20 dark:bg-white/[0.02]'>
+                <p className='text-[11px] font-medium text-link dark:text-darklink mb-1.5'>
+                  {t('autoGestion.catalog.professionals')}
+                </p>
+                {professionals.length === 0 ? (
+                  <p className='text-xs text-link dark:text-darklink italic'>{t('autoGestion.profTreatments.empty')}</p>
+                ) : (
+                  <div className='flex flex-wrap gap-x-4 gap-y-1.5'>
+                    {professionals.map((p) => (
+                      <label key={p.id} className='flex items-center gap-2 cursor-pointer'>
+                        <input
+                          type='checkbox'
+                          checked={professionalDoesTreatment(ptConfigs.get(p.id), it.slug)}
+                          onChange={(e) => toggleProfessional(it.slug, p.id, e.target.checked)}
+                          className='accent-primary'
+                        />
+                        <span className='text-sm text-dark dark:text-white'>{p.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                <p className='text-[11px] text-link dark:text-darklink mt-1.5'>
+                  {t('autoGestion.catalog.professionalsHint')}
+                </p>
+              </div>
+            )}
             </div>
           ))}
         </div>

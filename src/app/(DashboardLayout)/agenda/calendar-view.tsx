@@ -81,6 +81,11 @@ import {
   type LunchWindow,
 } from '@/lib/data/lunch'
 import {
+  fetchProfessionalTreatments,
+  professionalDoesTreatment as resolveDoesTreatment,
+  type ProfessionalTreatments,
+} from '@/lib/data/professional-treatments'
+import {
   fetchPackConfigs,
   fetchActivePacks,
   createPatientPack,
@@ -641,6 +646,7 @@ function EventDialog({
   catalogSlugs,
   treatmentDurations,
   lunchFor,
+  professionalDoesTreatment,
   allEvents,
   isSucursalClosed,
   closureReasonFor,
@@ -672,6 +678,8 @@ function EventDialog({
   // Resolve the lunch window for (sucursal, professional, date) — used to block
   // booking over lunch (Andrés punto 5).
   lunchFor: (sucursal: string, professionalId: string | undefined, dateStr: string) => LunchWindow | null
+  // Capability check (Andrés #8): does the professional perform this treatment?
+  professionalDoesTreatment: (professionalId: string, slug: string) => boolean
   // All loaded turnos, to warn about overlaps (sobre-turnos) on save.
   allEvents: CalendarEvent[]
   // Is (date, sucursal) closed by a feriado/branch-closure block? + the reason to
@@ -971,18 +979,10 @@ function EventDialog({
       ? professionals.find((p) => p.value === professionalId)?.label || ''
       : ''
     const sucTxt = sucursal ? sucursalLabel(sucursal) : ''
-    // Does the professional perform this treatment at all (any active own rule that
-    // covers it)? Independent of date/sucursal — that is the availability check.
+    // Does the professional perform this treatment? First-class capability config
+    // (Autogestión → Profesionales, migration 0053), independent of the schedule.
     const performsSelectedTreatment =
-      !professionalId ||
-      !treatmentSlug ||
-      rules.some(
-        (r) =>
-          r.active &&
-          r.professionalId === professionalId &&
-          (r.treatmentSlugs.length === 0 || r.treatmentSlugs.includes(treatmentSlug)) &&
-          !(r.treatmentExclude && r.treatmentExclude.includes(treatmentSlug)),
-      )
+      !professionalId || !treatmentSlug || professionalDoesTreatment(professionalId, treatmentSlug)
     const incompat: string[] = []
     if (!performsSelectedTreatment) {
       const treatmentLabel = treatmentSlug
@@ -1059,10 +1059,16 @@ function EventDialog({
             } catch {
               // sessionStorage unavailable (private mode): skip the round-trip.
             }
-            const qs = new URLSearchParams({ tab: 'disponibilidad' })
+            // If the professional simply does not perform the treatment, send the
+            // admin to Profesionales (edit enabled treatments); otherwise to
+            // Disponibilidad (edit the schedule). Andrés #8.
+            const capabilityIssue = !performsSelectedTreatment
+            const qs = new URLSearchParams({ tab: capabilityIssue ? 'profesionales' : 'disponibilidad' })
             if (professionalId) qs.set('prof', professionalId)
-            if (sucursal) qs.set('suc', sucursal)
-            if (startStr) qs.set('date', startStr)
+            if (!capabilityIssue) {
+              if (sucursal) qs.set('suc', sucursal)
+              if (startStr) qs.set('date', startStr)
+            }
             window.location.href = `/auto-gestion?${qs.toString()}`
           }
           return
@@ -1405,9 +1411,20 @@ function EventDialog({
               <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.professional')}</span>
               <select value={professionalId} onChange={(e) => setProfessionalId(e.target.value)} className={SELECT_CLS}>
                 <option value=''>{t('turno.none')}</option>
-                {professionals.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
+                {professionals
+                  // Secretaría only sees professionals ENABLED for the selected
+                  // treatment (Andrés #8). Admin sees all; the already-assigned
+                  // professional always stays visible so an existing turno reads right.
+                  .filter(
+                    (o) =>
+                      isAdmin ||
+                      !treatmentSlug ||
+                      o.value === professionalId ||
+                      professionalDoesTreatment(o.value, treatmentSlug),
+                  )
+                  .map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
               </select>
             </label>
             <label className='block'>
@@ -1774,6 +1791,8 @@ export function CalendarView() {
   // Configurable lunch (migration 0052): habitual config + per-day overrides.
   const [lunchConfig, setLunchConfig] = useState<LunchConfig[]>([])
   const [lunchOverrides, setLunchOverrides] = useState<LunchOverride[]>([])
+  // Which treatments each professional performs (migration 0053, Andrés #8).
+  const [profTreatments, setProfTreatments] = useState<Map<string, ProfessionalTreatments>>(new Map())
   const [catalogSlugs, setCatalogSlugs] = useState<string[]>([])
   // Per-treatment self-managed duration (Autogestión → Catálogo, migration 0051).
   // slug -> minutes; overrides the slug heuristic when auto-blocking a turno.
@@ -1919,6 +1938,8 @@ export function CalendarView() {
       setLunchConfig(config)
       setLunchOverrides(overrides)
     })
+    // Per-professional treatment capability (Andrés #8) for booking validation.
+    void fetchProfessionalTreatments().then(({ data }) => setProfTreatments(data))
     void fetchAvailability().then(({ rules, exclusions }) => {
       setAvailRules(rules)
       setAvailExclusions(exclusions)
@@ -2271,6 +2292,11 @@ export function CalendarView() {
     (sucursal: string, professionalId: string | undefined, dateStr: string): LunchWindow | null =>
       resolveLunch(sucursal, professionalId, dateStr, lunchConfig, lunchOverrides),
     [lunchConfig, lunchOverrides],
+  )
+  // Capability resolver (Andrés #8): does professional `pid` perform `slug`?
+  const professionalDoesTreatment = useCallback(
+    (pid: string, slug: string): boolean => resolveDoesTreatment(profTreatments.get(pid), slug),
+    [profTreatments],
   )
   const reloadLunch = useCallback(() => {
     void fetchLunch().then(({ config, overrides }) => {
@@ -3573,6 +3599,7 @@ export function CalendarView() {
           catalogSlugs={catalogSlugs}
           treatmentDurations={treatmentDurations}
           lunchFor={lunchFor}
+          professionalDoesTreatment={professionalDoesTreatment}
           allEvents={events}
           isSucursalClosed={isSucursalClosed}
           closureReasonFor={closureReasonFor}
