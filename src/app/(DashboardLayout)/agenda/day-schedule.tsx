@@ -350,7 +350,7 @@ export function DaySchedule({
             })}
           </div>
           {/* Proportional time grid: cards positioned/sized by exact minutes. */}
-          <div className='grid' style={{ gridTemplateColumns: gridTemplate, height: totalPx }}>
+          <div className='grid' style={{ gridTemplateColumns: gridTemplate, gridTemplateRows: `${totalPx}px`, height: totalPx }}>
             {/* Time gutter with a label per scale slot. */}
             <div className='relative'>
               {slots.map((m, i2) => (
