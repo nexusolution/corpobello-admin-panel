@@ -362,16 +362,20 @@ function DateField({
   value,
   min,
   onChange,
+  defaultMonth,
 }: {
   label: string
   value: string
   min?: string
   onChange: (v: string) => void
+  // Month to open the calendar on when there is no value yet (Andrés punto 20).
+  defaultMonth?: string
 }) {
   const { t, locale } = useTranslation()
   const [open, setOpen] = useState(false)
   const date = value ? new Date(`${value}T00:00:00`) : undefined
   const minDate = min ? new Date(`${min}T00:00:00`) : undefined
+  const openMonth = date ?? (defaultMonth ? new Date(`${defaultMonth}T00:00:00`) : undefined)
 
   return (
     <div className='block'>
@@ -394,7 +398,7 @@ function DateField({
           <DatePickerCalendar
             mode='single'
             selected={date}
-            defaultMonth={date}
+            defaultMonth={openMonth}
             captionLayout='dropdown'
             startMonth={new Date(2020, 0)}
             endMonth={new Date(2035, 11)}
@@ -521,6 +525,10 @@ type Draft = {
   depositAmount: string
   depositDate: string
   depositReceived: boolean
+  // Month the date picker should open on when the date is still empty (Andrés
+  // punto 20): "Nuevo evento" from Month keeps the field empty but opens the
+  // calendar on the month currently in view, not today.
+  defaultMonth?: string
 }
 
 const SELECT_CLS =
@@ -818,7 +826,10 @@ function EventDialog({
     sStr: string = startStr,
     sTime: string = startTime,
   ) => {
-    if (allDay || !slug) return
+    // Skip while the date is still empty (Andrés punto 20): the general "Nuevo
+    // evento" opens with no date, so a time picked first must not compute an end
+    // off an invalid date. The end is recomputed once a date is chosen.
+    if (allDay || !slug || !sStr) return
     const minutes = suggestDurationMinutes(slug, first, undefined, treatmentDurations.get(slug))
     if (minutes <= 0) return
     const end = new Date(dateTime(sStr, sTime).getTime() + minutes * 60_000)
@@ -1541,6 +1552,7 @@ function EventDialog({
           <DateField
             label={t('turno.date')}
             value={startStr}
+            defaultMonth={draft.defaultMonth}
             onChange={(v) => {
               setStartStr(v)
               setEndStr(v)
@@ -2671,10 +2683,15 @@ export function CalendarView() {
     ) => {
       // Profesional cannot create turnos (Andrés #18) — view + status only.
       if (isProfesional) return
-      const now = new Date()
-      // Default new turno: a 1-hour slot at the next full hour.
-      const s = start ?? new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.min(now.getHours() + 1, 23), 0, 0)
-      const e = end ?? new Date(s.getTime() + 60 * 60 * 1000)
+      // The general "Nuevo evento" button (no slot clicked) must NOT prefill
+      // today's date/time (Andrés punto 20): leave the date/time empty and open
+      // the calendar on the month currently in view. From the Day view (a concrete
+      // day) prefill that day; a clicked Day/Week free slot fills date + time.
+      const fromSlot = !!start
+      const dayContext = !fromSlot && view === Views.DAY
+      const startStr = start ? toDateInput(start) : dayContext ? toDateInput(date) : ''
+      const endBase = end ?? start
+      const endStr = endBase ? toDateInput(endBase) : startStr
       setDraft({
         id: null,
         patientId: null,
@@ -2687,18 +2704,19 @@ export function CalendarView() {
         status: 'pendiente',
         charged: false,
         allDay,
-        startStr: toDateInput(s),
-        endStr: toDateInput(e),
-        startTime: toTimeInput(s),
-        endTime: toTimeInput(e),
+        startStr,
+        endStr,
+        startTime: start ? toTimeInput(start) : '',
+        endTime: end ? toTimeInput(end) : '',
         observaciones: '',
         packId: null,
         depositAmount: '',
         depositDate: '',
         depositReceived: false,
+        defaultMonth: toDateInput(date),
       })
     },
-    [isProfesional, myUserId],
+    [isProfesional, myUserId, view, date],
   )
 
   // From the Month, open a day in the Day view; if 2+ sucursales work/have turnos
