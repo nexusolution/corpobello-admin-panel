@@ -147,10 +147,12 @@ export function RescheduleDialog({
     sucMerlo: (d: Date) => resolvedSucFor(d) === 'merlo',
     sucMoreno: (d: Date) => resolvedSucFor(d) === 'moreno',
   }
+  // Available days read as a clear tinted block per sucursal (colour + a bottom
+  // bar), so free dates pop and the branch is identifiable (Andrés).
   const modifiersStyles = {
-    sucCaballito: { boxShadow: `inset 0 -3px 0 ${SUC_COLOR.caballito}` },
-    sucMerlo: { boxShadow: `inset 0 -3px 0 ${SUC_COLOR.merlo}` },
-    sucMoreno: { boxShadow: `inset 0 -3px 0 ${SUC_COLOR.moreno}` },
+    sucCaballito: { backgroundColor: `${SUC_COLOR.caballito}22`, boxShadow: `inset 0 -3px 0 ${SUC_COLOR.caballito}`, borderRadius: 6, fontWeight: 600 },
+    sucMerlo: { backgroundColor: `${SUC_COLOR.merlo}26`, boxShadow: `inset 0 -3px 0 ${SUC_COLOR.merlo}`, borderRadius: 6, fontWeight: 600 },
+    sucMoreno: { backgroundColor: `${SUC_COLOR.moreno}26`, boxShadow: `inset 0 -3px 0 ${SUC_COLOR.moreno}`, borderRadius: 6, fontWeight: 600 },
   }
   const disabled = (d: Date) => d < today || resolvedSucFor(d) === null
 
@@ -210,15 +212,19 @@ export function RescheduleDialog({
             </div>
 
             {/* Slots */}
-            <div className='flex-1 min-w-0'>
+            <div className='flex-1 min-w-0 rounded-md border border-border dark:border-darkborder p-3'>
               {!selected ? (
-                <p className='text-sm text-link dark:text-darklink italic'>{t('reschedule.pickDate')}</p>
+                <div className='flex h-full min-h-[180px] flex-col items-center justify-center text-center gap-2 text-link dark:text-darklink'>
+                  <Icon icon='solar:calendar-mark-line-duotone' height={30} width={30} className='opacity-50' />
+                  <p className='text-sm'>{t('reschedule.pickDate')}</p>
+                </div>
               ) : (
                 <div className='space-y-2'>
-                  <p className='text-sm font-medium text-dark dark:text-white'>
-                    {moment(selected).format('DD MMM YYYY')}
+                  <p className='text-sm font-semibold text-dark dark:text-white capitalize'>
+                    {new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long' }).format(selected)}
                     {targetSucursal && (
-                      <span className='ml-2 text-xs font-normal text-link dark:text-darklink'>
+                      <span className='ml-2 inline-flex items-center gap-1 text-xs font-normal text-link dark:text-darklink'>
+                        <span className='h-2 w-2 rounded-full' style={{ background: SUC_COLOR[targetSucursal] }} />
                         {sucursalLabel(targetSucursal)}
                         {targetSucursal !== turno.sucursal && ` · ${t('reschedule.sucursalChanges')}`}
                       </span>
@@ -228,6 +234,9 @@ export function RescheduleDialog({
                     <p className='text-sm text-link dark:text-darklink italic'>{t('reschedule.noSlots')}</p>
                   ) : (
                     <>
+                      <p className='text-[11px] font-medium uppercase tracking-wide text-link dark:text-darklink'>
+                        {t('reschedule.availableTimes')}
+                      </p>
                       {!originalStillFree && (
                         <p className='text-[11px] text-error'>{t('reschedule.originalTaken')}</p>
                       )}

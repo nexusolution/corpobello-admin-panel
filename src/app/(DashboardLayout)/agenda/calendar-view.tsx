@@ -1328,7 +1328,7 @@ function EventDialog({
       {/* Column layout with a fixed header + footer and a scrollable body so a
           tall form never hides the title or the action buttons (Andrés 2026-09-14). */}
       <div
-        className='w-full max-w-md rounded-xl bg-card shadow-xl flex flex-col max-h-[90vh]'
+        className='w-full max-w-lg rounded-xl bg-card shadow-xl flex flex-col max-h-[90vh]'
         onClick={(e) => e.stopPropagation()}>
         <div className='p-6 pb-3 shrink-0'>
           <div className='flex items-start justify-between mb-1'>
@@ -1637,20 +1637,20 @@ function EventDialog({
           </fieldset>
         </div>
 
-        <div className='p-6 pt-3 shrink-0 border-t border-border dark:border-darkborder flex items-center justify-between gap-2'>
+        <div className='px-5 py-3 shrink-0 border-t border-border dark:border-darkborder flex flex-wrap items-center justify-between gap-2'>
           {isEdit && canDelete ? (
             <button
               type='button'
               onClick={remove}
               disabled={saving}
-              className='inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium text-error hover:bg-lighterror/60 transition-colors disabled:opacity-50'>
+              className='inline-flex items-center gap-1.5 px-2.5 py-2 rounded-md text-sm font-medium text-error hover:bg-lighterror/60 transition-colors disabled:opacity-50'>
               <Icon icon='tabler:trash' height={16} width={16} />
               {t('agendaCal.delete')}
             </button>
           ) : (
             <span />
           )}
-          <div className='flex items-center gap-2'>
+          <div className='flex flex-wrap items-center justify-end gap-2'>
             {isEdit && canEditFull && !allDay && (
               <button
                 type='button'
@@ -1665,7 +1665,7 @@ function EventDialog({
                     end: dateTime(startStr, endTime),
                   })
                 }
-                className='inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium text-primary hover:bg-lightprimary transition-colors'>
+                className='inline-flex items-center gap-1.5 px-2.5 py-2 rounded-md text-sm font-medium text-primary hover:bg-lightprimary transition-colors'>
                 <Icon icon='solar:calendar-search-line-duotone' height={16} width={16} />
                 {t('reschedule.button')}
               </button>
@@ -1684,7 +1684,7 @@ function EventDialog({
                       : dateTime(startStr, startTime).toISOString(),
                   })
                 }
-                className='inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium text-primary hover:bg-lightprimary transition-colors'>
+                className='inline-flex items-center gap-1.5 px-2.5 py-2 rounded-md text-sm font-medium text-primary hover:bg-lightprimary transition-colors'>
                 <Icon icon='solar:clipboard-heart-line-duotone' height={16} width={16} />
                 {t('turno.closeSession')}
               </button>
@@ -1692,14 +1692,14 @@ function EventDialog({
             <button
               type='button'
               onClick={onClose}
-              className='px-4 py-2 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 transition-colors'>
+              className='px-3 py-2 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 transition-colors'>
               {t('agendaCal.cancel')}
             </button>
             <button
               type='button'
               onClick={save}
               disabled={!valid || saving}
-              className='px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis disabled:opacity-40 disabled:cursor-not-allowed transition-colors'>
+              className='px-3 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis disabled:opacity-40 disabled:cursor-not-allowed transition-colors'>
               {saving ? t('agendaCal.saving') : isEdit ? t('agendaCal.save') : t('agendaCal.add')}
             </button>
           </div>
