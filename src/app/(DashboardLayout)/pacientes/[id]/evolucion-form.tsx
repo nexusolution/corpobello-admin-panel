@@ -37,6 +37,18 @@ type Option = { value: string; label: string }
 const FIELD_CLS =
   'w-full px-3 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
 
+// This form is a Radix Dialog, which (via react-remove-scroll) sets
+// `pointer-events: none` on <body>. Because pointer-events is inherited, a
+// SweetAlert2 popup opened over the dialog becomes un-clickable and clicks fall
+// through to the dialog behind it. Re-enable pointer events on the Swal container
+// so the alert works and blocks the form (Andrés bug 2026-09-24).
+const SWAL_OVER_DIALOG = {
+  didOpen: () => {
+    const c = Swal.getContainer()
+    if (c) c.style.pointerEvents = 'auto'
+  },
+}
+
 // Label with a leading icon for a friendlier, scannable form.
 function FieldLabel({ icon, children }: { icon: string; children: ReactNode }) {
   return (
@@ -248,14 +260,14 @@ export function EvolucionForm({
     if (editing && evolucion) {
       const { error } = await updateEvolucion(evolucion.id, draft())
       if (error) {
-        await Swal.fire({ icon: 'error', title: t('ficha.form.saveError'), text: error })
+        await Swal.fire({ icon: 'error', title: t('ficha.form.saveError'), text: error, ...SWAL_OVER_DIALOG })
         return null
       }
       return evolucion.id
     }
     const { id, error } = await createEvolucion(draft())
     if (error || !id) {
-      await Swal.fire({ icon: 'error', title: t('ficha.form.saveError'), text: error ?? '' })
+      await Swal.fire({ icon: 'error', title: t('ficha.form.saveError'), text: error ?? '', ...SWAL_OVER_DIALOG })
       return null
     }
     return id
@@ -286,6 +298,7 @@ export function EvolucionForm({
 
   async function handleSignClose() {
     const confirm = await Swal.fire({
+      ...SWAL_OVER_DIALOG,
       icon: 'question',
       title: t('ficha.form.closeConfirmTitle'),
       text: t('ficha.form.closeConfirmText'),
@@ -302,7 +315,7 @@ export function EvolucionForm({
       const { error } = await closeEvolucion(id)
       if (error) {
         setSaving(false)
-        await Swal.fire({ icon: 'error', title: t('ficha.form.saveError'), text: error })
+        await Swal.fire({ icon: 'error', title: t('ficha.form.saveError'), text: error, ...SWAL_OVER_DIALOG })
         return
       }
       // Generate + store the signed comprobante PDF (best-effort — the session
