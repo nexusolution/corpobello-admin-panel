@@ -3790,36 +3790,36 @@ export function CalendarView() {
             allLabel={t('agendaCal.allTreatments')}
           />
         </div>
-        {/* Columns + Scale apply to RBC's time grids only. The Day view is now the
-            custom hour-table (auto-grouped by sucursal/profesional, fixed hourly
-            rows), so both controls are hidden there (Andrés 2026-09-16). */}
+        {/* Columns selector: only where columns apply (not the custom Day view). */}
         {view !== Views.DAY && (
-          <>
-            <div className='flex items-center gap-2'>
-              <Icon icon='solar:layers-minimalistic-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
-              <span className='text-xs font-medium text-link dark:text-darklink'>{t('agenda.columns')}:</span>
-              <select
-                value={columnMode}
-                onChange={(e) => setColumnMode(e.target.value as 'none' | 'sucursal' | 'professional')}
-                className='pl-2.5 pr-9 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
-                <option value='none'>{t('agenda.columnsNone')}</option>
-                <option value='sucursal'>{t('agenda.columnsBySucursal')}</option>
-                <option value='professional'>{t('agenda.columnsByProfessional')}</option>
-              </select>
-            </div>
-            <div className='flex items-center gap-2'>
-              <Icon icon='solar:clock-square-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
-              <span className='text-xs font-medium text-link dark:text-darklink'>{t('agenda.scale')}:</span>
-              <select
-                value={scaleMin}
-                onChange={(e) => setScaleMin(parseInt(e.target.value, 10))}
-                className='pl-2.5 pr-9 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
-                {[5, 10, 15, 20, 30, 60].map((m) => (
-                  <option key={m} value={m}>{m} min</option>
-                ))}
-              </select>
-            </div>
-          </>
+          <div className='flex items-center gap-2'>
+            <Icon icon='solar:layers-minimalistic-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
+            <span className='text-xs font-medium text-link dark:text-darklink'>{t('agenda.columns')}:</span>
+            <select
+              value={columnMode}
+              onChange={(e) => setColumnMode(e.target.value as 'none' | 'sucursal' | 'professional')}
+              className='pl-2.5 pr-9 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
+              <option value='none'>{t('agenda.columnsNone')}</option>
+              <option value='sucursal'>{t('agenda.columnsBySucursal')}</option>
+              <option value='professional'>{t('agenda.columnsByProfessional')}</option>
+            </select>
+          </div>
+        )}
+        {/* Scale selector: only in Day + Week, where it drives a real time grid
+            (Andrés #14). Hidden in Month (no time grid) and Agenda (list). */}
+        {(view === Views.DAY || view === Views.WEEK) && (
+          <div className='flex items-center gap-2'>
+            <Icon icon='solar:clock-square-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
+            <span className='text-xs font-medium text-link dark:text-darklink'>{t('agenda.scale')}:</span>
+            <select
+              value={scaleMin}
+              onChange={(e) => setScaleMin(parseInt(e.target.value, 10))}
+              className='pl-2.5 pr-9 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
+              {[5, 10, 15, 20, 30, 60].map((m) => (
+                <option key={m} value={m}>{m} min</option>
+              ))}
+            </select>
+          </div>
         )}
       </div>
 
@@ -3986,6 +3986,7 @@ export function CalendarView() {
             lunchLabel={t('agenda.lunch')}
             newLabel={t('agendaCal.new')}
             emptyLabel={t('agenda.noProfessional')}
+            scaleMin={scaleMin}
             onMoveTurno={(id, target) => void attemptMove(id, target)}
           />
         </div>

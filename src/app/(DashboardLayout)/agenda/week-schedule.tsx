@@ -37,8 +37,11 @@ interface WeekScheduleProps {
   lunchLabel: string
   newLabel: string
   emptyLabel: string
+  // Time-grid granularity in minutes (5/10/15/20/30/60) — drives the proportional
+  // grid + card sizing (Andrés #14).
+  scaleMin: number
   // Drag-reschedule (Andrés #19-C): dropping a card onto a cell moves it to that
-  // day (dateStr) + hour (startMin) + subcolumn (professional/sucursal).
+  // day (dateStr) + exact minute (startMin) + subcolumn (professional/sucursal).
   onMoveTurno?: (
     turnoId: string,
     target: { dateStr: string; startMin: number; sucursal: string | null; professionalId: string | null },
@@ -80,6 +83,7 @@ export function WeekSchedule({
   lunchLabel,
   newLabel,
   emptyLabel,
+  scaleMin,
   onMoveTurno,
 }: WeekScheduleProps) {
   const dayData = days.map((day) => ({ day, ds: toKey(day), cols: columnsForDay(day) }))
@@ -191,16 +195,26 @@ export function WeekSchedule({
     }
   }, [])
 
-  // Hour rows: 08–20 by default, widened to include turnos outside that band.
-  let startH = 8
-  let endH = 20
+  // Vertical range + proportional geometry (Andrés #14): a fixed pixel height per
+  // SCALE slot, so changing the scale really changes the grid, and cards are
+  // positioned/sized by their exact minutes (not per whole hour).
+  const minOfDay = (d: Date) => d.getHours() * 60 + d.getMinutes()
+  let startMin = 8 * 60
+  let endMin = 20 * 60
   for (const e of turnos) {
-    const h = e.start.getHours()
-    if (h < startH) startH = h
-    if (h > endH) endH = h
+    startMin = Math.min(startMin, minOfDay(e.start))
+    endMin = Math.max(endMin, minOfDay(e.end))
   }
-  const hours: number[] = []
-  for (let h = startH; h <= endH; h++) hours.push(h)
+  startMin = Math.floor(startMin / 60) * 60
+  endMin = Math.ceil(endMin / 60) * 60
+  const SLOT_PX = 40
+  const pxPerMin = SLOT_PX / scaleMin
+  const totalPx = Math.max(SLOT_PX, (endMin - startMin) * pxPerMin)
+  const slots: number[] = []
+  for (let m = startMin; m < endMin; m += scaleMin) slots.push(m)
+  const fmtMin = (m: number) => `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`
+  const snapMinute = (clientY: number, rectTop: number) =>
+    startMin + Math.max(0, Math.floor((clientY - rectTop) / pxPerMin / scaleMin)) * scaleMin
 
   // Per day, split into a subcolumn per WORKING (professional · sucursal), like the
   // Day view (Andrés #14). A day with nobody working still gets one placeholder
@@ -222,29 +236,58 @@ export function WeekSchedule({
     colIdx += cols.length
   }
 
-  // Bucket turnos: dayKey → columnId → start hour → turnos.
-  const buckets = new Map<string, Map<string, Map<number, CalendarEvent[]>>>()
-  for (const f of flat) buckets.set(f.ds, new Map())
+  // Bucket turnos per (dayKey|columnId); layout (lanes) computed per subcolumn.
+  const bucket = new Map<string, CalendarEvent[]>()
   for (const e of turnos) {
     const ds = toKey(e.start)
     const f = flat.find((x) => x.ds === ds)
     if (!f) continue
     const rid = resourceIdFor(e, f.colIds)
-    const dayB = buckets.get(ds)!
-    let colB = dayB.get(rid)
-    if (!colB) {
-      colB = new Map()
-      dayB.set(rid, colB)
-    }
-    const h = e.start.getHours()
-    const arr = colB.get(h)
+    const key = `${ds}|${rid}`
+    const arr = bucket.get(key)
     if (arr) arr.push(e)
-    else colB.set(h, [e])
+    else bucket.set(key, [e])
+  }
+  function computeLayout(list: CalendarEvent[]): Map<string, { lane: number; lanes: number }> {
+    const out = new Map<string, { lane: number; lanes: number }>()
+    const sorted = [...list].sort(
+      (a, b) => minOfDay(a.start) - minOfDay(b.start) || minOfDay(a.end) - minOfDay(b.end),
+    )
+    let cluster: CalendarEvent[] = []
+    let clusterEnd = -Infinity
+    const flush = () => {
+      if (cluster.length === 0) return
+      const laneEnds: number[] = []
+      const laneOf = new Map<string, number>()
+      for (const e of cluster) {
+        let idx = laneEnds.findIndex((end) => end <= minOfDay(e.start))
+        if (idx === -1) {
+          idx = laneEnds.length
+          laneEnds.push(minOfDay(e.end))
+        } else laneEnds[idx] = minOfDay(e.end)
+        laneOf.set(e.id, idx)
+      }
+      for (const e of cluster) out.set(e.id, { lane: laneOf.get(e.id) ?? 0, lanes: laneEnds.length })
+      cluster = []
+      clusterEnd = -Infinity
+    }
+    for (const e of sorted) {
+      if (cluster.length > 0 && minOfDay(e.start) < clusterEnd) {
+        cluster.push(e)
+        clusterEnd = Math.max(clusterEnd, minOfDay(e.end))
+      } else {
+        flush()
+        cluster = [e]
+        clusterEnd = minOfDay(e.end)
+      }
+    }
+    flush()
+    return out
   }
 
-  const dateAtHour = (day: Date, h: number) => {
+  const dateAtMin = (day: Date, min: number) => {
     const d = new Date(day)
-    d.setHours(h, 0, 0, 0)
+    d.setHours(Math.floor(min / 60), min % 60, 0, 0)
     return d
   }
   const profIdOf = (rid: string) => (rid.startsWith('sp:') ? rid.slice(rid.indexOf(':', 3) + 1) : undefined)
@@ -261,49 +304,8 @@ export function WeekSchedule({
     return s
   }
 
-  const renderCard = (e: CalendarEvent) => {
-    const tc = treatmentColor(e.treatmentSlug, treatmentName(e.treatmentSlug))
-    return (
-      <button
-        key={e.id}
-        type='button'
-        draggable={!!onMoveTurno}
-        onDragStart={(ev) => {
-          ev.dataTransfer.setData('text/plain', e.id)
-          ev.dataTransfer.effectAllowed = 'move'
-        }}
-        onClick={() => onOpenTurno(e)}
-        className='flex items-stretch min-w-0 flex-1 text-left rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition cursor-grab active:cursor-grabbing'
-        style={{ backgroundColor: cardBg(e.status), color: cardText?.(e.status) ?? '#000' }}>
-        <span className='shrink-0 self-stretch' style={{ width: 6, backgroundColor: tc }} />
-        <span className='flex-1 min-w-0 py-1 px-1.5'>
-          <span className='block font-bold text-[11px] leading-tight truncate'>
-            {e.patientName || e.title}
-          </span>
-          <span className='block text-[10px] font-semibold whitespace-nowrap'>
-            {fmtTime(e.start)} · {fmtTime(e.end)}
-          </span>
-          {e.treatmentSlug && (
-            <span className='block text-[10px] leading-tight truncate opacity-90'>
-              {treatmentName(e.treatmentSlug)}
-            </span>
-          )}
-        </span>
-        {e.charged && (
-          <span
-            className='shrink-0 self-stretch flex items-center justify-center text-white font-bold text-sm'
-            style={{ width: 22, backgroundColor: PAY_GREEN }}
-            title='$'>
-            $
-          </span>
-        )}
-      </button>
-    )
-  }
-
   const DAY_H = 46 // fixed height of the day-header row (row 1)
   const SUB_H = 30 // fixed height of the subcolumn-header row (row 2)
-  const rowOf = (h: number) => 3 + hours.indexOf(h)
 
   const cells: ReactNode[] = []
 
@@ -373,89 +375,157 @@ export function WeekSchedule({
     })
   })
 
-  // Time gutter (col 1).
-  for (const h of hours) {
-    cells.push(
-      <div
-        key={`t-${h}`}
-        className='text-right pr-2 pt-1 text-[11px] text-link dark:text-darklink border-b border-border/60 dark:border-darkborder/60 whitespace-nowrap sticky left-0 z-10 bg-card'
-        style={{ gridColumn: 1, gridRow: rowOf(h) }}>
-        <div className='font-medium'>{pad2(h)}:00</div>
-        <div className='opacity-60'>{pad2(h)}:30</div>
-      </div>,
-    )
-  }
-
-  // Body: one cell per (subcolumn, hour). Same-professional sobre-turnos side by side.
-  for (const h of hours) {
-    flat.forEach((f) => {
-      f.cols.forEach((c, j) => {
-        const col = f.startCol + j
-        const list = (buckets.get(f.ds)?.get(c.resourceId)?.get(h) ?? [])
-          .slice()
-          .sort((a, b) => a.start.getTime() - b.start.getTime())
-        const lw = lunchFor(f.day, c)
-        const isLunch = !!lw && lw.startMin < (h + 1) * 60 && lw.endMin > h * 60 && list.length === 0
-        cells.push(
-          <div
-            key={`c-${f.ds}-${col}-${h}`}
-            onDragOver={
-              onMoveTurno
-                ? (ev) => {
-                    ev.preventDefault()
-                    ev.dataTransfer.dropEffect = 'move'
-                  }
-                : undefined
-            }
-            onDrop={
-              onMoveTurno
-                ? (ev) => {
-                    ev.preventDefault()
-                    const id = ev.dataTransfer.getData('text/plain')
-                    if (id)
-                      onMoveTurno(id, {
-                        dateStr: f.ds,
-                        startMin: h * 60,
-                        sucursal: c.sucursal || null,
-                        professionalId: profIdOf(c.resourceId) || null,
-                      })
-                  }
-                : undefined
-            }
-            className={`p-1 border-b border-border/60 dark:border-darkborder/60 ${
-              j === 0 ? 'border-l border-border dark:border-darkborder' : 'border-l border-border/40 dark:border-darkborder/40'
-            }`}
-            style={{ gridColumn: col, gridRow: rowOf(h) }}>
-            {isLunch ? (
-              <div className='h-full rounded-md bg-gray-100 dark:bg-white/5 text-link dark:text-darklink text-[9px] font-medium uppercase tracking-wide flex items-center justify-center py-2'>
-                {lunchLabel}
-              </div>
-            ) : list.length > 0 ? (
-              <div className='flex items-stretch gap-1'>{list.map(renderCard)}</div>
-            ) : (
+  // Row 3: the single proportional body row. Time gutter (col 1) + one relative
+  // column per subcolumn with grid lines, a clickable free area, the lunch block
+  // and absolutely-positioned cards.
+  cells.push(
+    <div
+      key='gutter-body'
+      className='relative sticky left-0 z-10 bg-card border-r border-border dark:border-darkborder'
+      style={{ gridColumn: 1, gridRow: 3 }}>
+      {slots.map((m, i) => (
+        <div
+          key={m}
+          className={`absolute right-2 whitespace-nowrap ${
+            m % 60 === 0 ? 'text-[11px] font-semibold text-dark dark:text-white' : 'text-[9px] text-link/70 dark:text-darklink/70'
+          }`}
+          style={{ top: i * SLOT_PX - 6 }}>
+          {fmtMin(m)}
+        </div>
+      ))}
+    </div>,
+  )
+  flat.forEach((f) => {
+    f.cols.forEach((c, j) => {
+      const col = f.startCol + j
+      const colTurnos = bucket.get(`${f.ds}|${c.resourceId}`) ?? []
+      const layout = computeLayout(colTurnos)
+      const lw = lunchFor(f.day, c)
+      const profId = profIdOf(c.resourceId) || null
+      cells.push(
+        <div
+          key={`body-${f.ds}-${col}`}
+          className={`relative ${
+            j === 0 ? 'border-l border-border dark:border-darkborder' : 'border-l border-border/40 dark:border-darkborder/40'
+          }`}
+          style={{ gridColumn: col, gridRow: 3 }}
+          onDragOver={
+            onMoveTurno
+              ? (ev) => {
+                  ev.preventDefault()
+                  ev.dataTransfer.dropEffect = 'move'
+                }
+              : undefined
+          }
+          onDrop={
+            onMoveTurno
+              ? (ev) => {
+                  ev.preventDefault()
+                  const id = ev.dataTransfer.getData('text/plain')
+                  if (!id) return
+                  const rect = ev.currentTarget.getBoundingClientRect()
+                  onMoveTurno(id, {
+                    dateStr: f.ds,
+                    startMin: snapMinute(ev.clientY, rect.top),
+                    sucursal: c.sucursal || null,
+                    professionalId: profId,
+                  })
+                }
+              : undefined
+          }>
+          {slots.map((m, i) => (
+            <div
+              key={m}
+              className='absolute inset-x-0 border-b border-border/50 dark:border-darkborder/40 pointer-events-none'
+              style={{ top: i * SLOT_PX, height: SLOT_PX }}
+            />
+          ))}
+          <button
+            type='button'
+            aria-label={newLabel}
+            className='absolute inset-0 w-full h-full hover:bg-primary/5 transition-colors'
+            onClick={(ev) => {
+              const rect = ev.currentTarget.getBoundingClientRect()
+              const min = snapMinute(ev.clientY, rect.top)
+              const start = dateAtMin(f.day, min)
+              const end = new Date(start.getTime() + scaleMin * 60000)
+              onCreate(start, end, c.sucursal || undefined, profId ?? undefined)
+            }}
+          />
+          {lw && (
+            <div
+              className='absolute inset-x-0.5 z-10 rounded-md bg-gray-100 dark:bg-white/5 text-link dark:text-darklink text-[9px] font-medium uppercase tracking-wide flex items-center justify-center'
+              style={{ top: (lw.startMin - startMin) * pxPerMin, height: Math.max(12, (lw.endMin - lw.startMin) * pxPerMin) }}>
+              {lunchLabel}
+            </div>
+          )}
+          {colTurnos.map((e) => {
+            const lay = layout.get(e.id) ?? { lane: 0, lanes: 1 }
+            const top = (minOfDay(e.start) - startMin) * pxPerMin
+            const height = Math.max(16, (minOfDay(e.end) - minOfDay(e.start)) * pxPerMin)
+            const widthPct = 100 / lay.lanes
+            const leftPct = lay.lane * widthPct
+            const tc = treatmentColor(e.treatmentSlug, treatmentName(e.treatmentSlug))
+            const tall = height >= 42
+            return (
               <button
+                key={e.id}
                 type='button'
-                onClick={() => {
-                  const start = dateAtHour(f.day, h)
-                  const end = new Date(start.getTime() + 30 * 60000)
-                  onCreate(start, end, c.sucursal || undefined, profIdOf(c.resourceId))
+                data-eventid={e.id}
+                draggable={!!onMoveTurno}
+                onDragStart={(ev) => {
+                  ev.dataTransfer.setData('text/plain', e.id)
+                  ev.dataTransfer.effectAllowed = 'move'
                 }}
-                aria-label={newLabel}
-                className='w-full h-full min-h-[52px] rounded-md hover:bg-primary/5 transition-colors'
-              />
-            )}
-          </div>,
-        )
-      })
+                onClick={(ev) => {
+                  ev.stopPropagation()
+                  onOpenTurno(e)
+                }}
+                className='absolute z-20 flex items-stretch text-left rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition cursor-grab active:cursor-grabbing'
+                style={{
+                  top,
+                  height,
+                  left: `calc(${leftPct}% + 2px)`,
+                  width: `calc(${widthPct}% - 4px)`,
+                  backgroundColor: cardBg(e.status),
+                  color: cardText?.(e.status) ?? '#000',
+                }}>
+                <span className='shrink-0 self-stretch' style={{ width: 5, backgroundColor: tc }} />
+                <span className='flex-1 min-w-0 py-0.5 px-1 overflow-hidden'>
+                  <span className='block font-bold text-[10px] leading-tight truncate'>{e.patientName || e.title}</span>
+                  {tall && (
+                    <span className='block text-[9px] font-semibold leading-tight'>
+                      {fmtTime(e.start)} · {fmtTime(e.end)}
+                    </span>
+                  )}
+                  {tall && e.treatmentSlug && (
+                    <span className='block text-[9px] leading-tight truncate opacity-90'>
+                      {treatmentName(e.treatmentSlug)}
+                    </span>
+                  )}
+                </span>
+                {e.charged && (
+                  <span
+                    className='shrink-0 self-stretch flex items-center justify-center text-white font-bold text-xs'
+                    style={{ width: 16, backgroundColor: PAY_GREEN }}
+                    title='$'>
+                    $
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>,
+      )
     })
-  }
+  })
 
   // Each subcolumn keeps a readable min width; the week scrolls horizontally when
   // the working professionals across the days exceed the viewport (Andrés #14).
   const SUB_MIN = 150
   const totalSubcols = flat.reduce((n, f) => n + f.cols.length, 0)
   const gridTemplateColumns = `56px repeat(${totalSubcols}, minmax(${SUB_MIN}px, 1fr))`
-  const gridTemplateRows = `${DAY_H}px ${SUB_H}px repeat(${hours.length}, minmax(56px, auto))`
+  const gridTemplateRows = `${DAY_H}px ${SUB_H}px ${totalPx}px`
   const minWidth = 56 + totalSubcols * SUB_MIN
 
   return (

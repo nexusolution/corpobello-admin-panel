@@ -71,27 +71,6 @@ function fmtTime(d: Date): string {
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
 }
 
-// Group turnos into clusters that overlap in REAL time (Andrés #13): turnos whose
-// intervals intersect go side by side (equal width); non-overlapping ones stack.
-function overlapClusters(list: CalendarEvent[]): CalendarEvent[][] {
-  const sorted = [...list].sort((a, b) => a.start.getTime() - b.start.getTime())
-  const clusters: CalendarEvent[][] = []
-  let cur: CalendarEvent[] = []
-  let curEnd = -Infinity
-  for (const e of sorted) {
-    if (cur.length > 0 && e.start.getTime() < curEnd) {
-      cur.push(e)
-      curEnd = Math.max(curEnd, e.end.getTime())
-    } else {
-      if (cur.length > 0) clusters.push(cur)
-      cur = [e]
-      curEnd = e.end.getTime()
-    }
-  }
-  if (cur.length > 0) clusters.push(cur)
-  return clusters
-}
-
 export function DaySchedule({
   date,
   columns,
@@ -173,77 +152,67 @@ export function DaySchedule({
   const slots: number[] = []
   for (let m = startMin; m < endMin; m += scaleMin) slots.push(m)
 
-  // Per column: turnos that START in each slot, and the slots merely COVERED by a
-  // turno's duration (occupied, not clickable) so long turnos don't leave a
-  // "free" gap under themselves.
-  const startingByCol = new Map<string, Map<number, CalendarEvent[]>>()
-  const occupiedByCol = new Map<string, Set<number>>()
+  // Turnos grouped by column, plus a per-column overlap layout: each turno gets a
+  // lane index and the total number of lanes in its overlap cluster, so overlapping
+  // turnos render side by side with even widths (Andrés #13/#14).
+  const turnosByCol = new Map<string, CalendarEvent[]>()
   for (const e of turnos) {
     const rid = resourceIdFor(e)
-    const s = minOfDay(e.start)
-    const en = minOfDay(e.end)
-    const startSlot = startMin + Math.floor((s - startMin) / scaleMin) * scaleMin
-    let m1 = startingByCol.get(rid)
-    if (!m1) {
-      m1 = new Map()
-      startingByCol.set(rid, m1)
-    }
-    const arr = m1.get(startSlot)
+    const arr = turnosByCol.get(rid)
     if (arr) arr.push(e)
-    else m1.set(startSlot, [e])
-    let occ = occupiedByCol.get(rid)
-    if (!occ) {
-      occ = new Set()
-      occupiedByCol.set(rid, occ)
-    }
-    for (let t = startSlot + scaleMin; t < en; t += scaleMin) occ.add(t)
+    else turnosByCol.set(rid, [e])
   }
-  const slotH = Math.max(24, Math.round(scaleMin * 1.4))
-
-  // Lunch as ONE continuous block (Andrés punto 4): instead of a grey band per
-  // slot, merge each column's consecutive "pure lunch" slots (no turno) into a
-  // single rowSpan cell. lunchTopByCol maps the top slot of each run to its span;
-  // lunchSkipByCol lists the covered slots to skip so the rowSpan fills them.
-  const lunchTopByCol = new Map<string, Map<number, number>>()
-  const lunchSkipByCol = new Map<string, Set<number>>()
-  for (const c of columns) {
-    const lw = lunchByCol.get(c.resourceId)
-    if (!lw) continue
-    const starting = startingByCol.get(c.resourceId)
-    const occ = occupiedByCol.get(c.resourceId)
-    const tops = new Map<number, number>()
-    const skip = new Set<number>()
-    let runTop: number | null = null
-    let runLen = 0
+  function computeLayout(list: CalendarEvent[]): Map<string, { lane: number; lanes: number }> {
+    const out = new Map<string, { lane: number; lanes: number }>()
+    const sorted = [...list].sort(
+      (a, b) => minOfDay(a.start) - minOfDay(b.start) || minOfDay(a.end) - minOfDay(b.end),
+    )
+    let cluster: CalendarEvent[] = []
+    let clusterEnd = -Infinity
     const flush = () => {
-      if (runTop != null && runLen > 0) tops.set(runTop, runLen)
-      runTop = null
-      runLen = 0
+      if (cluster.length === 0) return
+      const laneEnds: number[] = []
+      const laneOf = new Map<string, number>()
+      for (const e of cluster) {
+        let idx = laneEnds.findIndex((end) => end <= minOfDay(e.start))
+        if (idx === -1) {
+          idx = laneEnds.length
+          laneEnds.push(minOfDay(e.end))
+        } else laneEnds[idx] = minOfDay(e.end)
+        laneOf.set(e.id, idx)
+      }
+      for (const e of cluster) out.set(e.id, { lane: laneOf.get(e.id) ?? 0, lanes: laneEnds.length })
+      cluster = []
+      clusterEnd = -Infinity
     }
-    for (const slotMin of slots) {
-      const isLunch = slotMin >= lw.startMin && slotMin < lw.endMin
-      const hasTurno = (starting?.get(slotMin)?.length ?? 0) > 0 || (occ?.has(slotMin) ?? false)
-      if (isLunch && !hasTurno) {
-        if (runTop == null) {
-          runTop = slotMin
-          runLen = 1
-        } else {
-          runLen++
-          skip.add(slotMin)
-        }
+    for (const e of sorted) {
+      if (cluster.length > 0 && minOfDay(e.start) < clusterEnd) {
+        cluster.push(e)
+        clusterEnd = Math.max(clusterEnd, minOfDay(e.end))
       } else {
         flush()
+        cluster = [e]
+        clusterEnd = minOfDay(e.end)
       }
     }
     flush()
-    lunchTopByCol.set(c.resourceId, tops)
-    lunchSkipByCol.set(c.resourceId, skip)
+    return out
   }
 
-  // Always give each column a readable min width (72px time gutter + 170px/col),
-  // so on a phone the day table scrolls horizontally instead of squeezing cards
-  // into slivers. On desktop the table is wider than this, so nothing scrolls.
-  const minTableWidth = columns.length * 170 + 72
+  // Pixel geometry (Andrés #14): a fixed pixel height per SCALE slot, so a finer
+  // scale zooms in and every card is positioned/sized by its exact minutes. The
+  // scale therefore really changes the grid precision.
+  const SLOT_PX = 44
+  const GUTTER = 60
+  const pxPerMin = SLOT_PX / scaleMin
+  const totalPx = Math.max(SLOT_PX, (endMin - startMin) * pxPerMin)
+  const gridTemplate = `${GUTTER}px repeat(${columns.length}, minmax(170px, 1fr))`
+  const minGridWidth = GUTTER + columns.length * 170
+  // Snap a pointer Y (relative to a column) to the start minute of its scale slot.
+  const snapMinute = (clientY: number, rectTop: number) => {
+    const y = clientY - rectTop
+    return startMin + Math.max(0, Math.floor(y / pxPerMin / scaleMin)) * scaleMin
+  }
 
   const scrollRef = useRef<HTMLDivElement>(null)
   useHorizontalDragScroll(scrollRef)
@@ -348,221 +317,187 @@ export function DaySchedule({
       </div>
 
       <div ref={scrollRef} className='overflow-x-auto cb-hscroll'>
-        <table
-          className='w-full border-collapse'
-          style={{ tableLayout: 'fixed', minWidth: minTableWidth }}>
-          <colgroup>
-            <col style={{ width: 72 }} />
-            {columns.map((c) => (
-              <col key={c.resourceId} />
+        <div style={{ minWidth: minGridWidth }}>
+          {/* Sucursal group header */}
+          <div className='grid border-b border-border dark:border-darkborder' style={{ gridTemplateColumns: gridTemplate }}>
+            <div />
+            {groups.map((g) => (
+              <div
+                key={`${g.sucursal}-${g.start}`}
+                className={`text-center text-sm font-bold text-dark dark:text-white py-2 ${
+                  g.start > 0 ? 'border-l border-border dark:border-darkborder' : ''
+                }`}
+                style={{ gridColumn: `span ${g.span}`, backgroundColor: `${g.sucColor}22` }}>
+                {g.sucursal ? sucursalLabel(g.sucursal) : emptyLabel}
+              </div>
             ))}
-          </colgroup>
-          <thead>
-            <tr>
-              <th rowSpan={2} className='border-b border-border dark:border-darkborder' />
-              {groups.map((g) => (
-                <th
-                  key={`${g.sucursal}-${g.start}`}
-                  colSpan={g.span}
-                  className={`text-center text-sm font-bold text-dark dark:text-white py-2 border-b border-border dark:border-darkborder ${
-                    g.start > 0 ? 'border-l border-border dark:border-darkborder' : ''
-                  }`}
-                  style={{ backgroundColor: `${g.sucColor}22` }}>
-                  {g.sucursal ? sucursalLabel(g.sucursal) : emptyLabel}
-                </th>
-              ))}
-            </tr>
-            <tr>
-              {columns.map((c, i) => {
-                const groupStart = groups.some((g) => g.start === i)
-                const prof = c.resourceId.startsWith('sp:')
-                  ? c.resourceTitle
-                  : c.resourceId.startsWith('su:')
-                    ? ''
-                    : c.resourceTitle
-                return (
-                  <th
-                    key={c.resourceId}
-                    className={`text-center text-xs font-semibold text-link dark:text-darklink py-1.5 border-b border-border dark:border-darkborder ${
-                      groupStart && i > 0 ? 'border-l border-border dark:border-darkborder' : ''
-                    }`}>
-                    {prof}
-                  </th>
-                )
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {slots.map((slotMin) => {
-              const onHour = slotMin % 60 === 0
+          </div>
+          {/* Professional header */}
+          <div className='grid border-b border-border dark:border-darkborder' style={{ gridTemplateColumns: gridTemplate }}>
+            <div />
+            {columns.map((c, i) => {
+              const groupStart = groups.some((g) => g.start === i)
+              const prof = c.resourceId.startsWith('sp:') ? c.resourceTitle : c.resourceId.startsWith('su:') ? '' : c.resourceTitle
               return (
-              <tr key={slotMin}>
-                <td className={`align-top text-right pr-2 pt-1 whitespace-nowrap border-b border-border/60 dark:border-darkborder/60 ${onHour ? 'text-xs font-semibold text-dark dark:text-white' : 'text-[10px] text-link/70 dark:text-darklink/70'}`}>
-                  {fmtMin(slotMin)}
-                </td>
-                {columns.map((c, i) => {
-                  // Covered by a lunch rowSpan above: render no cell at all.
-                  if (lunchSkipByCol.get(c.resourceId)?.has(slotMin)) return null
-                  const groupStart = groups.some((g) => g.start === i)
-                  const cell = (startingByCol.get(c.resourceId)?.get(slotMin) ?? []).slice()
-                  cell.sort((a, b) => a.start.getTime() - b.start.getTime())
-                  const occupied = occupiedByCol.get(c.resourceId)?.has(slotMin) ?? false
-                  const lw = lunchByCol.get(c.resourceId) ?? null
-                  const lunchSpan = lunchTopByCol.get(c.resourceId)?.get(slotMin)
-                  // A single continuous ALMUERZO block spanning its whole duration
-                  // (Andrés punto 4): "ALMUERZO · 13:00 a 14:00", centred, clickable.
-                  if (lunchSpan && lw) {
-                    const rangeSep = locale === 'es' ? 'a' : 'to'
-                    return (
-                      <td
-                        key={c.resourceId}
-                        rowSpan={lunchSpan}
-                        style={{ height: slotH * lunchSpan }}
-                        className={`align-top p-1 border-b border-border/60 dark:border-darkborder/60 ${
-                          groupStart && i > 0 ? 'border-l border-border dark:border-darkborder' : ''
-                        }`}>
-                        <button
-                          type='button'
-                          onClick={() => onEditLunch(c)}
-                          title={lunchLabel}
-                          className='w-full h-full rounded-md bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-link dark:text-darklink text-[11px] font-semibold uppercase tracking-wide text-center flex items-center justify-center transition-colors'
-                          style={{ minHeight: slotH * lunchSpan - 8 }}>
-                          {lunchLabel} · {fmtMin(lw.startMin)} {rangeSep} {fmtMin(lw.endMin)}
-                        </button>
-                      </td>
-                    )
-                  }
-                  return (
-                    <td
-                      key={c.resourceId}
-                      style={{ height: slotH }}
-                      onDragOver={
-                        onMoveTurno
-                          ? (ev) => {
-                              ev.preventDefault()
-                              ev.dataTransfer.dropEffect = 'move'
-                            }
-                          : undefined
-                      }
-                      onDrop={
-                        onMoveTurno
-                          ? (ev) => {
-                              ev.preventDefault()
-                              const id = ev.dataTransfer.getData('text/plain')
-                              if (id)
-                                onMoveTurno(id, {
-                                  startMin: slotMin,
-                                  sucursal: c.sucursal || null,
-                                  professionalId: profIdOfCol(c),
-                                })
-                            }
-                          : undefined
-                      }
-                      className={`align-top p-1 border-b border-border/60 dark:border-darkborder/60 ${
-                        groupStart && i > 0 ? 'border-l border-border dark:border-darkborder' : ''
-                      }`}>
-                      {cell.length > 0 ? (
-                        <div className='space-y-1.5'>
-                          {overlapClusters(cell).map((cluster, ci) => (
-                            <div key={ci} className='flex items-start gap-1.5'>
-                              {cluster.map((e) => {
-                                const tc = treatmentColor(e.treatmentSlug, treatmentName(e.treatmentSlug))
-                                const solo = cluster.length === 1
-                                // Exact vertical position by minute (Andrés #13): a
-                                // turno that starts later than the slot sits lower,
-                                // and its height reflects its duration, so overlapping
-                                // turnos read at their real start/end while staying
-                                // side by side.
-                                const pxPerMin = slotH / scaleMin
-                                const offsetPx = Math.max(0, (minOfDay(e.start) - slotMin) * pxPerMin)
-                                const durPx = Math.max(0, (minOfDay(e.end) - minOfDay(e.start)) * pxPerMin)
-                                return (
-                                  <button
-                                    key={e.id}
-                                    type='button'
-                                    data-eventid={e.id}
-                                    draggable={!!onMoveTurno}
-                                    onDragStart={(ev) => {
-                                      ev.dataTransfer.setData('text/plain', e.id)
-                                      ev.dataTransfer.effectAllowed = 'move'
-                                    }}
-                                    onClick={() => onOpenTurno(e)}
-                                    className='relative z-[1] flex items-stretch flex-1 min-w-0 text-left rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition cursor-grab active:cursor-grabbing'
-                                    style={{
-                                      backgroundColor: cardBg(e.status),
-                                      color: cardText?.(e.status) ?? '#000',
-                                      marginTop: offsetPx,
-                                      minHeight: durPx,
-                                    }}>
-                                    {/* Treatment-colour bar (thick) */}
-                                    <span className='shrink-0 self-stretch' style={{ width: 8, backgroundColor: tc }} />
-                                    <span className='flex-1 min-w-0 py-1.5 px-2.5'>
-                                      <span className='flex items-baseline justify-between gap-2'>
-                                        <span className='font-bold text-[13px] leading-tight truncate'>
-                                          {e.patientName || e.title}
-                                        </span>
-                                        {solo && (
-                                          <span className='shrink-0 text-[11px] font-semibold whitespace-nowrap'>
-                                            {fmtTime(e.start)} · {fmtTime(e.end)}
-                                          </span>
-                                        )}
-                                      </span>
-                                      {!solo && (
-                                        <span className='block text-[11px] font-semibold leading-tight'>
-                                          {fmtTime(e.start)} · {fmtTime(e.end)}
-                                        </span>
-                                      )}
-                                      {e.treatmentSlug && (
-                                        <span className='block text-[11px] leading-tight truncate mt-0.5 opacity-90'>
-                                          {treatmentName(e.treatmentSlug)}
-                                        </span>
-                                      )}
-                                    </span>
-                                    {/* Cobro block: solid green, flush to the edge. */}
-                                    {e.charged && (
-                                      <span
-                                        className='shrink-0 self-stretch flex items-center justify-center text-white font-bold text-lg'
-                                        style={{ width: solo ? 44 : 24, backgroundColor: PAY_GREEN }}
-                                        title='$'>
-                                        $
-                                      </span>
-                                    )}
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          ))}
-                        </div>
-                      ) : occupied ? (
-                        // Slot covered by a turno that started earlier: busy, not
-                        // clickable (a faint tint distinguishes it from a free slot).
-                        <div className='w-full h-full rounded bg-black/[0.03] dark:bg-white/[0.04]' style={{ minHeight: slotH - 8 }} />
-                      ) : (
-                        <button
-                          type='button'
-                          onClick={() => {
-                            const start = dateAtMin(slotMin)
-                            const end = new Date(start.getTime() + scaleMin * 60000)
-                            const sucursal = c.sucursal || undefined
-                            const professionalId = c.resourceId.startsWith('sp:')
-                              ? c.resourceId.slice(c.resourceId.indexOf(':', 3) + 1)
-                              : undefined
-                            onCreate(start, end, sucursal, professionalId)
-                          }}
-                          aria-label={newLabel}
-                          title={newLabel}
-                          className='w-full rounded-md hover:bg-primary/5 transition-colors'
-                          style={{ minHeight: slotH - 8 }}
-                        />
-                      )}
-                    </td>
-                  )
-                })}
-              </tr>
+                <div
+                  key={c.resourceId}
+                  className={`text-center text-xs font-semibold text-link dark:text-darklink py-1.5 ${
+                    groupStart && i > 0 ? 'border-l border-border dark:border-darkborder' : ''
+                  }`}>
+                  {prof}
+                </div>
               )
             })}
-          </tbody>
-        </table>
+          </div>
+          {/* Proportional time grid: cards positioned/sized by exact minutes. */}
+          <div className='grid' style={{ gridTemplateColumns: gridTemplate, height: totalPx }}>
+            {/* Time gutter with a label per scale slot. */}
+            <div className='relative'>
+              {slots.map((m, i2) => (
+                <div
+                  key={m}
+                  className={`absolute right-2 whitespace-nowrap ${
+                    m % 60 === 0 ? 'text-xs font-semibold text-dark dark:text-white' : 'text-[10px] text-link/70 dark:text-darklink/70'
+                  }`}
+                  style={{ top: i2 * SLOT_PX - 6 }}>
+                  {fmtMin(m)}
+                </div>
+              ))}
+            </div>
+            {/* One column per professional/sucursal. */}
+            {columns.map((c, i) => {
+              const groupStart = groups.some((g) => g.start === i)
+              const lw = lunchByCol.get(c.resourceId) ?? null
+              const colTurnos = turnosByCol.get(c.resourceId) ?? []
+              const layout = computeLayout(colTurnos)
+              const profId = profIdOfCol(c)
+              return (
+                <div
+                  key={c.resourceId}
+                  className={`relative ${groupStart && i > 0 ? 'border-l border-border dark:border-darkborder' : ''}`}
+                  onDragOver={
+                    onMoveTurno
+                      ? (ev) => {
+                          ev.preventDefault()
+                          ev.dataTransfer.dropEffect = 'move'
+                        }
+                      : undefined
+                  }
+                  onDrop={
+                    onMoveTurno
+                      ? (ev) => {
+                          ev.preventDefault()
+                          const id = ev.dataTransfer.getData('text/plain')
+                          if (!id) return
+                          const rect = ev.currentTarget.getBoundingClientRect()
+                          onMoveTurno(id, {
+                            startMin: snapMinute(ev.clientY, rect.top),
+                            sucursal: c.sucursal || null,
+                            professionalId: profId,
+                          })
+                        }
+                      : undefined
+                  }>
+                  {/* Grid lines (one per scale slot). */}
+                  {slots.map((m, i2) => (
+                    <div
+                      key={m}
+                      className='absolute inset-x-0 border-b border-border/50 dark:border-darkborder/40 pointer-events-none'
+                      style={{ top: i2 * SLOT_PX, height: SLOT_PX }}
+                    />
+                  ))}
+                  {/* Clickable free area → Nuevo turno snapped to the scale slot. */}
+                  <button
+                    type='button'
+                    aria-label={newLabel}
+                    title={newLabel}
+                    className='absolute inset-0 w-full h-full hover:bg-primary/5 transition-colors'
+                    onClick={(ev) => {
+                      const rect = ev.currentTarget.getBoundingClientRect()
+                      const min = snapMinute(ev.clientY, rect.top)
+                      const start = dateAtMin(min)
+                      const end = new Date(start.getTime() + scaleMin * 60000)
+                      onCreate(start, end, c.sucursal || undefined, profId ?? undefined)
+                    }}
+                  />
+                  {/* Lunch block, positioned by its exact window. */}
+                  {lw && (
+                    <button
+                      type='button'
+                      onClick={() => onEditLunch(c)}
+                      title={lunchLabel}
+                      className='absolute inset-x-1 z-10 rounded-md bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-link dark:text-darklink text-[10px] font-semibold uppercase tracking-wide flex items-center justify-center text-center px-1 transition-colors'
+                      style={{
+                        top: (lw.startMin - startMin) * pxPerMin,
+                        height: Math.max(14, (lw.endMin - lw.startMin) * pxPerMin),
+                      }}>
+                      {lunchLabel} · {fmtMin(lw.startMin)} {locale === 'es' ? 'a' : 'to'} {fmtMin(lw.endMin)}
+                    </button>
+                  )}
+                  {/* Cards: exact top/height by minute, lane-split for overlaps. */}
+                  {colTurnos.map((e) => {
+                    const lay = layout.get(e.id) ?? { lane: 0, lanes: 1 }
+                    const top = (minOfDay(e.start) - startMin) * pxPerMin
+                    const height = Math.max(16, (minOfDay(e.end) - minOfDay(e.start)) * pxPerMin)
+                    const widthPct = 100 / lay.lanes
+                    const leftPct = lay.lane * widthPct
+                    const tc = treatmentColor(e.treatmentSlug, treatmentName(e.treatmentSlug))
+                    const tall = height >= 44
+                    return (
+                      <button
+                        key={e.id}
+                        type='button'
+                        data-eventid={e.id}
+                        draggable={!!onMoveTurno}
+                        onDragStart={(ev) => {
+                          ev.dataTransfer.setData('text/plain', e.id)
+                          ev.dataTransfer.effectAllowed = 'move'
+                        }}
+                        onClick={(ev) => {
+                          ev.stopPropagation()
+                          onOpenTurno(e)
+                        }}
+                        className='absolute z-20 flex items-stretch text-left rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:brightness-[0.98] transition cursor-grab active:cursor-grabbing'
+                        style={{
+                          top,
+                          height,
+                          left: `calc(${leftPct}% + 2px)`,
+                          width: `calc(${widthPct}% - 4px)`,
+                          backgroundColor: cardBg(e.status),
+                          color: cardText?.(e.status) ?? '#000',
+                        }}>
+                        <span className='shrink-0 self-stretch' style={{ width: 6, backgroundColor: tc }} />
+                        <span className='flex-1 min-w-0 py-0.5 px-2 overflow-hidden'>
+                          <span className='block font-bold text-[12px] leading-tight truncate'>
+                            {e.patientName || e.title}
+                          </span>
+                          {tall && (
+                            <span className='block text-[10px] font-semibold leading-tight'>
+                              {fmtTime(e.start)} · {fmtTime(e.end)}
+                            </span>
+                          )}
+                          {tall && e.treatmentSlug && (
+                            <span className='block text-[10px] leading-tight truncate opacity-90'>
+                              {treatmentName(e.treatmentSlug)}
+                            </span>
+                          )}
+                        </span>
+                        {e.charged && (
+                          <span
+                            className='shrink-0 self-stretch flex items-center justify-center text-white font-bold'
+                            style={{ width: 20, backgroundColor: PAY_GREEN }}
+                            title='$'>
+                            $
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
     </div>
   )
