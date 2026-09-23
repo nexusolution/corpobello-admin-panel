@@ -85,6 +85,8 @@ import {
   professionalDoesTreatment as resolveDoesTreatment,
   type ProfessionalTreatments,
 } from '@/lib/data/professional-treatments'
+import { RescheduleDialog, type RescheduleTurno } from './reschedule-dialog'
+import type { RescheduleCtx } from '@/lib/scheduling/reschedule'
 import {
   fetchPackConfigs,
   fetchActivePacks,
@@ -671,6 +673,7 @@ function EventDialog({
   backView,
   onClose,
   onSaved,
+  onReschedule,
   onCloseSession,
   t,
 }: {
@@ -713,6 +716,8 @@ function EventDialog({
   backView: string
   onClose: () => void
   onSaved: () => void
+  // Open the contextual reschedule calendar for this (existing) turno (Andrés #19).
+  onReschedule?: (turno: RescheduleTurno) => void
   // Open the clinical evolution form pre-linked to this turno ("Cerrar sesión").
   onCloseSession: (prefill: {
     patientId: string
@@ -1645,6 +1650,25 @@ function EventDialog({
             <span />
           )}
           <div className='flex items-center gap-2'>
+            {isEdit && canEditFull && !allDay && (
+              <button
+                type='button'
+                onClick={() =>
+                  onReschedule?.({
+                    id: draft.id!,
+                    patientName: patientName ?? '',
+                    treatmentSlug,
+                    professionalId: professionalId || undefined,
+                    sucursal,
+                    start: dateTime(startStr, startTime),
+                    end: dateTime(startStr, endTime),
+                  })
+                }
+                className='inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium text-primary hover:bg-lightprimary transition-colors'>
+                <Icon icon='solar:calendar-search-line-duotone' height={16} width={16} />
+                {t('reschedule.button')}
+              </button>
+            )}
             {isEdit && patientId && (
               <button
                 type='button'
@@ -1805,6 +1829,8 @@ export function CalendarView() {
   const [lunchOverrides, setLunchOverrides] = useState<LunchOverride[]>([])
   // Which treatments each professional performs (migration 0053, Andrés #8).
   const [profTreatments, setProfTreatments] = useState<Map<string, ProfessionalTreatments>>(new Map())
+  // Contextual reschedule dialog (Andrés #19-E): the turno being rescheduled.
+  const [rescheduleTurno, setRescheduleTurno] = useState<RescheduleTurno | null>(null)
   const [catalogSlugs, setCatalogSlugs] = useState<string[]>([])
   // Per-treatment self-managed duration (Autogestión → Catálogo, migration 0051).
   // slug -> minutes; overrides the slug heuristic when auto-blocking a turno.
@@ -2310,6 +2336,98 @@ export function CalendarView() {
     (pid: string, slug: string): boolean => resolveDoesTreatment(profTreatments.get(pid), slug),
     [profTreatments],
   )
+
+  // Shared reschedule context (Andrés #19): every availability/lunch/overlap check
+  // the contextual calendar (and, later, drag) runs comes from here.
+  const rescheduleCtx = useMemo<RescheduleCtx>(
+    () => ({
+      rules: availRules,
+      exclusions: availExclusions,
+      lunchConfig,
+      lunchOverrides,
+      profTreatments,
+      isSucursalClosed,
+      events: events.map((e) => ({
+        id: e.id,
+        professionalId: e.professionalId,
+        sucursal: e.sucursal,
+        start: e.start,
+        end: e.end,
+        status: e.status,
+      })),
+    }),
+    [availRules, availExclusions, lunchConfig, lunchOverrides, profTreatments, isSucursalClosed, events],
+  )
+
+  // Apply a reschedule from the contextual calendar (Andrés #19-F): preserve every
+  // field, move only date/time/sucursal, audit it, then offer a brief Undo.
+  const confirmReschedule = useCallback(
+    async (next: { dateStr: string; startTime: string; endTime: string; sucursal: string }) => {
+      const turno = rescheduleTurno
+      if (!turno) return
+      const orig = events.find((e) => e.id === turno.id)
+      setRescheduleTurno(null)
+      if (!orig) return
+      const isDarkNow =
+        typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+      const base = {
+        title: orig.title,
+        status: orig.status,
+        charged: orig.charged,
+        patientId: orig.patientId,
+        professionalId: orig.professionalId,
+        treatmentSlug: orig.treatmentSlug,
+        observaciones: orig.observaciones,
+        packId: orig.packId,
+        depositAmount: orig.depositAmount,
+        depositDate: orig.depositDate,
+        depositReceived: orig.depositReceived,
+        allDay: false,
+      }
+      const s = dateTime(next.dateStr, next.startTime)
+      const e = dateTime(next.dateStr, next.endTime)
+      const err = await updateCalendarEvent(turno.id, { ...base, start: s, end: e, sucursal: next.sucursal })
+      if (err) {
+        void Swal.fire({ icon: 'error', title: t('reschedule.error'), text: err, width: '360px' })
+        return
+      }
+      void logTurnoAudit({
+        calendarEventId: turno.id,
+        patientId: orig.patientId,
+        action: 'rescheduled',
+        detail: `${t('turnoAudit.rescheduledTo')} ${next.dateStr} ${next.startTime}${
+          next.sucursal !== orig.sucursal ? ` · ${sucursalLabel(next.sucursal)}` : ''
+        }`,
+        changedBy: actorId,
+        changedByName: actorName,
+      })
+      reload()
+      // Undo (Andrés #19-F): a short window to revert an accidental move.
+      const res = await Swal.fire({
+        toast: true,
+        position: 'bottom-end',
+        icon: 'success',
+        title: t('reschedule.done'),
+        showConfirmButton: true,
+        confirmButtonText: t('reschedule.undo'),
+        confirmButtonColor: '#5d87ff',
+        timer: 6000,
+        timerProgressBar: true,
+        background: isDarkNow ? '#2a3547' : '#ffffff',
+        color: isDarkNow ? '#ffffff' : '#2a3547',
+      })
+      if (res.isConfirmed) {
+        await updateCalendarEvent(turno.id, {
+          ...base,
+          start: orig.start,
+          end: orig.end,
+          sucursal: orig.sucursal,
+        })
+        reload()
+      }
+    },
+    [rescheduleTurno, events, reload, actorId, actorName, sucursalLabel, t],
+  )
   const reloadLunch = useCallback(() => {
     void fetchLunch().then(({ config, overrides }) => {
       setLunchConfig(config)
@@ -2537,6 +2655,10 @@ export function CalendarView() {
   treatmentColorRef.current = treatmentColorResolved
   const turnosByDaySucursalRef = useRef(turnosByDaySucursal)
   turnosByDaySucursalRef.current = turnosByDaySucursal
+  // "+N" day panel (Andrés #19-D): clicking the overflow opens a list of ALL that
+  // day's turnos. A ref keeps dateCellWrapper (empty-deps) able to open it.
+  const [dayPanelDate, setDayPanelDate] = useState<string | null>(null)
+  const openDayPanelRef = useRef((ds: string) => setDayPanelDate(ds))
 
   // "Sesión N/M" per turno: order a pack's non-cancelled turnos by date and
   // label each with its position + the pack total. Shown discreetly on the card.
@@ -3217,14 +3339,34 @@ export function CalendarView() {
                   <span
                     key={tt.id}
                     className='cb-month-dot'
-                    title={statusLabelRef.current(tt.status)}
+                    // Rich tooltip (Andrés #19-D): hora · paciente · tratamiento ·
+                    // profesional · sucursal · estado.
+                    title={[
+                      toTimeInput(tt.start),
+                      tt.patientName || tt.title,
+                      treatmentNameRef.current(tt.treatmentSlug),
+                      tt.professionalId ? professionalNameRef.current(tt.professionalId) : '',
+                      tt.sucursal ? sucursalLabel(tt.sucursal) : t('agenda.noSucursal'),
+                      statusLabelRef.current(tt.status),
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
                     style={{ backgroundColor: statusColorRef.current(tt.status) }}
                   />
                 ))}
                 {extra > 0 && (
-                  <span className='cb-month-more' title={t('agenda.moreTurnos', { n: String(extra) })}>
+                  <button
+                    type='button'
+                    className='cb-month-more'
+                    style={{ pointerEvents: 'auto' }}
+                    title={t('agenda.moreTurnos', { n: String(extra) })}
+                    onClick={(ev) => {
+                      // Open the day panel (all turnos), not drill into the day.
+                      ev.stopPropagation()
+                      openDayPanelRef.current(ds)
+                    }}>
                     +{extra}
-                  </span>
+                  </button>
                 )}
               </div>
             </div>
@@ -3639,6 +3781,10 @@ export function CalendarView() {
             setDraft(null)
             reload()
           }}
+          onReschedule={(turno) => {
+            setDraft(null)
+            setRescheduleTurno(turno)
+          }}
           onCloseSession={(pf) => {
             setDraft(null)
             setEvolucionPrefill(pf)
@@ -3646,6 +3792,98 @@ export function CalendarView() {
           t={t}
         />
       )}
+
+      {rescheduleTurno && (
+        <RescheduleDialog
+          turno={rescheduleTurno}
+          durationMin={Math.max(
+            5,
+            Math.round((rescheduleTurno.end.getTime() - rescheduleTurno.start.getTime()) / 60000),
+          )}
+          ctx={rescheduleCtx}
+          sucursalLabel={sucursalLabel}
+          treatmentLabel={
+            treatments.find((x) => x.value === rescheduleTurno.treatmentSlug)?.label ||
+            rescheduleTurno.treatmentSlug ||
+            t('turno.none')
+          }
+          professionalLabel={
+            (rescheduleTurno.professionalId &&
+              professionals.find((p) => p.value === rescheduleTurno.professionalId)?.label) ||
+            t('turno.none')
+          }
+          onClose={() => setRescheduleTurno(null)}
+          onConfirm={confirmReschedule}
+          onViewDay={(ds) => {
+            setRescheduleTurno(null)
+            setDate(new Date(`${ds}T00:00:00`))
+            setColumnMode('professional')
+            setView(Views.DAY)
+          }}
+          t={t}
+          locale={locale}
+        />
+      )}
+
+      {dayPanelDate && (() => {
+        // All turnos of the clicked day, across sucursales, ordered by time
+        // (Andrés #19-D). Each row opens its turno.
+        const dayMap = turnosByDaySucursal.get(dayPanelDate)
+        const list = dayMap ? [...dayMap.values()].flat().sort((a, b) => a.start.getTime() - b.start.getTime()) : []
+        return (
+          <div
+            className='fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4'
+            onClick={() => setDayPanelDate(null)}>
+            <div
+              className='w-full max-w-md max-h-[85vh] overflow-y-auto rounded-lg bg-white dark:bg-darkgray shadow-xl'
+              onClick={(e) => e.stopPropagation()}>
+              <div className='flex items-center justify-between border-b border-border dark:border-darkborder px-4 py-3'>
+                <h3 className='text-base font-semibold text-dark dark:text-white'>
+                  {moment(new Date(`${dayPanelDate}T00:00:00`)).format('DD MMM YYYY')} · {list.length}
+                </h3>
+                <button
+                  type='button'
+                  onClick={() => setDayPanelDate(null)}
+                  className='text-link dark:text-darklink hover:text-primary'>
+                  <Icon icon='tabler:x' height={18} width={18} />
+                </button>
+              </div>
+              <div className='divide-y divide-border dark:divide-darkborder'>
+                {list.map((tt) => (
+                  <button
+                    key={tt.id}
+                    type='button'
+                    onClick={() => {
+                      setDayPanelDate(null)
+                      onSelectEvent(tt)
+                    }}
+                    className='w-full text-left px-4 py-2.5 hover:bg-lightprimary/40 transition-colors flex items-start gap-2'>
+                    <span
+                      className='mt-1 h-2.5 w-2.5 rounded-full shrink-0'
+                      style={{ backgroundColor: statusColorFor(tt.status) }}
+                    />
+                    <span className='min-w-0'>
+                      <span className='block text-sm font-medium text-dark dark:text-white'>
+                        {toTimeInput(tt.start)} · {tt.patientName || tt.title}
+                      </span>
+                      <span className='block text-xs text-link dark:text-darklink truncate'>
+                        {[
+                          treatmentName(tt.treatmentSlug),
+                          tt.professionalId ? professionalName(tt.professionalId) : '',
+                          tt.sucursal ? sucursalLabel(tt.sucursal) : t('agenda.noSucursal'),
+                          statusLabelFor(tt.status),
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {evolucionPrefill && (
         <EvolucionForm
