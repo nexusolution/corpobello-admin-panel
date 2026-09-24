@@ -1,11 +1,15 @@
 'use client'
 
-// Day view = an hour-by-hour schedule TABLE (Andrés 2026-09-16 redesign), not a
-// proportional time grid. Rows are the hours (08:00–20:00, expanded to fit any
-// turno outside that band); columns are the sucursales that work that day, each
-// grouped over the professionals working there (a 2-level header). Each cell holds
-// the turno(s) that START in that hour (stacked if several). Clicking a turno opens
-// it; clicking an empty cell creates one pre-filled with that hour/sucursal/prof.
+// Day view = a TRUE proportional time grid (Andrés #14, supersedes the old
+// hour-cell table). Columns are the sucursales that work that day, each grouped
+// over the professionals working there (a 2-level header). Every card is placed by
+// its EXACT start/end minute: top = (start - rangeStart) * pxPerMin, height =
+// duration * pxPerMin, where pxPerMin = SLOT_PX / scaleMin. So a 10:05 turno sits
+// 5*pxPerMin below a 10:00 one and ends 5 min lower too, even in an overlap cluster
+// (computeLayout only assigns the side-by-side lane; it never touches top/height).
+// The 5-min gap scales with the zoom: at the 30-min default it is ~7px (subtle); a
+// finer scale (10/15) makes it clearly visible. Clicking empty space creates a
+// turno snapped to the scale slot; dragging a card drops it at the exact minute.
 
 import { useEffect, useRef, useState } from 'react'
 import type { CalendarEvent } from '@/lib/data/calendar-events'
