@@ -73,7 +73,8 @@ import {
   type AvailabilityExclusion,
 } from '@/lib/scheduling/availability'
 import { suggestDurationMinutes, isLaserSlug } from '@/lib/scheduling/duration'
-import { computeLaserDuration, defaultLaserDurationConfig, type LaserSex } from '@/lib/scheduling/laser-duration'
+import { computeLaserDuration, defaultLaserDurationConfig, type LaserSex, type LaserDurationConfig } from '@/lib/scheduling/laser-duration'
+import { fetchLaserDurationConfig } from '@/lib/data/laser-duration-config'
 import {
   fetchLunch,
   resolveLunch,
@@ -673,6 +674,7 @@ function EventDialog({
   exclusions,
   catalogSlugs,
   treatmentDurations,
+  laserConfig,
   lunchFor,
   professionalDoesTreatment,
   allEvents,
@@ -704,6 +706,8 @@ function EventDialog({
   // Per-treatment self-managed duration (slug -> minutes); overrides the slug
   // heuristic when auto-blocking a turno's end time.
   treatmentDurations: Map<string, number>
+  // Configurable láser duration tables (Autogestión → Tiempos de láser).
+  laserConfig: LaserDurationConfig
   // Resolve the lunch window for (sucursal, professional, date) — used to block
   // booking over lunch (Andrés punto 5).
   lunchFor: (sucursal: string, professionalId: string | undefined, dateStr: string) => LunchWindow | null
@@ -860,7 +864,7 @@ function EventDialog({
     sex: LaserSex,
   ): number => {
     if (isLaserSlug(slug) && zones.length > 0) {
-      return computeLaserDuration(sex, zones, defaultLaserDurationConfig).minutes
+      return computeLaserDuration(sex, zones, laserConfig).minutes
     }
     return suggestDurationMinutes(slug, first, undefined, treatmentDurations.get(slug))
   }
@@ -894,7 +898,7 @@ function EventDialog({
   const changeLaserSex = (sex: LaserSex) => {
     setLaserSex(sex)
     // Zonas are per-sex: keep only those valid for the new table, then recompute.
-    const valid = new Set(defaultLaserDurationConfig[sex].zones.map((z) => z.key))
+    const valid = new Set(laserConfig[sex].zones.map((z) => z.key))
     const kept = laserZones.filter((k) => valid.has(k))
     setLaserZones(kept)
     applyAutoDuration(treatmentSlug, firstSession, startStr, startTime, kept, sex)
@@ -1602,7 +1606,7 @@ function EventDialog({
               {laserZones.length > 0 && (
                 <div className='flex flex-wrap gap-1.5'>
                   {laserZones.map((k) => {
-                    const z = defaultLaserDurationConfig[laserSex].zones.find((x) => x.key === k)
+                    const z = laserConfig[laserSex].zones.find((x) => x.key === k)
                     return (
                       <button
                         key={k}
@@ -1618,7 +1622,7 @@ function EventDialog({
               )}
 
               <div className='max-h-44 overflow-y-auto cb-hscroll rounded-md border border-border dark:border-darkborder divide-y divide-border/60 dark:divide-darkborder/60'>
-                {defaultLaserDurationConfig[laserSex].zones
+                {laserConfig[laserSex].zones
                   .filter((z) => {
                     const q = zoneQuery.trim().toLowerCase()
                     return !q || z.label.toLowerCase().includes(q)
@@ -1642,7 +1646,7 @@ function EventDialog({
                 {laserZones.length === 0
                   ? t('turno.laser.pickHint')
                   : t('turno.laser.computed', {
-                      min: String(computeLaserDuration(laserSex, laserZones, defaultLaserDurationConfig).minutes),
+                      min: String(computeLaserDuration(laserSex, laserZones, laserConfig).minutes),
                     })}
               </p>
             </div>
@@ -2029,6 +2033,9 @@ export function CalendarView() {
   const [lunchOverrides, setLunchOverrides] = useState<LunchOverride[]>([])
   // Which treatments each professional performs (migration 0053, Andrés #8).
   const [profTreatments, setProfTreatments] = useState<Map<string, ProfessionalTreatments>>(new Map())
+  // Configurable láser duration tables (Autogestión → Tiempos de láser, mig 0056);
+  // defaults to the PDF values until the admin edits them.
+  const [laserConfig, setLaserConfig] = useState<LaserDurationConfig>(defaultLaserDurationConfig)
   // Contextual reschedule dialog (Andrés #19-E): the turno being rescheduled.
   const [rescheduleTurno, setRescheduleTurno] = useState<RescheduleTurno | null>(null)
   const [catalogSlugs, setCatalogSlugs] = useState<string[]>([])
@@ -2178,6 +2185,7 @@ export function CalendarView() {
     })
     // Per-professional treatment capability (Andrés #8) for booking validation.
     void fetchProfessionalTreatments().then(({ data }) => setProfTreatments(data))
+    void fetchLaserDurationConfig().then(({ data }) => setLaserConfig(data))
     void fetchAvailability().then(({ rules, exclusions }) => {
       setAvailRules(rules)
       setAvailExclusions(exclusions)
@@ -4218,6 +4226,7 @@ export function CalendarView() {
           exclusions={availExclusions}
           catalogSlugs={catalogSlugs}
           treatmentDurations={treatmentDurations}
+          laserConfig={laserConfig}
           lunchFor={lunchFor}
           professionalDoesTreatment={professionalDoesTreatment}
           allEvents={events}

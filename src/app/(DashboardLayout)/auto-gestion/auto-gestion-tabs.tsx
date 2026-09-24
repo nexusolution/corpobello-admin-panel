@@ -15,6 +15,7 @@ import { DisponibilidadSection } from './disponibilidad-section'
 import { PacksSection } from './packs-section'
 import { CatalogoSection } from './catalogo-section'
 import { ProfesionalesSection } from './profesionales-section'
+import { LaserTiemposSection } from './laser-tiempos-section'
 import { AlmuerzosSection } from './almuerzos-section'
 import { EstadosSection } from './estados-section'
 import { ColoresSection } from './colores-section'
@@ -39,6 +40,7 @@ type TabKey =
   | 'colores'
   | 'catalogo'
   | 'profesionales'
+  | 'laser-tiempos'
   | 'feriados'
   | 'consents'
 
@@ -48,6 +50,7 @@ const TABS: { key: TabKey; labelKey: TranslationKey; icon: string }[] = [
   // then the bot-menu on/off toggle.
   { key: 'catalogo', labelKey: 'autoGestion.catalog.heading', icon: 'solar:list-check-line-duotone' },
   { key: 'profesionales', labelKey: 'autoGestion.profTreatments.tab', icon: 'solar:users-group-rounded-line-duotone' },
+  { key: 'laser-tiempos', labelKey: 'autoGestion.laserTimes.tab', icon: 'solar:stopwatch-line-duotone' },
   { key: 'treatments', labelKey: 'autoGestion.treatments.heading', icon: 'solar:widget-line-duotone' },
   { key: 'prices', labelKey: 'autoGestion.prices.heading', icon: 'solar:tag-price-line-duotone' },
   { key: 'cotizadores', labelKey: 'autoGestion.cotizadores.heading', icon: 'solar:calculator-line-duotone' },
@@ -72,7 +75,7 @@ const META: Record<TabKey, { labelKey: TranslationKey; icon: string }> = Object.
 // Left-nav sections (Andrés 2026-09-20): the 15 tabs grouped so the menu reads
 // as three clear areas instead of one long flat list.
 const GROUPS: { titleKey: TranslationKey; keys: TabKey[] }[] = [
-  { titleKey: 'autoGestion.group.treatments', keys: ['catalogo', 'profesionales', 'treatments', 'prices', 'colores', 'packs'] },
+  { titleKey: 'autoGestion.group.treatments', keys: ['catalogo', 'profesionales', 'laser-tiempos', 'treatments', 'prices', 'colores', 'packs'] },
   { titleKey: 'autoGestion.group.agenda', keys: ['horarios', 'disponibilidad', 'almuerzos', 'feriados', 'estados'] },
   {
     titleKey: 'autoGestion.group.bot',
@@ -155,6 +158,7 @@ export function AutoGestionTabs() {
       {tab === 'almuerzos' && <AlmuerzosSection />}
       {tab === 'catalogo' && <CatalogoSection onNavigate={setTab} />}
       {tab === 'profesionales' && <ProfesionalesSection initialProf={initialProf} />}
+      {tab === 'laser-tiempos' && <LaserTiemposSection />}
       {tab === 'packs' && <PacksSection />}
       {tab === 'estados' && <EstadosSection />}
       {tab === 'colores' && <ColoresSection />}
