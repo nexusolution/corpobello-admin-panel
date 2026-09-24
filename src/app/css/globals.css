@@ -260,18 +260,21 @@ input[type="time"] {
 /* SweetAlert2: compact modals (Andrés 2026-09-17: "el modal es muy grande").
    The library default popup is ~32em wide with big padding; cap it so every
    dialog (even those without an explicit width) reads compact. */
-.swal2-popup {
+/* Compact only the real (centered) modals; toasts keep their native compact
+   layout, otherwise the forced 380px width/padding clipped the toast icon
+   (Andrés 2026-09-24). */
+.swal2-popup:not(.swal2-toast) {
   width: 380px !important;
   max-width: 92vw !important;
   padding: 1.25rem !important;
   border-radius: 12px !important;
   font-size: 0.9rem !important;
 }
-.swal2-title {
+.swal2-popup:not(.swal2-toast) .swal2-title {
   font-size: 1.05rem !important;
   padding: 0.25rem 0 0 !important;
 }
-.swal2-html-container {
+.swal2-popup:not(.swal2-toast) .swal2-html-container {
   font-size: 0.9rem !important;
   margin: 0.5rem 0 0 !important;
 }
