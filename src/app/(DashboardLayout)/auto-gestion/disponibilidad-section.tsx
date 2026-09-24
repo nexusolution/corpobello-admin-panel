@@ -244,8 +244,22 @@ function ruleToDraft(r: AvailabilityRule): Draft {
   }
   if (r.pattern.type === 'monthly_cycle') {
     d.cycleEntries = r.pattern.entries?.length ? r.pattern.entries : [{ weekOffset: 0, weekday: 1 }]
-    d.cycleDayOffsets = r.pattern.dayOffsets?.length ? r.pattern.dayOffsets.join(', ') : ''
     d.holidayShift = r.pattern.shiftAnchorOnHoliday !== false
+    if (r.pattern.dayOffsets?.length) {
+      d.cycleDayOffsets = r.pattern.dayOffsets.join(', ')
+    } else if (r.pattern.entries?.length) {
+      // Legacy `entries` rule: show its EQUIVALENT day offsets so the only editor
+      // field (day offsets) is never blank for an existing cycle, and any off-by-one
+      // is visible and fixable (Andrés 2026-09-24: a Caballito cycle stored as
+      // +1wk Wed / +2wk Thu / +3wk Thu is really offsets 9, 17, 24 — it is missing
+      // the day-0 2nd Monday, which is why that day never marked). Offset from the
+      // 2nd Monday = weekOffset*7 + (weekday shifted so Mon=0). Saving then rewrites
+      // it in the clean dayOffsets form.
+      const offs = r.pattern.entries.map((e) => e.weekOffset * 7 + ((e.weekday + 6) % 7))
+      d.cycleDayOffsets = [...new Set(offs)].sort((a, b) => a - b).join(', ')
+    } else {
+      d.cycleDayOffsets = ''
+    }
   }
   d.openMin = r.openMin
   d.closeMin = r.closeMin
