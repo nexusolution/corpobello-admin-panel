@@ -275,13 +275,13 @@ input[type="time"] {
   font-size: 0.9rem !important;
   margin: 0.5rem 0 0 !important;
 }
-.swal2-icon {
-  width: 3rem !important;
-  height: 3rem !important;
-  margin: 0.75rem auto 0.25rem !important;
-}
-.swal2-icon .swal2-icon-content {
-  font-size: 1.75rem !important;
+/* Keep SweetAlert's NATIVE icon size so the animated success/error/warning icons
+   never break — their rings/lines are calibrated for the default size, and forcing
+   a smaller box made them overlap/crowd the title (Andrés 2026-09-24). Only trim
+   the large default top margin so the modal still reads compact. Scoped to real
+   modals (:not(.swal2-toast)) so corner toasts keep their own compact icon. */
+.swal2-popup:not(.swal2-toast) .swal2-icon {
+  margin: 1rem auto 0.75rem !important;
 }
 .swal2-actions {
   margin-top: 1rem !important;
