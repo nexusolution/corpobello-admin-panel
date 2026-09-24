@@ -87,16 +87,21 @@
    block (Andrés #12). */
 .cb-month-bands {
   position: absolute;
-  inset: 4px;
+  /* Wider NEUTRAL gap around the colours so each day's block floats clearly on
+     the cell background and never touches the neighbouring days (Andrés #12). */
+  inset: 6px;
   display: flex;
   flex-direction: column;
   pointer-events: none;
-  border-radius: 7px;
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+  /* A clearly visible neutral ring frames the whole day's colours as one
+     contained card, so contiguous coloured dates stop blending (Andrés #12,
+     2026-09-24 revision: the previous faint 1px ring was not distinguishable). */
+  box-shadow: inset 0 0 0 1.5px rgba(51, 65, 85, 0.42);
 }
 .dark .cb-month-bands {
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.3);
 }
 .cb-month-band {
   flex: 1 1 0;
@@ -105,6 +110,14 @@
   align-items: center;
   padding: 3px 5px;
   overflow: hidden;
+}
+/* Crisp neutral divider between the equal colour bands so the 50/50 split (or
+   thirds, for 3 sucursales) is obvious inside the day's card (Andrés #12). */
+.cb-month-band + .cb-month-band {
+  box-shadow: inset 0 1.5px 0 0 rgba(51, 65, 85, 0.3);
+}
+.dark .cb-month-band + .cb-month-band {
+  box-shadow: inset 0 1.5px 0 0 rgba(255, 255, 255, 0.22);
 }
 /* Leave room on the first band for the date number (top corner of the cell). */
 .cb-month-band:first-child {
@@ -197,16 +210,16 @@
 /* Stronger, more visible separators between month day cells so contiguous dates
    with colours don't blend together (Andrés #12). */
 .rbc-month-view .rbc-day-bg + .rbc-day-bg {
-  border-left: 1px solid #d3dbe4;
+  border-left: 1px solid #bcc7d6;
 }
 .dark .rbc-month-view .rbc-day-bg + .rbc-day-bg {
-  border-left: 1px solid #3b475c;
+  border-left: 1px solid #44526a;
 }
 .rbc-month-view .rbc-month-row + .rbc-month-row {
-  border-top: 1px solid #d3dbe4;
+  border-top: 1px solid #bcc7d6;
 }
 .dark .rbc-month-view .rbc-month-row + .rbc-month-row {
-  border-top: 1px solid #3b475c;
+  border-top: 1px solid #44526a;
 }
 /* Keep the day number clearly above the colours with a subtle neutral chip. */
 .rbc-month-view .rbc-date-cell {
@@ -218,10 +231,14 @@
   min-width: 18px;
   padding: 0 5px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.72);
+  /* A more solid neutral chip so the day number stays clearly legible on top of
+     the colour bands (Andrés #12). */
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 1px rgba(51, 65, 85, 0.12);
 }
 .dark .rbc-month-view .rbc-date-cell .rbc-button-link {
-  background: rgba(38, 48, 65, 0.72);
+  background: rgba(38, 48, 65, 0.9);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 
 /* Month view: mark TODAY with a clear border around the whole cell + a bold,
