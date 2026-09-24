@@ -179,12 +179,14 @@ export function ProfesionalesSection({
       if (res.isConfirmed) router.push('/agenda')
     } else {
       void Swal.fire({
+        toast: true,
+        position: 'bottom-end',
         icon: 'success',
         iconColor: '#13deb9',
         title: t('autoGestion.profTreatments.saved'),
-        timer: 1200,
+        timer: 1800,
+        timerProgressBar: true,
         showConfirmButton: false,
-        width: '320px',
       })
     }
   }

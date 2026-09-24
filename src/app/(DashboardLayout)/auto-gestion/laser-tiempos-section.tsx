@@ -116,7 +116,16 @@ export function LaserTiemposSection() {
     setBusy(false)
     if (err) return void Swal.fire({ icon: 'error', title: t('autoGestion.laserTimes.error'), text: err, width: '360px' })
     setSaved(JSON.stringify(config))
-    void Swal.fire({ icon: 'success', title: t('autoGestion.laserTimes.saved'), timer: 1200, showConfirmButton: false, width: '320px' })
+    // A corner toast (not a tiny centered modal) so the icon + text never crowd.
+    void Swal.fire({
+      toast: true,
+      position: 'bottom-end',
+      icon: 'success',
+      title: t('autoGestion.laserTimes.saved'),
+      showConfirmButton: false,
+      timer: 1800,
+      timerProgressBar: true,
+    })
   }
 
   async function restore() {
