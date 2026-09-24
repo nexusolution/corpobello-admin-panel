@@ -102,6 +102,15 @@ export function AutoGestionTabs() {
     if (typeof window === 'undefined') return null
     return new URLSearchParams(window.location.search).get('prof') || null
   }, [])
+  // Deep-link from the agenda's closed-day admin option (Andrés #17): open Feriados
+  // positioned on the closure's sucursal + date, ready to edit, and offer a return.
+  const initialFeriado = useMemo(() => {
+    if (typeof window === 'undefined') return null
+    const p = new URLSearchParams(window.location.search)
+    const suc = p.get('suc') ?? ''
+    const date = p.get('date') ?? ''
+    return suc || date ? { suc, date } : null
+  }, [])
 
   return (
     // Tabs on the LEFT as a vertical nav on desktop (Andrés 2026-09-20); on narrow
@@ -149,7 +158,7 @@ export function AutoGestionTabs() {
       {tab === 'packs' && <PacksSection />}
       {tab === 'estados' && <EstadosSection />}
       {tab === 'colores' && <ColoresSection />}
-      {tab === 'feriados' && <FeriadosSection />}
+      {tab === 'feriados' && <FeriadosSection initialFocus={initialFeriado} />}
       {tab === 'texts' && <TextsSection />}
       {tab === 'intros' && <IntrosSection />}
       {tab === 'faq' && <FaqSection />}

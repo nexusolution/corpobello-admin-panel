@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Icon } from '@iconify/react'
 import Swal from 'sweetalert2'
 
@@ -33,12 +34,32 @@ function fmt(dateStr: string, locale: string): string {
   }).format(d)
 }
 
-export function FeriadosSection() {
+// Shared with the agenda's closed-day round-trip (Andrés #17).
+const RETURN_TURNO_KEY = 'cb:agenda:returnTurno'
+
+export function FeriadosSection({
+  initialFocus,
+}: {
+  // Deep-link from the agenda closed-day admin option: the sucursal + date of the
+  // turno that was blocked, so we can highlight the closure and offer a return.
+  initialFocus?: { suc: string; date: string } | null
+} = {}) {
   const { t, locale } = useTranslation() as { t: TFn; locale: string }
+  const router = useRouter()
   const [rows, setRows] = useState<AgendaBlock[]>([])
   const [professionals, setProfessionals] = useState<Option[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  // Whether a turno is stashed to return to after editing the closure.
+  const [hasReturn, setHasReturn] = useState(false)
+  useEffect(() => {
+    try {
+      setHasReturn(!!sessionStorage.getItem(RETURN_TURNO_KEY))
+    } catch {
+      setHasReturn(false)
+    }
+  }, [])
+  const goBackToTurno = () => router.push('/agenda')
 
   // Form state
   const [kind, setKind] = useState<'feriado' | 'vacaciones'>('feriado')
@@ -65,7 +86,35 @@ export function FeriadosSection() {
           .map((u) => ({ value: u.id, label: u.fullName })),
       ),
     )
-  }, [])
+    // Prefill the form's sucursal from the deep-link so a quick re-add is easy.
+    if (initialFocus?.suc) setSucursal(initialFocus.suc)
+  }, [initialFocus])
+
+  // The branch-closure row that is closing the deep-linked (sucursal, date), if any
+  // — highlighted + scrolled into view so the admin edits the right one (Andrés #17).
+  const matchId = useMemo(() => {
+    const d = initialFocus?.date
+    if (!d) return null
+    const suc = initialFocus?.suc
+    const m = rows.find(
+      (b) =>
+        b.professionalId === null &&
+        (b.sucursal === null || b.sucursal === suc) &&
+        b.startDate <= d &&
+        b.endDate >= d,
+    )
+    return m?.id ?? null
+  }, [rows, initialFocus])
+  const highlightRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!matchId) return
+    const el = highlightRef.current
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.add('cb-flash')
+    const timer = window.setTimeout(() => el.classList.remove('cb-flash'), 3500)
+    return () => window.clearTimeout(timer)
+  }, [matchId, loading])
 
   const valid =
     !!startDate &&
@@ -115,6 +164,20 @@ export function FeriadosSection() {
         <h3 className='text-sm font-semibold text-dark dark:text-white'>{t('autoGestion.feriados.heading')}</h3>
         <p className='text-xs text-link dark:text-darklink mt-0.5 max-w-lg'>{t('autoGestion.feriados.subtitle')}</p>
       </div>
+
+      {/* Return to the agenda turno that was blocked by a closure (Andrés #17). */}
+      {hasReturn && (
+        <div className='mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2'>
+          <span className='text-xs text-dark dark:text-white'>{t('autoGestion.feriados.returnHint')}</span>
+          <button
+            type='button'
+            onClick={goBackToTurno}
+            className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryemphasis'>
+            <Icon icon='solar:arrow-left-line-duotone' height={16} width={16} />
+            {t('autoGestion.feriados.backToTurno')}
+          </button>
+        </div>
+      )}
 
       {/* Add form */}
       <div className='rounded-md border border-border dark:border-darkborder p-3 mb-5 flex flex-wrap items-end gap-3'>
@@ -198,7 +261,14 @@ export function FeriadosSection() {
       ) : (
         <div className='space-y-2'>
           {rows.map((b) => (
-            <div key={b.id} className='flex items-center gap-3 rounded-md border border-border dark:border-darkborder px-3 py-2.5 flex-wrap'>
+            <div
+              key={b.id}
+              ref={b.id === matchId ? highlightRef : undefined}
+              className={`flex items-center gap-3 rounded-md border px-3 py-2.5 flex-wrap ${
+                b.id === matchId
+                  ? 'border-primary ring-2 ring-primary/40 bg-lightprimary/30'
+                  : 'border-border dark:border-darkborder'
+              }`}>
               <span
                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
                   b.professionalId ? 'bg-lightwarning text-warning' : 'bg-lighterror text-error'

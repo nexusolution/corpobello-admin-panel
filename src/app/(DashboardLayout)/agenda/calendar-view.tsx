@@ -981,7 +981,43 @@ function EventDialog({
           confirmButtonColor: '#5d87ff',
           cancelButtonColor: isDarkNow ? '#3f4a5d' : '#e5e7eb',
         })
-        if (res.isConfirmed && typeof window !== 'undefined') window.location.href = '/auto-gestion'
+        if (res.isConfirmed && typeof window !== 'undefined') {
+          // Stash the turno so we can return to it once the closure is edited/removed
+          // (Andrés #17). Deep-link straight to Feriados y cierres, positioned on the
+          // turno's sucursal + date (the section highlights the matching closure).
+          const snapshot: Draft = {
+            id: draft.id,
+            patientId,
+            patientName,
+            treatmentSlug,
+            professionalId,
+            sucursal,
+            status,
+            charged,
+            allDay: false,
+            startStr,
+            endStr,
+            startTime,
+            endTime,
+            observaciones,
+            packId,
+            depositAmount,
+            depositDate,
+            depositReceived,
+          }
+          try {
+            sessionStorage.setItem(
+              RETURN_TURNO_KEY,
+              JSON.stringify({ draft: snapshot, view: backView, date: backDate }),
+            )
+          } catch {
+            // sessionStorage unavailable: skip the round-trip.
+          }
+          const qs = new URLSearchParams({ tab: 'feriados' })
+          if (sucursal) qs.set('suc', sucursal)
+          if (startStr) qs.set('date', startStr)
+          window.location.href = `/auto-gestion?${qs.toString()}`
+        }
         return
       }
       await Swal.fire({
