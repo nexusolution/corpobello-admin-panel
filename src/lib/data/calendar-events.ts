@@ -88,6 +88,11 @@ export type CalendarEvent = {
   depositAmount: number | null
   depositDate: string | null
   depositReceived: boolean
+  // Depilación láser (migration 0055): the sex table used + the zonas selected by
+  // click, so the internal duration engine can recompute and a reprogramación
+  // keeps the zonas. Empty/null for non-láser turnos.
+  laserSex: 'mujer' | 'varon' | null
+  laserZones: string[]
   createdAt: Date
 }
 
@@ -108,6 +113,8 @@ type Row = {
   deposit_amount: number | string | null
   deposit_date: string | null
   deposit_received: boolean | null
+  laser_sex: string | null
+  laser_zones: string[] | null
   created_at: string
   patient: { full_name: string | null } | { full_name: string | null }[] | null
 }
@@ -142,6 +149,8 @@ function rowToEvent(r: Row): CalendarEvent {
     depositAmount: r.deposit_amount == null ? null : Number(r.deposit_amount),
     depositDate: r.deposit_date,
     depositReceived: !!r.deposit_received,
+    laserSex: r.laser_sex === 'mujer' || r.laser_sex === 'varon' ? r.laser_sex : null,
+    laserZones: r.laser_zones ?? [],
     createdAt: new Date(r.created_at),
   }
 }
@@ -178,7 +187,7 @@ export async function autoCancelExpiredReservas(): Promise<{
 }
 
 const SELECT =
-  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, observaciones, pack_id, deposit_amount, deposit_date, deposit_received, created_at, patient:patient_id (full_name)'
+  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, observaciones, pack_id, deposit_amount, deposit_date, deposit_received, laser_sex, laser_zones, created_at, patient:patient_id (full_name)'
 
 export async function fetchCalendarEvents(): Promise<{
   data: CalendarEvent[]
@@ -209,6 +218,8 @@ export type CalendarEventInput = {
   depositAmount: number | null
   depositDate: string | null
   depositReceived: boolean
+  laserSex: 'mujer' | 'varon' | null
+  laserZones: string[]
 }
 
 function toPayload(input: CalendarEventInput) {
@@ -228,6 +239,8 @@ function toPayload(input: CalendarEventInput) {
     deposit_amount: input.depositAmount,
     deposit_date: input.depositDate,
     deposit_received: input.depositReceived,
+    laser_sex: input.laserSex,
+    laser_zones: input.laserZones,
     color: STATUS_COLORS[input.status],
   }
 }

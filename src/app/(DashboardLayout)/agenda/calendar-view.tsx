@@ -72,7 +72,8 @@ import {
   type AvailabilityRule,
   type AvailabilityExclusion,
 } from '@/lib/scheduling/availability'
-import { suggestDurationMinutes } from '@/lib/scheduling/duration'
+import { suggestDurationMinutes, isLaserSlug } from '@/lib/scheduling/duration'
+import { computeLaserDuration, defaultLaserDurationConfig, type LaserSex } from '@/lib/scheduling/laser-duration'
 import {
   fetchLunch,
   resolveLunch,
@@ -540,6 +541,10 @@ type Draft = {
   depositAmount: string
   depositDate: string
   depositReceived: boolean
+  // Depilación láser: sex table + zonas selected by click (Etapa 2). null/[] for
+  // non-láser turnos. Drive the internal duration engine.
+  laserSex: LaserSex | null
+  laserZones: string[]
   // Month the date picker should open on when the date is still empty (Andrés
   // punto 20): "Nuevo evento" from Month keeps the field empty but opens the
   // calendar on the month currently in view, not today.
@@ -768,6 +773,13 @@ function EventDialog({
   const [depositReceived, setDepositReceived] = useState(draft.depositReceived)
   // Primera sesión: bumps the auto-suggested duration (charla/explicación previa).
   const [firstSession, setFirstSession] = useState(false)
+  // Depilación láser (Etapa 2): sex table + zonas selected by click. When the
+  // treatment is láser and zonas are picked, the internal engine sets the
+  // duration (editable). Preserved on reprogramación.
+  const [laserSex, setLaserSex] = useState<LaserSex>(draft.laserSex ?? 'mujer')
+  const [laserZones, setLaserZones] = useState<string[]>(draft.laserZones ?? [])
+  const [zoneQuery, setZoneQuery] = useState('')
+  const isLaser = isLaserSlug(treatmentSlug)
   // Pack linking (Andrés' 4x3 / 5x4). A turno can be tied to a patient's pack
   // for the selected treatment; the session counter is derived elsewhere from
   // the turno statuses (a session is consumed only when 'atendido').
@@ -838,21 +850,54 @@ function EventDialog({
   // always editable afterwards (this just moves the end time). Called on the
   // user actions that change the suggestion, never on mount, so an existing
   // turno's saved duration is preserved until the user re-picks a treatment.
+  // Suggested minutes for a turno: for depilación láser WITH zonas selected, the
+  // internal zone engine (PDF spec) computes it; otherwise the per-treatment /
+  // first-session heuristic. Returns 0 when nothing applies.
+  const suggestedMinutesFor = (
+    slug: string,
+    first: boolean,
+    zones: string[],
+    sex: LaserSex,
+  ): number => {
+    if (isLaserSlug(slug) && zones.length > 0) {
+      return computeLaserDuration(sex, zones, defaultLaserDurationConfig).minutes
+    }
+    return suggestDurationMinutes(slug, first, undefined, treatmentDurations.get(slug))
+  }
   const applyAutoDuration = (
     slug: string,
     first: boolean,
     sStr: string = startStr,
     sTime: string = startTime,
+    zones: string[] = laserZones,
+    sex: LaserSex = laserSex,
   ) => {
     // Skip while the date is still empty (Andrés punto 20): the general "Nuevo
     // evento" opens with no date, so a time picked first must not compute an end
     // off an invalid date. The end is recomputed once a date is chosen.
     if (allDay || !slug || !sStr) return
-    const minutes = suggestDurationMinutes(slug, first, undefined, treatmentDurations.get(slug))
+    const minutes = suggestedMinutesFor(slug, first, zones, sex)
     if (minutes <= 0) return
     const end = new Date(dateTime(sStr, sTime).getTime() + minutes * 60_000)
     setEndStr(toDateInput(end))
     setEndTime(toTimeInput(end))
+  }
+  // Toggle a láser zona and recompute the duration immediately (Etapa 2 spec:
+  // recalcular al agregar/quitar zonas). The end stays editable afterwards.
+  const toggleLaserZone = (key: string) => {
+    setLaserZones((prev) => {
+      const next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+      applyAutoDuration(treatmentSlug, firstSession, startStr, startTime, next, laserSex)
+      return next
+    })
+  }
+  const changeLaserSex = (sex: LaserSex) => {
+    setLaserSex(sex)
+    // Zonas are per-sex: keep only those valid for the new table, then recompute.
+    const valid = new Set(defaultLaserDurationConfig[sex].zones.map((z) => z.key))
+    const kept = laserZones.filter((k) => valid.has(k))
+    setLaserZones(kept)
+    applyAutoDuration(treatmentSlug, firstSession, startStr, startTime, kept, sex)
   }
   const isEdit = draft.id !== null
 
@@ -1004,6 +1049,8 @@ function EventDialog({
             depositAmount,
             depositDate,
             depositReceived,
+            laserSex: isLaser ? laserSex : null,
+            laserZones: isLaser ? laserZones : [],
           }
           try {
             sessionStorage.setItem(
@@ -1115,6 +1162,8 @@ function EventDialog({
               depositAmount,
               depositDate,
               depositReceived,
+              laserSex: isLaser ? laserSex : null,
+              laserZones: isLaser ? laserZones : [],
             }
             try {
               sessionStorage.setItem(
@@ -1266,6 +1315,8 @@ function EventDialog({
       depositAmount: depositAmount.trim() ? Number(depositAmount.replace(/[^\d.,]/g, '').replace(',', '.')) : null,
       depositDate: depositDate || null,
       depositReceived,
+      laserSex: isLaser ? laserSex : null,
+      laserZones: isLaser ? laserZones : [],
     }
     // Build the audit entry (who / when / what) before persisting.
     const statusLabel = (s: TurnoStatus) => statusLabelFor(s)
@@ -1466,7 +1517,11 @@ function EventDialog({
                 options={treatments}
                 onChange={(v) => {
                   setTreatmentSlug(v)
-                  applyAutoDuration(v, firstSession)
+                  // Zonas only apply to depilación láser; clear them otherwise so a
+                  // stale set never affects a non-láser duration.
+                  const zones = isLaserSlug(v) ? laserZones : []
+                  if (!isLaserSlug(v) && laserZones.length) setLaserZones([])
+                  applyAutoDuration(v, firstSession, startStr, startTime, zones, laserSex)
                 }}
                 colorFor={treatmentColor}
                 t={t}
@@ -1512,6 +1567,86 @@ function EventDialog({
               />
             </label>
           </div>
+
+          {/* Depilación láser: zonas por click → duración interna (Etapa 2, spec
+              "Tiempos_depilacion"). Internal times, never shown to the patient. */}
+          {isLaser && (
+            <div className='rounded-md border border-primary/25 bg-primary/5 px-3 py-2.5 space-y-2'>
+              <div className='flex items-center justify-between gap-2 flex-wrap'>
+                <div className='flex items-center gap-1.5 text-xs font-semibold text-dark dark:text-white'>
+                  <Icon icon='solar:magic-stick-3-line-duotone' height={15} width={15} className='text-primary' />
+                  {t('turno.laser.title')}
+                </div>
+                <div className='inline-flex rounded-md border border-border dark:border-darkborder overflow-hidden text-xs'>
+                  {(['mujer', 'varon'] as LaserSex[]).map((sx) => (
+                    <button
+                      key={sx}
+                      type='button'
+                      onClick={() => changeLaserSex(sx)}
+                      className={`px-2.5 py-1 font-medium transition-colors ${
+                        laserSex === sx ? 'bg-primary text-white' : 'text-link dark:text-darklink hover:bg-lightprimary/40'
+                      }`}>
+                      {t(sx === 'mujer' ? 'turno.laser.female' : 'turno.laser.male')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <input
+                value={zoneQuery}
+                onChange={(e) => setZoneQuery(e.target.value)}
+                placeholder={t('turno.laser.search')}
+                className='w-full px-2.5 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary'
+              />
+
+              {laserZones.length > 0 && (
+                <div className='flex flex-wrap gap-1.5'>
+                  {laserZones.map((k) => {
+                    const z = defaultLaserDurationConfig[laserSex].zones.find((x) => x.key === k)
+                    return (
+                      <button
+                        key={k}
+                        type='button'
+                        onClick={() => toggleLaserZone(k)}
+                        className='inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary text-white text-xs'>
+                        {z?.label ?? k}
+                        <Icon icon='tabler:x' height={12} width={12} />
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              <div className='max-h-44 overflow-y-auto cb-hscroll rounded-md border border-border dark:border-darkborder divide-y divide-border/60 dark:divide-darkborder/60'>
+                {defaultLaserDurationConfig[laserSex].zones
+                  .filter((z) => {
+                    const q = zoneQuery.trim().toLowerCase()
+                    return !q || z.label.toLowerCase().includes(q)
+                  })
+                  .map((z) => (
+                    <label key={z.key} className='flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-lightprimary/30'>
+                      <input
+                        type='checkbox'
+                        checked={laserZones.includes(z.key)}
+                        onChange={() => toggleLaserZone(z.key)}
+                        className='accent-primary'
+                      />
+                      <span className='text-sm text-dark dark:text-white flex-1'>{z.label}</span>
+                      <span className='text-[11px] text-link dark:text-darklink'>{z.sola} min</span>
+                    </label>
+                  ))}
+              </div>
+
+              <p className='text-[11px] text-link dark:text-darklink flex items-center gap-1'>
+                <Icon icon='solar:clock-circle-line-duotone' height={13} width={13} className='shrink-0' />
+                {laserZones.length === 0
+                  ? t('turno.laser.pickHint')
+                  : t('turno.laser.computed', {
+                      min: String(computeLaserDuration(laserSex, laserZones, defaultLaserDurationConfig).minutes),
+                    })}
+              </p>
+            </div>
+          )}
 
           {/* Pack linker — shown only when the treatment is sold as a pack. */}
           {packConfig && patientId && (
@@ -2448,6 +2583,8 @@ export function CalendarView() {
         depositAmount: orig.depositAmount,
         depositDate: orig.depositDate,
         depositReceived: orig.depositReceived,
+        laserSex: orig.laserSex,
+        laserZones: orig.laserZones,
         allDay: false,
       }
       const err = await updateCalendarEvent(turnoId, {
@@ -3103,6 +3240,8 @@ export function CalendarView() {
         depositAmount: '',
         depositDate: '',
         depositReceived: false,
+        laserSex: null,
+        laserZones: [],
         defaultMonth: toDateInput(date),
       })
     },
@@ -3269,6 +3408,9 @@ export function CalendarView() {
         depositAmount: event.depositAmount,
         depositDate: event.depositDate,
         depositReceived: event.depositReceived,
+        // Preserve las zonas de láser (Etapa 2) al arrastrar/reprogramar.
+        laserSex: event.laserSex,
+        laserZones: event.laserZones,
       })
       // Audit the drag/resize (reschedule + any column reassign).
       const changes = [`${t('turnoAudit.rescheduledTo')} ${toDateInput(s)}${allDay ? '' : ' ' + toTimeInput(s)}`]
@@ -3405,6 +3547,8 @@ export function CalendarView() {
       depositAmount: ev.depositAmount != null ? String(ev.depositAmount) : '',
       depositDate: ev.depositDate ?? '',
       depositReceived: ev.depositReceived,
+      laserSex: ev.laserSex,
+      laserZones: ev.laserZones,
     })
   }, [])
 
