@@ -3885,21 +3885,22 @@ export function CalendarView() {
                     }}
                   />
                 ))}
-                {extra > 0 && (
-                  <button
-                    type='button'
-                    className='cb-month-more'
-                    style={{ pointerEvents: 'auto' }}
-                    title={t('agenda.moreTurnos', { n: String(extra) })}
-                    onClick={(ev) => {
-                      // Open the day panel (all turnos), not drill into the day.
-                      ev.stopPropagation()
-                      openDayPanelRef.current(ds)
-                    }}>
-                    +{extra}
-                  </button>
-                )}
               </div>
+              {/* "+N" pinned to the band corner (CSS) so it is always visible,
+                  never clipped by the wrapping dots at small cell sizes. */}
+              {extra > 0 && (
+                <button
+                  type='button'
+                  className='cb-month-more'
+                  title={t('agenda.moreTurnos', { n: String(extra) })}
+                  onClick={(ev) => {
+                    // Open the day panel (all turnos), not drill into the day.
+                    ev.stopPropagation()
+                    openDayPanelRef.current(ds)
+                  }}>
+                  +{extra}
+                </button>
+              )}
             </div>
           )
         })}
