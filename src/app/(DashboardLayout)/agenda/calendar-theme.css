@@ -221,6 +221,19 @@
 .dark .rbc-month-view .rbc-month-row + .rbc-month-row {
   border-top: 1px solid #44526a;
 }
+/* Month drag (Andrés #19-D): the per-sucursal turno dots live in the day
+   BACKGROUND overlay, which RBC renders BEHIND its content layer — so the pointer
+   never reached the dots (arrow cursor, no grab, no drag). Make the content layer
+   pointer-transparent so the pointer falls through to the dots (which set their own
+   pointer-events), and re-enable it on the date number so it stays clickable.
+   Empty-cell clicks still drill via RBC's slot selection on the background. */
+.rbc-month-view .rbc-row-content {
+  pointer-events: none;
+}
+.rbc-month-view .rbc-date-cell,
+.rbc-month-view .rbc-date-cell .rbc-button-link {
+  pointer-events: auto;
+}
 /* Keep the day number clearly above the colours with a subtle neutral chip. */
 .rbc-month-view .rbc-date-cell {
   position: relative;
