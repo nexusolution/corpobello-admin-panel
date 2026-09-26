@@ -617,15 +617,42 @@ function TreatmentSelect({
   onChange,
   colorFor,
   t,
+  // Bidirectional filtering (Andrés #8): when a professional is chosen, only their
+  // enabled treatments should be pickable. null = no professional chosen → show
+  // all. Secretaría sees ONLY the enabled ones; Admin sees the enabled ones and,
+  // separated below, the rest as "requieren excepción" (still selectable).
+  enabledValues = null,
+  isAdmin = false,
 }: {
   value: string
   options: Option[]
   onChange: (v: string) => void
   colorFor: (slug: string, name?: string) => string
   t: TFn
+  enabledValues?: Set<string> | null
+  isAdmin?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const current = options.find((o) => o.value === value)
+  const filtering = enabledValues != null
+  // The currently-selected value always stays visible so an existing turno reads
+  // right even if that professional no longer performs it.
+  const enabled = filtering
+    ? options.filter((o) => enabledValues!.has(o.value) || o.value === value)
+    : options
+  const others = filtering
+    ? options.filter((o) => !enabledValues!.has(o.value) && o.value !== value)
+    : []
+  const renderOpt = (o: Option) => (
+    <button
+      key={o.value}
+      type='button'
+      onClick={() => { onChange(o.value); setOpen(false) }}
+      className={`w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded text-sm hover:bg-lightprimary text-dark dark:text-white ${o.value === value ? 'bg-lightprimary/60' : ''}`}>
+      <span className='h-2.5 w-2.5 rounded-sm shrink-0' style={{ backgroundColor: colorFor(o.value, o.label) }} />
+      <span className='truncate'>{o.label}</span>
+    </button>
+  )
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -650,16 +677,17 @@ function TreatmentSelect({
             className={`w-full text-left px-2.5 py-1.5 rounded text-sm hover:bg-lightprimary text-dark dark:text-white ${value === '' ? 'bg-lightprimary/60' : ''}`}>
             {t('turno.none')}
           </button>
-          {options.map((o) => (
-            <button
-              key={o.value}
-              type='button'
-              onClick={() => { onChange(o.value); setOpen(false) }}
-              className={`w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded text-sm hover:bg-lightprimary text-dark dark:text-white ${o.value === value ? 'bg-lightprimary/60' : ''}`}>
-              <span className='h-2.5 w-2.5 rounded-sm shrink-0' style={{ backgroundColor: colorFor(o.value, o.label) }} />
-              <span className='truncate'>{o.label}</span>
-            </button>
-          ))}
+          {enabled.map(renderOpt)}
+          {/* Admin only: the treatments this professional does NOT perform, clearly
+              separated, still selectable (triggers the exception flow on save). */}
+          {filtering && isAdmin && others.length > 0 && (
+            <>
+              <div className='px-2.5 pt-2 pb-1 mt-1 border-t border-border dark:border-darkborder text-[11px] font-semibold uppercase tracking-wide text-link/70 dark:text-darklink/70'>
+                {t('turno.exceptionGroup')}
+              </div>
+              {others.map(renderOpt)}
+            </>
+          )}
         </div>
       </PopoverContent>
     </Popover>
@@ -784,6 +812,15 @@ function EventDialog({
   const [laserZones, setLaserZones] = useState<string[]>(draft.laserZones ?? [])
   const [zoneQuery, setZoneQuery] = useState('')
   const isLaser = isLaserSlug(treatmentSlug)
+  // Bidirectional Profesional ↔ Tratamiento filtering (Andrés #8): the treatments
+  // the chosen professional performs (null when none chosen → no filter).
+  const enabledTreatmentValues = useMemo(
+    () =>
+      professionalId
+        ? new Set(treatments.filter((o) => professionalDoesTreatment(professionalId, o.value)).map((o) => o.value))
+        : null,
+    [professionalId, treatments, professionalDoesTreatment],
+  )
   // Pack linking (Andrés' 4x3 / 5x4). A turno can be tied to a patient's pack
   // for the selected treatment; the session counter is derived elsewhere from
   // the turno statuses (a session is consumed only when 'atendido').
@@ -969,6 +1006,25 @@ function EventDialog({
     }
     return false
   }, [sucursal, treatmentSlug, professionalId, startStr, endStr, allDay, rules, exclusions, catalogSlugs])
+
+  // Real cause(s) for the inline warning (Andrés #8.2): distinguish "the
+  // professional does not perform this treatment" from "no programmed availability
+  // at this branch/date", and show BOTH when both apply, instead of one generic
+  // message. Same wording as the save-time notice.
+  const inlineIssues = useMemo(() => {
+    const who = professionalId ? professionals.find((p) => p.value === professionalId)?.label || '' : ''
+    const sucTxt = sucursal ? sucursalLabel(sucursal) : ''
+    const list: string[] = []
+    const performs = !professionalId || !treatmentSlug || professionalDoesTreatment(professionalId, treatmentSlug)
+    if (professionalId && treatmentSlug && !performs) {
+      const treatmentLabel = treatments.find((tt) => tt.value === treatmentSlug)?.label || treatmentSlug
+      list.push(t('turno.incompatTreatment', { name: who, treatment: treatmentLabel }))
+    }
+    if (hasClosedDay) {
+      list.push(who ? t('turno.noAvailWho', { name: who, sucursal: sucTxt }) : t('turno.noAvailBranch', { sucursal: sucTxt }))
+    }
+    return list
+  }, [professionalId, treatmentSlug, hasClosedDay, professionals, treatments, sucursal, professionalDoesTreatment, t])
 
   async function save() {
     if (!valid || saving) return
@@ -1529,26 +1585,42 @@ function EventDialog({
                 }}
                 colorFor={treatmentColor}
                 t={t}
+                enabledValues={enabledTreatmentValues}
+                isAdmin={isAdmin}
               />
             </label>
             <label className='block'>
               <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.professional')}</span>
               <select value={professionalId} onChange={(e) => setProfessionalId(e.target.value)} className={SELECT_CLS}>
                 <option value=''>{t('turno.none')}</option>
-                {professionals
-                  // Secretaría only sees professionals ENABLED for the selected
-                  // treatment (Andrés #8). Admin sees all; the already-assigned
-                  // professional always stays visible so an existing turno reads right.
-                  .filter(
-                    (o) =>
-                      isAdmin ||
-                      !treatmentSlug ||
-                      o.value === professionalId ||
-                      professionalDoesTreatment(o.value, treatmentSlug),
+                {/* Bidirectional filtering (Andrés #8): with a treatment chosen,
+                    Secretaría sees ONLY professionals enabled for it; Admin sees the
+                    enabled ones and, in a separate group, the rest as "requieren
+                    excepción" (still selectable → exception flow on save). */}
+                {(() => {
+                  if (!treatmentSlug)
+                    return professionals.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)
+                  const enabledP = professionals.filter((o) => professionalDoesTreatment(o.value, treatmentSlug))
+                  const otherP = professionals.filter((o) => !professionalDoesTreatment(o.value, treatmentSlug))
+                  if (!isAdmin) {
+                    // Keep the already-assigned professional visible even if disabled.
+                    return professionals
+                      .filter((o) => professionalDoesTreatment(o.value, treatmentSlug) || o.value === professionalId)
+                      .map((o) => <option key={o.value} value={o.value}>{o.label}</option>)
+                  }
+                  return (
+                    <>
+                      <optgroup label={t('turno.enabledGroup')}>
+                        {enabledP.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </optgroup>
+                      {otherP.length > 0 && (
+                        <optgroup label={t('turno.exceptionGroup')}>
+                          {otherP.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </optgroup>
+                      )}
+                    </>
                   )
-                  .map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
+                })()}
               </select>
             </label>
             <label className='block'>
@@ -1813,11 +1885,15 @@ function EventDialog({
             />
           </label>
 
-          {hasClosedDay && (
-            <p className='flex items-start gap-1.5 text-xs text-warning'>
-              <Icon icon='solar:danger-triangle-line-duotone' height={14} width={14} className='mt-0.5 shrink-0' />
-              {t('turno.closedWarning')}
-            </p>
+          {inlineIssues.length > 0 && (
+            <div className='space-y-1'>
+              {inlineIssues.map((msg, i) => (
+                <p key={i} className='flex items-start gap-1.5 text-xs text-warning'>
+                  <Icon icon='solar:danger-triangle-line-duotone' height={14} width={14} className='mt-0.5 shrink-0' />
+                  {msg}
+                </p>
+              ))}
+            </div>
           )}
 
           {error && <p className='text-xs text-error'>{t('agendaCal.saveError')}</p>}
