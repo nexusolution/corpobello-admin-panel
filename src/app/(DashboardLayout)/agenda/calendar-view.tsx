@@ -699,6 +699,42 @@ function TreatmentSelect({
   )
 }
 
+// Compact colour legend (Andrés #22): a "Label ▾" chip that opens the colour
+// reference on demand, instead of permanently occupying two or three lines.
+type LegendItem = { label: string; color: string; shape?: 'dot' | 'bar' | 'ring' }
+function LegendDropdown({ label, items }: { label: string; items: LegendItem[] }) {
+  const [open, setOpen] = useState(false)
+  if (items.length === 0) return null
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type='button'
+          className='inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border dark:border-darkborder text-xs font-medium text-link dark:text-darklink hover:border-primary hover:text-primary transition-colors'>
+          {label}
+          <Icon icon='tabler:chevron-down' height={13} width={13} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className='w-auto min-w-[170px] p-2' align='start'>
+        <div className='flex flex-col gap-1.5 max-h-72 overflow-y-auto'>
+          {items.map((it) => (
+            <span key={it.label} className='inline-flex items-center gap-2 text-xs text-dark dark:text-white'>
+              {it.shape === 'bar' ? (
+                <span className='h-3 w-1.5 rounded-sm shrink-0' style={{ backgroundColor: it.color }} />
+              ) : it.shape === 'ring' ? (
+                <span className='h-3 w-3 rounded-full border border-border dark:border-darkborder bg-card shrink-0' />
+              ) : (
+                <span className='h-3 w-3 rounded-full shrink-0' style={{ backgroundColor: it.color }} />
+              )}
+              {it.label}
+            </span>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 function EventDialog({
   draft,
   treatments,
@@ -4156,53 +4192,32 @@ export function CalendarView() {
         )}
       </div>
 
-      {/* Colour legend for the all-branches availability overview. */}
-      {!sucursalFilter && (
-        <div className='flex items-center gap-3 flex-wrap mb-3 text-xs text-link dark:text-darklink'>
-          <span className='font-medium'>{t('agenda.availabilityLegend')}:</span>
-          {SUCURSALES.map((s) => (
-            <span key={s} className='inline-flex items-center gap-1.5'>
-              <span className='h-2.5 w-2.5 rounded-full' style={{ backgroundColor: sucursalColor(s) }} />
-              {sucursalLabel(s)}
-            </span>
-          ))}
-          {/* Andrés #1: white/neutral = an exceptional turno on a day without
-              programmed availability. */}
-          <span className='inline-flex items-center gap-1.5'>
-            <span className='h-2.5 w-2.5 rounded-full border border-border dark:border-darkborder bg-card' />
-            {t('agenda.exceptionLegend')}
-          </span>
-        </div>
-      )}
-
-      {/* Colour legend for the circles/cards. In Month the circles are coloured by
-          the patient ESTADO (Andrés 2026-09-15), so show the estado legend there;
-          in the time-grid views the treatment colour is what needs explaining. */}
-      {view === Views.MONTH
-        ? statusLegend.length > 0 && (
-            <div className='flex items-center gap-3 flex-wrap mb-3 text-xs text-link dark:text-darklink'>
-              <span className='font-medium'>{t('agenda.statusLegend')}:</span>
-              {statusLegend.map((sl) => (
-                <span key={sl.label} className='inline-flex items-center gap-1.5'>
-                  <span className='h-3 w-3 rounded-full' style={{ backgroundColor: sl.color }} />
-                  {sl.label}
-                </span>
-              ))}
-            </div>
-          )
-        : treatmentLegend.length > 0 && (
-            <div className='flex items-center gap-3 flex-wrap mb-3 text-xs text-link dark:text-darklink'>
-              <span className='font-medium'>{t('agenda.treatmentLegend')}:</span>
-              {treatmentLegend.map((tl) => (
-                <span key={tl.label} className='inline-flex items-center gap-1.5'>
-                  {/* A short bar (not a circle): the treatment colour is the left
-                      bar in Semana/Día/Agenda (Andrés 2026-09-20, punto 6). */}
-                  <span className='h-3 w-1.5 rounded-sm' style={{ backgroundColor: tl.color }} />
-                  {tl.label}
-                </span>
-              ))}
-            </div>
-          )}
+      {/* Compact colour legends (Andrés #22): collapsed into "▾" chips so they stop
+          occupying two or three permanent lines. Disponibilidad = sucursal colours
+          (+ white = exceptional); then Estados (Mes) or Tratamientos (Semana/Día/
+          Agenda), matching how the colours are used in each view. */}
+      <div className='flex items-center gap-2 flex-wrap mb-3'>
+        {!sucursalFilter && (
+          <LegendDropdown
+            label={t('agenda.availabilityLegend')}
+            items={[
+              ...SUCURSALES.map((s) => ({ label: sucursalLabel(s), color: sucursalColor(s), shape: 'dot' as const })),
+              { label: t('agenda.exceptionLegend'), color: '', shape: 'ring' as const },
+            ]}
+          />
+        )}
+        {view === Views.MONTH ? (
+          <LegendDropdown
+            label={t('agenda.statusLegend')}
+            items={statusLegend.map((sl) => ({ label: sl.label, color: sl.color, shape: 'dot' as const }))}
+          />
+        ) : (
+          <LegendDropdown
+            label={t('agenda.treatmentLegend')}
+            items={treatmentLegend.map((tl) => ({ label: tl.label, color: tl.color, shape: 'bar' as const }))}
+          />
+        )}
+      </div>
 
       <div
         ref={monthScrollRef}
