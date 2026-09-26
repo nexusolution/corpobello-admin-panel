@@ -52,6 +52,11 @@ interface DayScheduleProps {
   // Row granularity in minutes (5/10/15/20/30/60): every free interval at this
   // step is its own clickable slot (Andrés #14).
   scaleMin: number
+  // The day's real availability window (minutes-from-midnight), so the grid opens
+  // at the start of availability instead of a fixed 08:00 (Andrés #20). Null when
+  // the day has no programmed availability.
+  availStartMin?: number | null
+  availEndMin?: number | null
   // Editable visible range controls.
   earlierLabel: string
   laterLabel: string
@@ -96,6 +101,8 @@ export function DaySchedule({
   newLabel,
   lunchLabel,
   scaleMin,
+  availStartMin,
+  availEndMin,
   earlierLabel,
   laterLabel,
   resetHoursLabel,
@@ -137,12 +144,14 @@ export function DaySchedule({
   // Configurable lunch window per column (Andrés punto 5).
   const lunchByCol = new Map(columns.map((c) => [c.resourceId, lunchFor(c)]))
 
-  // Visible range: 08–20 by default, widened to fit any turno, and manually
-  // expandable earlier/later (Andrés #14). Scale sets the row granularity.
+  // Visible range: opens at the day's REAL availability window (Andrés #20) so the
+  // secretaria doesn't scroll from dawn; falls back to 08–20 when the day has no
+  // programmed availability. Always widened to fit any turno outside that window,
+  // and manually expandable earlier/later (Andrés #14).
   const [earlyExtra, setEarlyExtra] = useState(0)
   const [lateExtra, setLateExtra] = useState(0)
-  let baseStartH = 8
-  let baseEndH = 20
+  let baseStartH = availStartMin != null ? Math.floor(availStartMin / 60) : 8
+  let baseEndH = availEndMin != null ? Math.ceil(availEndMin / 60) : 20
   for (const e of turnos) {
     const sh = e.start.getHours()
     if (sh < baseStartH) baseStartH = sh

@@ -3035,6 +3035,22 @@ export function CalendarView() {
       ),
     [visibleEvents, date],
   )
+  // The day's real availability window (earliest open → latest close across the
+  // branches open that day, honouring the active filters), so Vista Día opens at
+  // the start of availability instead of a fixed 08:00 (Andrés #20).
+  const dayAvailWindow = useMemo(() => {
+    const ds = toDateInput(date)
+    let openMin = Number.POSITIVE_INFINITY
+    let closeMin = Number.NEGATIVE_INFINITY
+    for (const suc of SUCURSALES) {
+      const w = sucursalOpen(ds, suc)
+      if (w.open && w.openMin != null && w.closeMin != null) {
+        openMin = Math.min(openMin, w.openMin)
+        closeMin = Math.max(closeMin, w.closeMin)
+      }
+    }
+    return openMin < closeMin ? { openMin, closeMin } : null
+  }, [date, sucursalOpen])
   // Legacy all-day turnos on this date (patient turnos are timed now, punto 4a):
   // surfaced in a small top section of Vista Día so they never disappear.
   const dayAllDayTurnos = useMemo(
@@ -4303,6 +4319,8 @@ export function CalendarView() {
             newLabel={t('agendaCal.new')}
             lunchLabel={t('agenda.lunch')}
             scaleMin={scaleMin}
+            availStartMin={dayAvailWindow?.openMin ?? null}
+            availEndMin={dayAvailWindow?.closeMin ?? null}
             earlierLabel={t('agenda.showEarlier')}
             laterLabel={t('agenda.showLater')}
             resetHoursLabel={t('agenda.resetHours')}
