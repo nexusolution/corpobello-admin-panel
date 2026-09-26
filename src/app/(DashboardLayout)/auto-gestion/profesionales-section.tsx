@@ -16,6 +16,7 @@ import {
   type TreatmentMode,
 } from '@/lib/data/professional-treatments'
 import { useTranslation } from '@/lib/i18n/context'
+import { ReturnToTurnoBanner } from './return-to-turno-banner'
 
 // Same key the agenda uses to stash a turno before jumping here (Andrés #1c/#8):
 // after editing the professional's treatments we offer to return to the turno.
@@ -212,6 +213,7 @@ export function ProfesionalesSection({
 
   return (
     <div className='space-y-5'>
+      <ReturnToTurnoBanner />
       <div>
         <h3 className='text-base font-semibold text-dark dark:text-white'>{t('autoGestion.profTreatments.heading')}</h3>
         <p className='text-xs text-link dark:text-darklink mt-0.5'>{t('autoGestion.profTreatments.subtitle')}</p>

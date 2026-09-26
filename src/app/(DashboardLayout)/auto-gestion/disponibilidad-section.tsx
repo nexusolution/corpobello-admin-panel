@@ -29,6 +29,7 @@ import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
 import { fetchTreatmentCatalog } from '@/lib/data/treatment-catalog'
 import { fetchAppUsers } from '@/app/(DashboardLayout)/usuarios/data'
 import { useTranslation } from '@/lib/i18n/context'
+import { ReturnToTurnoBanner } from './return-to-turno-banner'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
 type TFn = (key: TranslationKey, params?: Record<string, string>) => string
@@ -476,6 +477,7 @@ export function DisponibilidadSection({
 
   return (
     <div className='rounded-lg border border-border dark:border-darkborder bg-card p-5 sm:p-6'>
+      <ReturnToTurnoBanner />
       <div className='mb-4 flex items-start justify-between gap-3'>
         <div>
           <h3 className='text-sm font-semibold text-dark dark:text-white'>{t('autoGestion.availability.heading')}</h3>
