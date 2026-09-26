@@ -1549,11 +1549,44 @@ function EventDialog({
                 {patientId && (
                   <button
                     type='button'
-                    onClick={() =>
+                    onClick={() => {
+                      // Stash THIS turno so "Volver" from the ficha reopens it with
+                      // its data intact (Andrés #21) — same round-trip as the
+                      // closed-day → Feriados flow.
+                      const snapshot: Draft = {
+                        id: draft.id,
+                        patientId,
+                        patientName,
+                        treatmentSlug,
+                        professionalId,
+                        sucursal,
+                        status,
+                        charged,
+                        allDay: false,
+                        startStr,
+                        endStr,
+                        startTime,
+                        endTime,
+                        observaciones,
+                        packId,
+                        depositAmount,
+                        depositDate,
+                        depositReceived,
+                        laserSex: isLaser ? laserSex : null,
+                        laserZones: isLaser ? laserZones : [],
+                      }
+                      try {
+                        sessionStorage.setItem(
+                          RETURN_TURNO_KEY,
+                          JSON.stringify({ draft: snapshot, view: backView, date: backDate }),
+                        )
+                      } catch {
+                        // sessionStorage unavailable: skip the round-trip.
+                      }
                       router.push(
                         `/pacientes/${patientId}?from=agenda&date=${backDate}&view=${backView}`,
                       )
-                    }
+                    }}
                     className='inline-flex items-center gap-1 text-primary hover:underline font-medium shrink-0'>
                     <Icon icon='solar:user-id-line-duotone' height={14} width={14} />
                     {t('turno.viewFicha')}
