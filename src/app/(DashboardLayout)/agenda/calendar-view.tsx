@@ -4159,21 +4159,11 @@ export function CalendarView() {
             allLabel={t('agendaCal.allTreatments')}
           />
         </div>
-        {/* Columns selector: only where columns apply (not the custom Day view). */}
-        {view !== Views.DAY && (
-          <div className='flex items-center gap-2'>
-            <Icon icon='solar:layers-minimalistic-line-duotone' height={16} width={16} className='text-link dark:text-darklink' />
-            <span className='text-xs font-medium text-link dark:text-darklink'>{t('agenda.columns')}:</span>
-            <select
-              value={columnMode}
-              onChange={(e) => setColumnMode(e.target.value as 'none' | 'sucursal' | 'professional')}
-              className='pl-2.5 pr-9 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'>
-              <option value='none'>{t('agenda.columnsNone')}</option>
-              <option value='sucursal'>{t('agenda.columnsBySucursal')}</option>
-              <option value='professional'>{t('agenda.columnsByProfessional')}</option>
-            </select>
-          </div>
-        )}
+        {/* The "Columnas" selector was removed (Andrés #22): it was a leftover of the
+            old RBC grid and had NO visible effect — the custom Vista Día already
+            groups columns by professional automatically, and the selector only ever
+            fed the now-hidden RBC grid. columnMode state stays (auto-set to
+            'professional' when opening Day) but is no longer user-facing. */}
         {/* Scale selector: only in Day + Week, where it drives a real time grid
             (Andrés #14). Hidden in Month (no time grid) and Agenda (list). */}
         {(view === Views.DAY || view === Views.WEEK) && (
