@@ -237,8 +237,13 @@ export function RescheduleDialog({
               ) : (
                 <div className='flex flex-col h-full min-h-0'>
                   <div className='shrink-0'>
-                    <p className='text-sm font-semibold text-dark dark:text-white capitalize'>
-                      {new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long' }).format(selected)}
+                    <p className='text-sm font-semibold text-dark dark:text-white'>
+                      {/* Capitalize only the first letter, not every word, so it
+                          reads "Sábado, 21 de noviembre" (Andrés #19.4). */}
+                      {(() => {
+                        const s = new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long' }).format(selected)
+                        return s.charAt(0).toUpperCase() + s.slice(1)
+                      })()}
                     </p>
                     {targetSucursal && (
                       <span className='inline-flex items-center gap-1 text-xs font-normal text-link dark:text-darklink'>

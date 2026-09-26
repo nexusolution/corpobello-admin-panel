@@ -277,6 +277,11 @@ function toDateInput(d: Date): string {
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
 }
+// 'YYYY-MM-DD' → 'DD/MM/YYYY' for user-facing dates (Andrés: DD/MM/AAAA everywhere).
+function ymdToDMY(s: string): string {
+  const [y, m, d] = s.split('-')
+  return y && m && d ? `${d}/${m}/${y}` : s
+}
 function startOfDay(dateStr: string): Date {
   return new Date(`${dateStr}T00:00:00`)
 }
@@ -2745,6 +2750,9 @@ export function CalendarView() {
         sucursal: next.sucursal,
         professionalId: orig?.professionalId ?? null,
       })
+      // Land on the DESTINATION so the change is visible right away, keeping the
+      // current view (Mes → destination month, Día → destination day). Andrés #19.3.
+      setDate(new Date(`${next.dateStr}T00:00:00`))
     },
     [rescheduleTurno, events, applyMoveWithUndo],
   )
@@ -2809,12 +2817,12 @@ export function CalendarView() {
       const sucLabel = sucursal ? sucursalLabel(sucursal) : t('turno.none')
       const summaryHtml =
         `<div style="text-align:left">` +
-        `<div>${t('reschedule.from')}: ${toDateInput(orig.start)} · ${toTimeInput(orig.start)} · ${
+        `<div>${t('reschedule.from')}: ${ymdToDMY(toDateInput(orig.start))} · ${toTimeInput(orig.start)} · ${
           orig.professionalId
             ? professionals.find((p) => p.value === orig.professionalId)?.label || orig.professionalId
             : t('turno.none')
         } · ${orig.sucursal ? sucursalLabel(orig.sucursal) : t('turno.none')}</div>` +
-        `<div style="font-weight:600;margin-top:.25em">${t('reschedule.toLabel')}: ${dateStr} · ${minToHHMM(
+        `<div style="font-weight:600;margin-top:.25em">${t('reschedule.toLabel')}: ${ymdToDMY(dateStr)} · ${minToHHMM(
           startMin,
         )} · ${profLabel || t('turno.none')} · ${sucLabel}</div></div>`
 
@@ -3149,6 +3157,9 @@ export function CalendarView() {
   // the turno to that day (keeping time/professional/sucursal). Ref for empty-deps.
   const attemptMoveRef = useRef(attemptMove)
   attemptMoveRef.current = attemptMove
+  // Open a turno from a Month circle (Andrés #19.5: click circle → open turno).
+  // Ref so the empty-deps dateCellWrapper always calls the latest handler.
+  const openTurnoRef = useRef<(e: CalendarEvent) => void>(() => {})
 
   // "Sesión N/M" per turno: order a pack's non-cancelled turnos by date and
   // label each with its position + the pack total. Shown discreetly on the card.
@@ -3636,6 +3647,7 @@ export function CalendarView() {
       laserZones: ev.laserZones,
     })
   }, [])
+  openTurnoRef.current = onSelectEvent
 
   // Deep-link from the patient ficha (Reservas → click turno): ?event=<id> lands
   // on that turno's date in Vista Día and FLASHES the exact card, keeping the
@@ -3855,6 +3867,12 @@ export function CalendarView() {
                     onDragStart={(ev) => {
                       ev.dataTransfer.setData('text/plain', tt.id)
                       ev.dataTransfer.effectAllowed = 'move'
+                    }}
+                    onClick={(ev) => {
+                      // Click a circle → open that turno directly (Andrés #19.5);
+                      // dragging still moves it, clicking empty cell still drills.
+                      ev.stopPropagation()
+                      openTurnoRef.current(tt)
                     }}
                     onDragOver={(ev) => {
                       ev.preventDefault()
