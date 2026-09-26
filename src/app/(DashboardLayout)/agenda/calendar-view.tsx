@@ -2101,7 +2101,8 @@ export function CalendarView() {
   const columnsActive = inColumns && view === Views.DAY
   // Vertical time scale (minutes per slot) for Week/Day — a zoom, not the real
   // duration. Smaller = short turnos read clearly (Andrés 2026-09-11).
-  const [scaleMin, setScaleMin] = useState(30)
+  // Default time scale = 15 min (Andrés 2026-09-26); changeable from the selector.
+  const [scaleMin, setScaleMin] = useState(15)
   const [availRules, setAvailRules] = useState<AvailabilityRule[]>([])
   const [availExclusions, setAvailExclusions] = useState<AvailabilityExclusion[]>([])
   // Configurable lunch (migration 0052): habitual config + per-day overrides.
