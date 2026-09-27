@@ -74,6 +74,8 @@ import {
 } from '@/lib/scheduling/availability'
 import { suggestDurationMinutes, isLaserSlug } from '@/lib/scheduling/duration'
 import { computeLaserDuration, defaultLaserDurationConfig, type LaserSex, type LaserDurationConfig } from '@/lib/scheduling/laser-duration'
+import { computeLaserPrice, fetchLaserPriceConfig, LASER_PRICE_KEY_BY_ZONE } from '@/lib/scheduling/laser-price'
+import { LASER_DEFAULT, type LaserRulesJson } from '@/lib/data/quoting-defaults'
 import { fetchLaserDurationConfig } from '@/lib/data/laser-duration-config'
 import {
   fetchLunch,
@@ -547,6 +549,9 @@ type Draft = {
   depositAmount: string
   depositDate: string
   depositReceived: boolean
+  // Valor total del turno (Etapa 2): sugerido automáticamente para láser desde las
+  // zonas, editable a mano. '' = sin total.
+  totalAmount: string
   // Depilación láser: sex table + zonas selected by click (Etapa 2). null/[] for
   // non-láser turnos. Drive the internal duration engine.
   laserSex: LaserSex | null
@@ -744,6 +749,7 @@ function EventDialog({
   catalogSlugs,
   treatmentDurations,
   laserConfig,
+  laserPriceConfig,
   lunchFor,
   professionalDoesTreatment,
   allEvents,
@@ -778,6 +784,9 @@ function EventDialog({
   treatmentDurations: Map<string, number>
   // Configurable láser duration tables (Autogestión → Tiempos de láser).
   laserConfig: LaserDurationConfig
+  // Cotizador láser price config (Autogestión → Cotizadores → Láser) — per-zone
+  // prices reused to suggest the turno total (Etapa 2).
+  laserPriceConfig: LaserRulesJson
   // Resolve the lunch window for (sucursal, professional, date) — used to block
   // booking over lunch (Andrés punto 5).
   lunchFor: (sucursal: string, professionalId: string | undefined, dateStr: string) => LunchWindow | null
@@ -853,6 +862,9 @@ function EventDialog({
   const [depositAmount, setDepositAmount] = useState(draft.depositAmount)
   const [depositDate, setDepositDate] = useState(draft.depositDate)
   const [depositReceived, setDepositReceived] = useState(draft.depositReceived)
+  // Valor total del turno (Etapa 2): auto-sugerido para láser desde las zonas
+  // (precio por zona del cotizador), editable. Preserved on reprogramación.
+  const [totalAmount, setTotalAmount] = useState(draft.totalAmount)
   // Primera sesión: bumps the auto-suggested duration (charla/explicación previa).
   const [firstSession, setFirstSession] = useState(false)
   // Depilación láser (Etapa 2): sex table + zonas selected by click. When the
@@ -973,12 +985,26 @@ function EventDialog({
     setEndStr(toDateInput(end))
     setEndTime(toTimeInput(end))
   }
-  // Toggle a láser zona and recompute the duration immediately (Etapa 2 spec:
-  // recalcular al agregar/quitar zonas). The end stays editable afterwards.
+  // Auto-suggest the turno TOTAL for depilación láser from its zonas, reusing the
+  // cotizador per-zone prices (Etapa 2, línea firmada 273). Sets the editable total
+  // to the LIST value; the cash/efectivo total is shown alongside as a hint. Only
+  // runs for láser with zonas — other treatments keep whatever total is typed.
+  const applyAutoPrice = (
+    slug: string = treatmentSlug,
+    zones: string[] = laserZones,
+    sex: LaserSex = laserSex,
+  ) => {
+    if (!isLaserSlug(slug) || zones.length === 0) return
+    const { listTotal } = computeLaserPrice(sex, zones, laserConfig, laserPriceConfig)
+    if (listTotal > 0) setTotalAmount(String(listTotal))
+  }
+  // Toggle a láser zona and recompute the duration + suggested total immediately
+  // (Etapa 2 spec: recalcular al agregar/quitar zonas). Both stay editable after.
   const toggleLaserZone = (key: string) => {
     setLaserZones((prev) => {
       const next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
       applyAutoDuration(treatmentSlug, firstSession, startStr, startTime, next, laserSex)
+      applyAutoPrice(treatmentSlug, next, laserSex)
       return next
     })
   }
@@ -989,7 +1015,26 @@ function EventDialog({
     const kept = laserZones.filter((k) => valid.has(k))
     setLaserZones(kept)
     applyAutoDuration(treatmentSlug, firstSession, startStr, startTime, kept, sex)
+    applyAutoPrice(treatmentSlug, kept, sex)
   }
+  // Suggested total for the current láser selection (list + efectivo + unpriced),
+  // recomputed live for the summary footer.
+  const laserPrice = useMemo(
+    () => computeLaserPrice(laserSex, laserZones, laserConfig, laserPriceConfig),
+    [laserSex, laserZones, laserConfig, laserPriceConfig],
+  )
+  // Per-zona list price for the current sex, to show inline in the zone checklist.
+  const zonePriceByKey = useMemo(() => {
+    const m = new Map<string, number | null>()
+    const byKey = new Map(laserPriceConfig.zones.map((z) => [z.key, z.pricePerSession]))
+    const keyMap = LASER_PRICE_KEY_BY_ZONE[laserSex]
+    for (const z of laserConfig[laserSex].zones) {
+      const pk = keyMap[z.key]
+      m.set(z.key, pk != null ? byKey.get(pk) ?? null : null)
+    }
+    return m
+  }, [laserSex, laserConfig, laserPriceConfig])
+  const fmtMoney = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
   const isEdit = draft.id !== null
 
   // Pack context for the selected treatment + patient.
@@ -1173,6 +1218,7 @@ function EventDialog({
             depositAmount,
             depositDate,
             depositReceived,
+            totalAmount,
             laserSex: isLaser ? laserSex : null,
             laserZones: isLaser ? laserZones : [],
           }
@@ -1286,6 +1332,7 @@ function EventDialog({
               depositAmount,
               depositDate,
               depositReceived,
+              totalAmount,
               laserSex: isLaser ? laserSex : null,
               laserZones: isLaser ? laserZones : [],
             }
@@ -1439,6 +1486,7 @@ function EventDialog({
       depositAmount: depositAmount.trim() ? Number(depositAmount.replace(/[^\d.,]/g, '').replace(',', '.')) : null,
       depositDate: depositDate || null,
       depositReceived,
+      totalAmount: totalAmount.trim() ? Number(totalAmount.replace(/[^\d.,]/g, '').replace(',', '.')) : null,
       laserSex: isLaser ? laserSex : null,
       laserZones: isLaser ? laserZones : [],
     }
@@ -1631,6 +1679,7 @@ function EventDialog({
                         depositAmount,
                         depositDate,
                         depositReceived,
+                        totalAmount,
                         laserSex: isLaser ? laserSex : null,
                         laserZones: isLaser ? laserZones : [],
                       }
@@ -1679,6 +1728,7 @@ function EventDialog({
                   const zones = isLaserSlug(v) ? laserZones : []
                   if (!isLaserSlug(v) && laserZones.length) setLaserZones([])
                   applyAutoDuration(v, firstSession, startStr, startTime, zones, laserSex)
+                  applyAutoPrice(v, zones, laserSex)
                 }}
                 colorFor={treatmentColor}
                 t={t}
@@ -1805,7 +1855,13 @@ function EventDialog({
                         className='accent-primary'
                       />
                       <span className='text-sm text-dark dark:text-white flex-1'>{z.label}</span>
-                      <span className='text-[11px] text-link dark:text-darklink'>{z.sola} min</span>
+                      <span className='text-[11px] text-link dark:text-darklink tabular-nums'>
+                        {(() => {
+                          const p = zonePriceByKey.get(z.key)
+                          return p != null ? fmtMoney(p) : t('turno.laser.noPrice')
+                        })()}{' '}
+                        · {z.sola} min
+                      </span>
                     </label>
                   ))}
               </div>
@@ -1818,6 +1874,53 @@ function EventDialog({
                       min: String(computeLaserDuration(laserSex, laserZones, laserConfig).minutes),
                     })}
               </p>
+
+              {/* Total sugerido por zonas (Etapa 2, línea firmada 273): valor total
+                  automático + editable. Se muestran lista y efectivo (mismo % del
+                  cotizador); el campo editable arranca en el total de lista. */}
+              {laserZones.length > 0 && (
+                <div className='rounded-md bg-background/70 border border-border dark:border-darkborder px-2.5 py-2 space-y-1.5'>
+                  <div className='flex items-center justify-between text-xs'>
+                    <span className='text-link dark:text-darklink'>{t('turno.laser.totalList')}</span>
+                    <span className='font-semibold text-dark dark:text-white tabular-nums'>{fmtMoney(laserPrice.listTotal)}</span>
+                  </div>
+                  {laserPrice.efectivoDiscount > 0 && (
+                    <div className='flex items-center justify-between text-xs'>
+                      <span className='text-link dark:text-darklink'>
+                        {t('turno.laser.totalEfectivo', { pct: String(Math.round(laserPrice.efectivoDiscount * 100)) })}
+                      </span>
+                      <span className='font-semibold text-success tabular-nums'>{fmtMoney(laserPrice.efectivoTotal)}</span>
+                    </div>
+                  )}
+                  {laserPrice.unpriced.length > 0 && (
+                    <p className='text-[11px] text-warning flex items-start gap-1'>
+                      <Icon icon='solar:danger-triangle-line-duotone' height={12} width={12} className='mt-0.5 shrink-0' />
+                      {t('turno.laser.someUnpriced')}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <label className='block'>
+                <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.laser.totalEditable')}</span>
+                <div className='mt-1 flex items-center gap-2'>
+                  <input
+                    type='text'
+                    inputMode='decimal'
+                    value={totalAmount}
+                    onChange={(e) => setTotalAmount(e.target.value)}
+                    placeholder='0'
+                    className='flex-1 px-2.5 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+                  />
+                  <button
+                    type='button'
+                    onClick={() => applyAutoPrice(treatmentSlug, laserZones, laserSex)}
+                    disabled={laserZones.length === 0}
+                    className='px-2.5 py-2 rounded-md border border-border dark:border-darkborder text-xs text-link dark:text-darklink hover:bg-lightprimary/40 disabled:opacity-50 whitespace-nowrap'>
+                    {t('turno.laser.useSuggested')}
+                  </button>
+                </div>
+              </label>
             </div>
           )}
 
@@ -2216,6 +2319,9 @@ export function CalendarView() {
   // Configurable láser duration tables (Autogestión → Tiempos de láser, mig 0056);
   // defaults to the PDF values until the admin edits them.
   const [laserConfig, setLaserConfig] = useState<LaserDurationConfig>(defaultLaserDurationConfig)
+  // Cotizador láser prices (Autogestión → Cotizadores → Láser) reused to suggest the
+  // turno total (Etapa 2); defaults to the generated table until the clinic edits it.
+  const [laserPriceConfig, setLaserPriceConfig] = useState<LaserRulesJson>(LASER_DEFAULT)
   // Contextual reschedule dialog (Andrés #19-E): the turno being rescheduled.
   const [rescheduleTurno, setRescheduleTurno] = useState<RescheduleTurno | null>(null)
   const [catalogSlugs, setCatalogSlugs] = useState<string[]>([])
@@ -2366,6 +2472,7 @@ export function CalendarView() {
     // Per-professional treatment capability (Andrés #8) for booking validation.
     void fetchProfessionalTreatments().then(({ data }) => setProfTreatments(data))
     void fetchLaserDurationConfig().then(({ data }) => setLaserConfig(data))
+    void fetchLaserPriceConfig().then((cfg) => setLaserPriceConfig(cfg))
     void fetchAvailability().then(({ rules, exclusions }) => {
       setAvailRules(rules)
       setAvailExclusions(exclusions)
@@ -2816,6 +2923,7 @@ export function CalendarView() {
         depositAmount: orig.depositAmount,
         depositDate: orig.depositDate,
         depositReceived: orig.depositReceived,
+        totalAmount: orig.totalAmount,
         laserSex: orig.laserSex,
         laserZones: orig.laserZones,
         allDay: false,
@@ -3498,6 +3606,7 @@ export function CalendarView() {
         depositAmount: '',
         depositDate: '',
         depositReceived: false,
+        totalAmount: '',
         laserSex: null,
         laserZones: [],
         defaultMonth: toDateInput(date),
@@ -3666,6 +3775,7 @@ export function CalendarView() {
         depositAmount: event.depositAmount,
         depositDate: event.depositDate,
         depositReceived: event.depositReceived,
+        totalAmount: event.totalAmount,
         // Preserve las zonas de láser (Etapa 2) al arrastrar/reprogramar.
         laserSex: event.laserSex,
         laserZones: event.laserZones,
@@ -3805,6 +3915,7 @@ export function CalendarView() {
       depositAmount: ev.depositAmount != null ? String(ev.depositAmount) : '',
       depositDate: ev.depositDate ?? '',
       depositReceived: ev.depositReceived,
+      totalAmount: ev.totalAmount != null ? String(ev.totalAmount) : '',
       laserSex: ev.laserSex,
       laserZones: ev.laserZones,
     })
@@ -4492,6 +4603,7 @@ export function CalendarView() {
           catalogSlugs={catalogSlugs}
           treatmentDurations={treatmentDurations}
           laserConfig={laserConfig}
+          laserPriceConfig={laserPriceConfig}
           lunchFor={lunchFor}
           professionalDoesTreatment={professionalDoesTreatment}
           allEvents={events}
