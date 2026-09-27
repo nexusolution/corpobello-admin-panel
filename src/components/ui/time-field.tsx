@@ -18,6 +18,7 @@ export function TimeField({
   maxMinutes = 22 * 60,
   step = 5,
   placeholder = '--:--',
+  defaultMinutes,
 }: {
   value: string
   onChange: (v: string) => void
@@ -26,29 +27,50 @@ export function TimeField({
   maxMinutes?: number
   step?: number
   placeholder?: string
+  // When there is no value yet (a new turno), open the list positioned at this
+  // minute of the day instead of the earliest option — the day's real availability
+  // start, so the secretary doesn't scroll up from 06:00 (Andrés #20).
+  defaultMinutes?: number
 }) {
   const [open, setOpen] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   const options = useMemo(() => {
-    const out: string[] = []
+    const out: { min: number; label: string }[] = []
     for (let m = minMinutes; m <= maxMinutes; m += step) {
-      out.push(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`)
+      out.push({
+        min: m,
+        label: `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`,
+      })
     }
     return out
   }, [minMinutes, maxMinutes, step])
-  // On open, scroll the list so the current value is centered (not stuck at the
-  // top / earliest hour) — Andrés 2026-09: editing a 10:00 turno must open at 10:00.
-  // Runs on a frame so the popover content is laid out and scrollable first.
+  // On open, position the list: an existing value is CENTERED (editing a 10:00 turno
+  // opens at 10:00). With no value (a new turno) but a defaultMinutes hint, position
+  // that time near the TOP so the list "starts from" the day's real availability
+  // (Andrés #20). Otherwise it stays at the earliest option. Runs on a frame so the
+  // popover content is laid out and scrollable first.
   useEffect(() => {
     if (!open) return
     const raf = requestAnimationFrame(() => {
       const cont = listRef.current
-      const el = cont?.querySelector<HTMLElement>('[data-selected="true"]')
-      if (!cont || !el) return
-      cont.scrollTop = el.offsetTop - cont.clientHeight / 2 + el.clientHeight / 2
+      if (!cont) return
+      const sel = cont.querySelector<HTMLElement>('[data-selected="true"]')
+      if (sel) {
+        cont.scrollTop = sel.offsetTop - cont.clientHeight / 2 + sel.clientHeight / 2
+        return
+      }
+      if (defaultMinutes != null) {
+        // Snap the hint onto the option grid, clamped to the list's range.
+        const snapped = Math.min(
+          maxMinutes,
+          Math.max(minMinutes, Math.round(defaultMinutes / step) * step),
+        )
+        const hint = cont.querySelector<HTMLElement>(`[data-min="${snapped}"]`)
+        if (hint) cont.scrollTop = hint.offsetTop
+      }
     })
     return () => cancelAnimationFrame(raf)
-  }, [open])
+  }, [open, defaultMinutes, minMinutes, maxMinutes, step])
 
   const trigger =
     'w-full flex items-center justify-between gap-2 text-left rounded-md border border-border dark:border-darkborder bg-background px-2.5 py-2 text-sm text-dark dark:text-white hover:border-primary focus:outline-none focus:border-primary transition-colors'
@@ -70,15 +92,16 @@ export function TimeField({
         <div ref={listRef} className='max-h-60 overflow-y-auto'>
           {options.map((o) => (
             <button
-              key={o}
+              key={o.label}
               type='button'
-              data-selected={o === value}
+              data-min={o.min}
+              data-selected={o.label === value}
               onClick={() => {
-                onChange(o)
+                onChange(o.label)
                 setOpen(false)
               }}
-              className={`w-full text-left px-2.5 py-1.5 rounded text-sm hover:bg-lightprimary text-dark dark:text-white ${o === value ? 'bg-lightprimary/60' : ''}`}>
-              {o}
+              className={`w-full text-left px-2.5 py-1.5 rounded text-sm hover:bg-lightprimary text-dark dark:text-white ${o.label === value ? 'bg-lightprimary/60' : ''}`}>
+              {o.label}
             </button>
           ))}
         </div>

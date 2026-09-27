@@ -747,6 +747,7 @@ function EventDialog({
   lunchFor,
   professionalDoesTreatment,
   allEvents,
+  dialogAvailWindow,
   isSucursalClosed,
   closureReasonFor,
   isAdmin,
@@ -784,6 +785,14 @@ function EventDialog({
   professionalDoesTreatment: (professionalId: string, slug: string) => boolean
   // All loaded turnos, to warn about overlaps (sobre-turnos) on save.
   allEvents: CalendarEvent[]
+  // Day availability window for the turno being edited (Andrés #20): so the hour
+  // pickers open positioned at the day's real start instead of 06:00.
+  dialogAvailWindow: (
+    ds: string,
+    sucursal: string | undefined,
+    slug: string | undefined,
+    professionalId: string | undefined,
+  ) => { openMin: number; closeMin: number } | null
   // Is (date, sucursal) closed by a feriado/branch-closure block? + the reason to
   // show. Closed days are NOT forceable (Andrés 2026-09-18): admin is guided to
   // Autogestión, staff is told to ask an admin.
@@ -1052,6 +1061,20 @@ function EventDialog({
   // professional does not perform this treatment" from "no programmed availability
   // at this branch/date", and show BOTH when both apply, instead of one generic
   // message. Same wording as the save-time notice.
+  // Where the hour picker should open for a NEW turno with no time yet: the day's
+  // real availability start, so the secretary doesn't scroll up from 06:00 (Andrés
+  // #20). Reflects the chosen sucursal/treatment/professional once picked.
+  const startScrollMin = useMemo(
+    () =>
+      dialogAvailWindow(
+        startStr,
+        sucursal || undefined,
+        treatmentSlug || undefined,
+        professionalId || undefined,
+      )?.openMin ?? null,
+    [dialogAvailWindow, startStr, sucursal, treatmentSlug, professionalId],
+  )
+
   const inlineIssues = useMemo(() => {
     const who = professionalId ? professionals.find((p) => p.value === professionalId)?.label || '' : ''
     const sucTxt = sucursal ? sucursalLabel(sucursal) : ''
@@ -1905,6 +1928,7 @@ function EventDialog({
                 <TimeField
                   className='mt-1'
                   value={startTime}
+                  defaultMinutes={startScrollMin ?? undefined}
                   onChange={(v) => {
                     setStartTime(v)
                     // Keep the auto-blocked duration when the start moves.
@@ -1914,7 +1938,12 @@ function EventDialog({
               </label>
               <label className='block'>
                 <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.endTime')}</span>
-                <TimeField className='mt-1' value={endTime} onChange={setEndTime} />
+                <TimeField
+                  className='mt-1'
+                  value={endTime}
+                  defaultMinutes={startScrollMin ?? undefined}
+                  onChange={setEndTime}
+                />
               </label>
             </div>
           )}
@@ -2474,6 +2503,51 @@ export function CalendarView() {
   const shadeWindow = useCallback(
     (d: Date) => (sucursalFilter ? sucursalOpen(toDateInput(d), sucursalFilter) : null),
     [sucursalFilter, sucursalOpen],
+  )
+
+  // Availability window for the EventDialog's time pickers (Andrés #20): earliest
+  // open / latest close for the turno being created/edited, so the hour list opens
+  // positioned at the day's REAL start instead of 06:00. Parameterised by the
+  // dialog's own selection (date + sucursal/treatment/professional if chosen) and
+  // deliberately IGNORES the grid's active filters (a new turno is not constrained
+  // by what the agenda is currently filtering to). No sucursal chosen yet → union
+  // across every branch open that day; no treatment/professional → all of them.
+  const dialogAvailWindow = useCallback(
+    (
+      ds: string,
+      sucursal: string | undefined,
+      slug: string | undefined,
+      professionalId: string | undefined,
+    ): { openMin: number; closeMin: number } | null => {
+      if (!ds) return null
+      const slugs = slug ? [slug] : catalogSlugs
+      const realProfs = professionals.map((p) => p.value)
+      const profs: (string | undefined)[] = professionalId
+        ? [professionalId]
+        : realProfs.length
+          ? realProfs
+          : [undefined]
+      const sucs = sucursal ? [sucursal] : [...SUCURSALES]
+      let open = false
+      let openMin = Number.POSITIVE_INFINITY
+      let closeMin = Number.NEGATIVE_INFINITY
+      const take = (w: { open: boolean; openMin?: number; closeMin?: number }) => {
+        if (!w.open) return
+        open = true
+        openMin = Math.min(openMin, w.openMin ?? openMin)
+        closeMin = Math.max(closeMin, w.closeMin ?? closeMin)
+      }
+      for (const suc of sucs) {
+        if (isSucursalClosed(ds, suc)) continue
+        const hol = (d: string) => isSucursalClosed(d, suc)
+        for (const sl of slugs) {
+          take(genericAvailability(ds, suc, sl, availRules, hol))
+          for (const p of profs) take(availabilityFor(ds, suc, sl, availRules, [], p, hol))
+        }
+      }
+      return open && openMin < closeMin ? { openMin, closeMin } : null
+    },
+    [catalogSlugs, professionals, availRules, isSucursalClosed],
   )
 
   // "Todas" overview: which sucursales are open on a date (per the filters) —
@@ -4421,6 +4495,7 @@ export function CalendarView() {
           lunchFor={lunchFor}
           professionalDoesTreatment={professionalDoesTreatment}
           allEvents={events}
+          dialogAvailWindow={dialogAvailWindow}
           isSucursalClosed={isSucursalClosed}
           closureReasonFor={closureReasonFor}
           // Closed days are NOT forceable (Andrés 2026-09-18): admin is guided to
