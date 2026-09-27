@@ -147,6 +147,9 @@ export type CalendarEvent = {
   // keeps the zonas. Empty/null for non-láser turnos.
   laserSex: 'mujer' | 'varon' | null
   laserZones: string[]
+  // Zona corporal para tratamientos NO láser (migration 0061, línea firmada 276):
+  // dónde se trabaja, cuando corresponde. Independiente de laser_zones.
+  bodyZones: string[]
   createdAt: Date
 }
 
@@ -173,6 +176,7 @@ type Row = {
   treatments: TurnoTreatment[] | null
   laser_sex: string | null
   laser_zones: string[] | null
+  body_zones: string[] | null
   created_at: string
   patient: { full_name: string | null } | { full_name: string | null }[] | null
 }
@@ -220,6 +224,7 @@ function rowToEvent(r: Row): CalendarEvent {
           : [],
     laserSex: r.laser_sex === 'mujer' || r.laser_sex === 'varon' ? r.laser_sex : null,
     laserZones: r.laser_zones ?? [],
+    bodyZones: r.body_zones ?? [],
     createdAt: new Date(r.created_at),
   }
 }
@@ -256,7 +261,7 @@ export async function autoCancelExpiredReservas(): Promise<{
 }
 
 const SELECT =
-  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, observaciones, pack_id, deposit_amount, deposit_date, deposit_received, total_amount, reschedule_reason, reschedule_history, treatments, laser_sex, laser_zones, created_at, patient:patient_id (full_name)'
+  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, observaciones, pack_id, deposit_amount, deposit_date, deposit_received, total_amount, reschedule_reason, reschedule_history, treatments, laser_sex, laser_zones, body_zones, created_at, patient:patient_id (full_name)'
 
 export async function fetchCalendarEvents(): Promise<{
   data: CalendarEvent[]
@@ -290,6 +295,9 @@ export type CalendarEventInput = {
   totalAmount: number | null
   laserSex: 'mujer' | 'varon' | null
   laserZones: string[]
+  // Zona corporal (línea 276). OPTIONAL: a drag/move leaves it undefined so toPayload
+  // preserves the column; the dialog sets it.
+  bodyZones?: string[]
   // Reprogramación (línea firmada 284). OPTIONAL on purpose: a normal save leaves
   // them undefined so toPayload does NOT touch the columns (history is preserved);
   // only the reschedule flows set them.
@@ -332,6 +340,8 @@ function toPayload(input: CalendarEventInput) {
     payload.treatments = input.treatments
     if (input.treatments.length > 0) payload.treatment_slug = input.treatments[0]!.slug
   }
+  // Zona corporal: only when provided (the dialog), so a drag/move preserves it.
+  if (input.bodyZones !== undefined) payload.body_zones = input.bodyZones
   return payload
 }
 

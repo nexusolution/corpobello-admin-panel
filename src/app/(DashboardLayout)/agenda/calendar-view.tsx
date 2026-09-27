@@ -265,6 +265,33 @@ function sucursalLabel(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
+// Generic body-zone quick-picks for NON-laser treatments (Andrés línea 276). A broad
+// anatomical set the secretary/professional picks from "cuando corresponde"; free
+// text can add anything else. Láser has its own detailed zone engine instead.
+const BODY_ZONE_PRESETS = [
+  'Rostro',
+  'Cuello',
+  'Escote',
+  'Papada',
+  'Mamas',
+  'Abdomen',
+  'Cintura',
+  'Flancos',
+  'Espalda',
+  'Brazos',
+  'Antebrazos',
+  'Manos',
+  'Axilas',
+  'Glúteos',
+  'Cadera',
+  'Piernas',
+  'Muslos',
+  'Rodillas',
+  'Pantorrillas',
+  'Tobillos',
+  'Pies',
+] as const
+
 // Resource id for turnos with no sucursal set, in the "columns by branch" view.
 const NONE_RESOURCE = '__sin__'
 
@@ -565,6 +592,8 @@ type Draft = {
   // non-láser turnos. Drive the internal duration engine.
   laserSex: LaserSex | null
   laserZones: string[]
+  // Zona corporal (línea firmada 276) para tratamientos no láser. Opcional.
+  bodyZones?: string[]
   // Month the date picker should open on when the date is still empty (Andrés
   // punto 20): "Nuevo evento" from Month keeps the field empty but opens the
   // calendar on the month currently in view, not today.
@@ -886,6 +915,9 @@ function EventDialog({
   const [laserZones, setLaserZones] = useState<string[]>(draft.laserZones ?? [])
   const [zoneQuery, setZoneQuery] = useState('')
   const isLaser = isLaserSlug(treatmentSlug)
+  // Zona corporal para tratamientos NO láser (línea firmada 276) — opcional.
+  const [bodyZones, setBodyZones] = useState<string[]>(draft.bodyZones ?? [])
+  const [bodyZoneInput, setBodyZoneInput] = useState('')
 
   // Multi-tratamiento por turno (línea firmada 269-271). The PRIMARY treatment is
   // `treatmentSlug` above (drives colour/disponibilidad/capacidad/láser); its price
@@ -1138,6 +1170,16 @@ function EventDialog({
       return next
     })
   }
+
+  // ── Zona corporal (tratamientos no láser, línea firmada 276) ────────────────────
+  const toggleBodyZone = (z: string) =>
+    setBodyZones((prev) => (prev.includes(z) ? prev.filter((x) => x !== z) : [...prev, z]))
+  const addBodyZoneFromInput = () => {
+    const z = bodyZoneInput.trim()
+    if (!z) return
+    setBodyZones((prev) => (prev.some((x) => x.toLowerCase() === z.toLowerCase()) ? prev : [...prev, z]))
+    setBodyZoneInput('')
+  }
   const isEdit = draft.id !== null
 
   // Pack context for the selected treatment + patient.
@@ -1335,6 +1377,7 @@ function EventDialog({
             treatments: buildTreatments(),
             laserSex: isLaser ? laserSex : null,
             laserZones: isLaser ? laserZones : [],
+            bodyZones: isLaser ? [] : bodyZones,
           }
           try {
             sessionStorage.setItem(
@@ -1450,6 +1493,7 @@ function EventDialog({
               treatments: buildTreatments(),
               laserSex: isLaser ? laserSex : null,
               laserZones: isLaser ? laserZones : [],
+              bodyZones: isLaser ? [] : bodyZones,
             }
             try {
               sessionStorage.setItem(
@@ -1605,6 +1649,7 @@ function EventDialog({
       treatments: buildTreatments(),
       laserSex: isLaser ? laserSex : null,
       laserZones: isLaser ? laserZones : [],
+      bodyZones: isLaser ? [] : bodyZones,
     }
     // Build the audit entry (who / when / what) before persisting.
     const statusLabel = (s: TurnoStatus) => statusLabelFor(s)
@@ -1799,6 +1844,7 @@ function EventDialog({
                         treatments: buildTreatments(),
                         laserSex: isLaser ? laserSex : null,
                         laserZones: isLaser ? laserZones : [],
+                        bodyZones: isLaser ? [] : bodyZones,
                       }
                       try {
                         sessionStorage.setItem(
@@ -2022,6 +2068,65 @@ function EventDialog({
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Zona corporal para tratamientos NO láser (línea firmada 276): selector
+              opcional de dónde se trabaja. La depilación láser usa su propio selector
+              de zonas arriba. */}
+          {!isLaser && treatmentSlug && (
+            <div className='rounded-md border border-border dark:border-darkborder bg-muted/20 px-3 py-2.5 space-y-2'>
+              <div className='flex items-center gap-1.5 text-xs font-semibold text-dark dark:text-white'>
+                <Icon icon='solar:map-point-line-duotone' height={15} width={15} className='text-primary' />
+                {t('turno.bodyZone.title')}
+                <span className='font-normal text-link dark:text-darklink'>· {t('turno.bodyZone.optional')}</span>
+              </div>
+              {bodyZones.length > 0 && (
+                <div className='flex flex-wrap gap-1.5'>
+                  {bodyZones.map((z) => (
+                    <button
+                      key={z}
+                      type='button'
+                      onClick={() => toggleBodyZone(z)}
+                      className='inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary text-white text-xs'>
+                      {z}
+                      <Icon icon='tabler:x' height={12} width={12} />
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className='flex flex-wrap gap-1.5'>
+                {BODY_ZONE_PRESETS.filter((z) => !bodyZones.includes(z)).map((z) => (
+                  <button
+                    key={z}
+                    type='button'
+                    onClick={() => toggleBodyZone(z)}
+                    className='inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-border dark:border-darkborder text-xs text-link dark:text-darklink hover:bg-lightprimary/40'>
+                    <Icon icon='tabler:plus' height={11} width={11} />
+                    {z}
+                  </button>
+                ))}
+              </div>
+              <div className='flex items-center gap-2'>
+                <input
+                  value={bodyZoneInput}
+                  onChange={(e) => setBodyZoneInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addBodyZoneFromInput()
+                    }
+                  }}
+                  placeholder={t('turno.bodyZone.addPlaceholder')}
+                  className='flex-1 px-2.5 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary'
+                />
+                <button
+                  type='button'
+                  onClick={addBodyZoneFromInput}
+                  className='px-2.5 py-1.5 rounded-md border border-border dark:border-darkborder text-xs text-link dark:text-darklink hover:bg-lightprimary/40'>
+                  {t('turno.bodyZone.add')}
+                </button>
+              </div>
             </div>
           )}
 
@@ -4218,6 +4323,7 @@ export function CalendarView() {
       treatments: ev.treatments,
       laserSex: ev.laserSex,
       laserZones: ev.laserZones,
+      bodyZones: ev.bodyZones,
     })
   }, [])
   openTurnoRef.current = onSelectEvent
