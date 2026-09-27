@@ -3245,6 +3245,9 @@ export function CalendarView() {
   // Open a turno from a Month circle (Andrés #19.5: click circle → open turno).
   // Ref so the empty-deps dateCellWrapper always calls the latest handler.
   const openTurnoRef = useRef<(e: CalendarEvent) => void>(() => {})
+  // Drill into a day from the Month overlay (own date number + empty cell). Ref so
+  // the empty-deps dateCellWrapper always calls the latest handler.
+  const openDayFromMonthRef = useRef<(d: Date) => void>(() => {})
 
   // "Sesión N/M" per turno: order a pack's non-cancelled turnos by date and
   // label each with its position + the pack total. Shown discreetly on the card.
@@ -3733,6 +3736,7 @@ export function CalendarView() {
     })
   }, [])
   openTurnoRef.current = onSelectEvent
+  openDayFromMonthRef.current = openDayFromMonth
 
   // Deep-link from the patient ficha (Reservas → click turno): ?event=<id> lands
   // on that turno's date in Vista Día and FLASHES the exact card, keeping the
@@ -3899,6 +3903,28 @@ export function CalendarView() {
       onDrop?: (ev: ReactDragEvent) => void
     }>
     const ds = toDateInput(props.value)
+    // The day-cell overlay now sits ABOVE RBC's content layer (see calendar-theme
+    // .css: `.rbc-month-view .rbc-day-bg { z-index: 5 }`) so EVERY turno circle is
+    // directly grabbable — including the top row, which the date cell used to cover
+    // (Andrés #19.1). Because the overlay is on top, RBC's own date number is hidden
+    // and we render our own here, muted for other-month ("off range") days.
+    const cellClass = (el.props as { className?: string }).className ?? ''
+    const isOffRange = cellClass.includes('rbc-off-range')
+    const isToday = ds === toDateInput(new Date())
+    const dayNumBadge = (
+      <button
+        type='button'
+        className={`cb-month-daynum${isOffRange ? ' cb-month-daynum-off' : ''}${
+          isToday ? ' cb-month-daynum-today' : ''
+        }`}
+        onMouseDown={(ev) => ev.stopPropagation()}
+        onClick={(ev) => {
+          ev.stopPropagation()
+          openDayFromMonthRef.current(props.value)
+        }}>
+        {props.value.getDate()}
+      </button>
+    )
     const dayMap = turnosByDaySucursalRef.current.get(ds)
     const openSucs = new Set(sedeMarkersRef.current(props.value).map((m) => m.sucursal))
     // A band is drawn for any sucursal that is programmed-open OR merely has a
@@ -3924,12 +3950,21 @@ export function CalendarView() {
         if (id) void attemptMoveRef.current(id, { dateStr: ds })
       },
     }
-    if (bandKeys.length === 0) return cloneElement(el, dropProps)
+    if (bandKeys.length === 0) {
+      // No bands, but still render our own date number (RBC's is hidden) and keep
+      // the day a drop target.
+      return cloneElement(
+        el,
+        dropProps,
+        <div className='cb-month-bands cb-month-bands-empty'>{dayNumBadge}</div>,
+      )
+    }
     // Circles shown per band before the "+N" pill, adaptive to how many bands work
     // that day (Andrés spec: 1 → 9, 2 → 5, 3+ → 3). Each band keeps its own "+N".
     const cap = bandKeys.length === 1 ? 9 : bandKeys.length === 2 ? 5 : 3
     const overlay = (
       <div className='cb-month-bands'>
+        {dayNumBadge}
         {bandKeys.map((key) => {
           const isNone = key === NONE_RESOURCE
           const turnos = dayMap?.get(key) ?? []
@@ -3953,6 +3988,9 @@ export function CalendarView() {
                       ev.dataTransfer.setData('text/plain', tt.id)
                       ev.dataTransfer.effectAllowed = 'move'
                     }}
+                    // Stop RBC's slot-selection (mousedown based) so clicking a
+                    // circle ONLY opens its turno and never also drills to the day.
+                    onMouseDown={(ev) => ev.stopPropagation()}
                     onClick={(ev) => {
                       // Click a circle → open that turno directly (Andrés #19.5);
                       // dragging still moves it, clicking empty cell still drills.
@@ -3996,6 +4034,7 @@ export function CalendarView() {
                   type='button'
                   className='cb-month-more'
                   title={t('agenda.moreTurnos', { n: String(extra) })}
+                  onMouseDown={(ev) => ev.stopPropagation()}
                   onClick={(ev) => {
                     // Open the day panel (all turnos), not drill into the day.
                     ev.stopPropagation()

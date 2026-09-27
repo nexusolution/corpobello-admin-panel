@@ -80,6 +80,12 @@
 }
 .rbc-month-view .rbc-day-bg {
   position: relative;
+  /* Lift the day background (which holds our turno-circle overlay) ABOVE RBC's
+     content layer (z-index 4) so EVERY circle is directly grabbable — the top row
+     used to be covered by the date cell, so its circles could not be dragged and
+     just drilled into the day (Andrés #19.1). With the overlay on top, RBC's own
+     date number is hidden and we render our own inside the overlay. */
+  z-index: 5;
 }
 /* Vertical stack of equal per-sucursal bands (50/50, or thirds for 3 sucursales).
    Inset from the cell edges by a NEUTRAL gap + rounded frame so a day's colours
@@ -102,6 +108,51 @@
 }
 .dark .cb-month-bands {
   box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.3);
+}
+/* Days with no turnos/bands still carry the overlay (for our own date number),
+   but without the coloured ring/frame. */
+.cb-month-bands-empty {
+  box-shadow: none;
+  overflow: visible;
+}
+
+/* Our own month date number (RBC's is hidden — the overlay sits on top). Pinned to
+   the day's top-left, a neutral chip so it stays legible over the colour bands, and
+   clickable to drill into that day. */
+.cb-month-daynum {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  z-index: 3;
+  pointer-events: auto;
+  cursor: pointer;
+  min-width: 18px;
+  padding: 1px 5px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #2a3547;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px rgba(51, 65, 85, 0.12);
+}
+.dark .cb-month-daynum {
+  color: #eaeff4;
+  background: rgba(38, 48, 65, 0.9);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.cb-month-daynum-off {
+  color: #aeb9c4;
+  background: transparent;
+  box-shadow: none;
+}
+.dark .cb-month-daynum-off {
+  color: #4b5876;
+}
+/* TODAY: bold, primary-coloured number to match the blue ring on the cell. */
+.cb-month-daynum-today {
+  color: #5d87ff;
+  font-weight: 800;
 }
 .cb-month-band {
   flex: 1 1 0;
@@ -232,37 +283,18 @@
 .dark .rbc-month-view .rbc-month-row + .rbc-month-row {
   border-top: 1px solid #44526a;
 }
-/* Month drag (Andrés #19-D): the per-sucursal turno dots live in the day
-   BACKGROUND overlay, which RBC renders BEHIND its content layer — so the pointer
-   never reached the dots (arrow cursor, no grab, no drag). Make the content layer
-   pointer-transparent so the pointer falls through to the dots (which set their own
-   pointer-events), and re-enable it on the date number so it stays clickable.
-   Empty-cell clicks still drill via RBC's slot selection on the background. */
-.rbc-month-view .rbc-row-content {
+/* Month drag (Andrés #19-D/#19.1): the turno dots live in the day-background
+   overlay, now lifted ABOVE RBC's content layer (see `.rbc-day-bg { z-index: 5 }`),
+   so every circle — including the top row — is directly grabbable. RBC's content
+   layer sits behind and inert; make it pointer-transparent, and HIDE RBC's own date
+   number since we render our own on top (.cb-month-daynum). Empty-cell clicks still
+   drill via RBC's slot selection (mousedown on the month row bubbles through). */
+.rbc-month-view .rbc-row-content,
+.rbc-month-view .rbc-date-cell {
   pointer-events: none;
 }
-.rbc-month-view .rbc-date-cell,
 .rbc-month-view .rbc-date-cell .rbc-button-link {
-  pointer-events: auto;
-}
-/* Keep the day number clearly above the colours with a subtle neutral chip. */
-.rbc-month-view .rbc-date-cell {
-  position: relative;
-  z-index: 2;
-}
-.rbc-month-view .rbc-date-cell .rbc-button-link {
-  display: inline-block;
-  min-width: 18px;
-  padding: 0 5px;
-  border-radius: 6px;
-  /* A more solid neutral chip so the day number stays clearly legible on top of
-     the colour bands (Andrés #12). */
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 0 0 1px rgba(51, 65, 85, 0.12);
-}
-.dark .rbc-month-view .rbc-date-cell .rbc-button-link {
-  background: rgba(38, 48, 65, 0.9);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
+  visibility: hidden;
 }
 
 /* Month view: mark TODAY with a clear border around the whole cell + a bold,
