@@ -57,6 +57,7 @@ import {
   type PatientOption,
   type PatientBasics,
   type RescheduleEntry,
+  type TurnoTreatment,
 } from '@/lib/data/calendar-events'
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
 import { fetchMenuOverrides } from '@/lib/data/menu-overrides'
@@ -557,6 +558,9 @@ type Draft = {
   // el turno original + motivos en el diálogo. No se escribe desde acá.
   rescheduleReason?: string | null
   rescheduleHistory?: RescheduleEntry[]
+  // Tratamientos del turno (línea firmada 269): primario + adicionales con subtotal
+  // y descuento. Opcional: los turnos nuevos arrancan con el primario elegido arriba.
+  treatments?: TurnoTreatment[]
   // Depilación láser: sex table + zonas selected by click (Etapa 2). null/[] for
   // non-láser turnos. Drive the internal duration engine.
   laserSex: LaserSex | null
@@ -753,6 +757,7 @@ function EventDialog({
   exclusions,
   catalogSlugs,
   treatmentDurations,
+  treatmentPrices,
   laserConfig,
   laserPriceConfig,
   lunchFor,
@@ -787,6 +792,8 @@ function EventDialog({
   // Per-treatment self-managed duration (slug -> minutes); overrides the slug
   // heuristic when auto-blocking a turno's end time.
   treatmentDurations: Map<string, number>
+  // Suggested per-treatment price (slug → list value) for multi-tratamiento subtotals.
+  treatmentPrices: Map<string, number>
   // Configurable láser duration tables (Autogestión → Tiempos de láser).
   laserConfig: LaserDurationConfig
   // Cotizador láser price config (Autogestión → Cotizadores → Láser) — per-zone
@@ -879,6 +886,37 @@ function EventDialog({
   const [laserZones, setLaserZones] = useState<string[]>(draft.laserZones ?? [])
   const [zoneQuery, setZoneQuery] = useState('')
   const isLaser = isLaserSlug(treatmentSlug)
+
+  // Multi-tratamiento por turno (línea firmada 269-271). The PRIMARY treatment is
+  // `treatmentSlug` above (drives colour/disponibilidad/capacidad/láser); its price
+  // fields + any ADDITIONAL treatments live here. Each line has an editable subtotal
+  // (starts at the suggested price) + a configurable discount; the grand total is the
+  // editable `totalAmount`. Init from the turno's treatments[] (line 0 = primary).
+  const money = (s: string) => {
+    const n = parseFloat(s.replace(/[^\d.,]/g, '').replace(',', '.'))
+    return Number.isNaN(n) ? 0 : n
+  }
+  const moneyOrNull = (s: string): number | null => (s.trim() === '' ? null : money(s))
+  const initTreatments =
+    draft.treatments && draft.treatments.length > 0
+      ? draft.treatments
+      : draft.treatmentSlug
+        ? [{ slug: draft.treatmentSlug, subtotal: null, discount: null } as TurnoTreatment]
+        : []
+  const [primarySubtotal, setPrimarySubtotal] = useState(
+    initTreatments[0]?.subtotal != null ? String(initTreatments[0]!.subtotal) : '',
+  )
+  const [primaryDiscount, setPrimaryDiscount] = useState(
+    initTreatments[0]?.discount != null ? String(initTreatments[0]!.discount) : '',
+  )
+  type ExtraLine = { slug: string; subtotal: string; discount: string }
+  const [extraTreatments, setExtraTreatments] = useState<ExtraLine[]>(
+    initTreatments.slice(1).map((l) => ({
+      slug: l.slug,
+      subtotal: l.subtotal != null ? String(l.subtotal) : '',
+      discount: l.discount != null ? String(l.discount) : '',
+    })),
+  )
   // Bidirectional Profesional ↔ Tratamiento filtering (Andrés #8): the treatments
   // the chosen professional performs (null when none chosen → no filter).
   const enabledTreatmentValues = useMemo(
@@ -979,12 +1017,20 @@ function EventDialog({
     sTime: string = startTime,
     zones: string[] = laserZones,
     sex: LaserSex = laserSex,
+    extras: { slug: string }[] = extraTreatments,
   ) => {
     // Skip while the date is still empty (Andrés punto 20): the general "Nuevo
     // evento" opens with no date, so a time picked first must not compute an end
     // off an invalid date. The end is recomputed once a date is chosen.
     if (allDay || !slug || !sStr) return
-    const minutes = suggestedMinutesFor(slug, first, zones, sex)
+    // Multi-tratamiento (línea 269): the turno duration is the PRIMARY treatment's
+    // suggested time + each additional treatment's suggested time.
+    const extraMin = extras.reduce(
+      (sum, e) =>
+        sum + (e.slug ? suggestDurationMinutes(e.slug, false, undefined, treatmentDurations.get(e.slug)) : 0),
+      0,
+    )
+    const minutes = suggestedMinutesFor(slug, first, zones, sex) + extraMin
     if (minutes <= 0) return
     const end = new Date(dateTime(sStr, sTime).getTime() + minutes * 60_000)
     setEndStr(toDateInput(end))
@@ -1001,7 +1047,11 @@ function EventDialog({
   ) => {
     if (!isLaserSlug(slug) || zones.length === 0) return
     const { listTotal } = computeLaserPrice(sex, zones, laserConfig, laserPriceConfig)
-    if (listTotal > 0) setTotalAmount(String(listTotal))
+    if (listTotal > 0) {
+      const s = String(listTotal)
+      setPrimarySubtotal(s)
+      recalcTotal(s, primaryDiscount, extraTreatments)
+    }
   }
   // Toggle a láser zona and recompute the duration + suggested total immediately
   // (Etapa 2 spec: recalcular al agregar/quitar zonas). Both stay editable after.
@@ -1040,6 +1090,54 @@ function EventDialog({
     return m
   }, [laserSex, laserConfig, laserPriceConfig])
   const fmtMoney = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
+
+  // ── Multi-tratamiento pricing (línea firmada 269) ──────────────────────────────
+  // Suggested subtotal (list) for one treatment line: láser uses the zone engine,
+  // any other treatment the flat price base. Editable afterwards.
+  const suggestedSubtotalFor = (slug: string): number => {
+    if (!slug) return 0
+    if (isLaserSlug(slug)) return computeLaserPrice(laserSex, laserZones, laserConfig, laserPriceConfig).listTotal
+    return treatmentPrices.get(slug) ?? 0
+  }
+  // Grand total = Σ (subtotal − discount) over the primary + extra lines. Sets the
+  // editable totalAmount (still overridable by hand). Called with the NEXT values so
+  // it does not lag React's async state.
+  const recalcTotal = (pSub: string, pDisc: string, extras: ExtraLine[]) => {
+    let sum = Math.max(0, money(pSub) - money(pDisc))
+    for (const e of extras) if (e.slug) sum += Math.max(0, money(e.subtotal) - money(e.discount))
+    setTotalAmount(sum > 0 ? String(sum) : '')
+  }
+  // Assemble the treatments[] to persist: primary (treatmentSlug) first, then extras.
+  const buildTreatments = (): TurnoTreatment[] => {
+    if (!treatmentSlug) return []
+    return [
+      { slug: treatmentSlug, subtotal: moneyOrNull(primarySubtotal), discount: moneyOrNull(primaryDiscount) },
+      ...extraTreatments
+        .filter((e) => e.slug)
+        .map((e) => ({ slug: e.slug, subtotal: moneyOrNull(e.subtotal), discount: moneyOrNull(e.discount) })),
+    ]
+  }
+  const addExtraTreatment = () => setExtraTreatments((prev) => [...prev, { slug: '', subtotal: '', discount: '' }])
+  const removeExtraTreatment = (idx: number) => {
+    setExtraTreatments((prev) => {
+      const next = prev.filter((_, i) => i !== idx)
+      recalcTotal(primarySubtotal, primaryDiscount, next)
+      applyAutoDuration(treatmentSlug, firstSession, startStr, startTime, laserZones, laserSex, next)
+      return next
+    })
+  }
+  const changeExtraTreatment = (idx: number, patch: Partial<ExtraLine>) => {
+    setExtraTreatments((prev) => {
+      const next = prev.map((e, i) => (i === idx ? { ...e, ...patch } : e))
+      // Picking a treatment auto-fills its suggested subtotal (editable).
+      if (patch.slug !== undefined) {
+        next[idx] = { ...next[idx]!, subtotal: String(suggestedSubtotalFor(patch.slug) || '') }
+      }
+      recalcTotal(primarySubtotal, primaryDiscount, next)
+      applyAutoDuration(treatmentSlug, firstSession, startStr, startTime, laserZones, laserSex, next)
+      return next
+    })
+  }
   const isEdit = draft.id !== null
 
   // Pack context for the selected treatment + patient.
@@ -1134,11 +1232,21 @@ function EventDialog({
       const treatmentLabel = treatments.find((tt) => tt.value === treatmentSlug)?.label || treatmentSlug
       list.push(t('turno.incompatTreatment', { name: who, treatment: treatmentLabel }))
     }
+    // Multi-tratamiento (línea 269): the professional must perform EVERY treatment in
+    // the turno, so flag each additional line they don't do (Andrés #8).
+    if (professionalId) {
+      for (const line of extraTreatments) {
+        if (line.slug && !professionalDoesTreatment(professionalId, line.slug)) {
+          const label = treatments.find((tt) => tt.value === line.slug)?.label || line.slug
+          list.push(t('turno.incompatTreatment', { name: who, treatment: label }))
+        }
+      }
+    }
     if (hasClosedDay) {
       list.push(who ? t('turno.noAvailWho', { name: who, sucursal: sucTxt }) : t('turno.noAvailBranch', { sucursal: sucTxt }))
     }
     return list
-  }, [professionalId, treatmentSlug, hasClosedDay, professionals, treatments, sucursal, professionalDoesTreatment, t])
+  }, [professionalId, treatmentSlug, hasClosedDay, professionals, treatments, sucursal, professionalDoesTreatment, extraTreatments, t])
 
   async function save() {
     if (!valid || saving) return
@@ -1224,6 +1332,7 @@ function EventDialog({
             depositDate,
             depositReceived,
             totalAmount,
+            treatments: buildTreatments(),
             laserSex: isLaser ? laserSex : null,
             laserZones: isLaser ? laserZones : [],
           }
@@ -1338,6 +1447,7 @@ function EventDialog({
               depositDate,
               depositReceived,
               totalAmount,
+              treatments: buildTreatments(),
               laserSex: isLaser ? laserSex : null,
               laserZones: isLaser ? laserZones : [],
             }
@@ -1492,6 +1602,7 @@ function EventDialog({
       depositDate: depositDate || null,
       depositReceived,
       totalAmount: totalAmount.trim() ? Number(totalAmount.replace(/[^\d.,]/g, '').replace(',', '.')) : null,
+      treatments: buildTreatments(),
       laserSex: isLaser ? laserSex : null,
       laserZones: isLaser ? laserZones : [],
     }
@@ -1685,6 +1796,7 @@ function EventDialog({
                         depositDate,
                         depositReceived,
                         totalAmount,
+                        treatments: buildTreatments(),
                         laserSex: isLaser ? laserSex : null,
                         laserZones: isLaser ? laserZones : [],
                       }
@@ -1733,6 +1845,11 @@ function EventDialog({
                   const zones = isLaserSlug(v) ? laserZones : []
                   if (!isLaserSlug(v) && laserZones.length) setLaserZones([])
                   applyAutoDuration(v, firstSession, startStr, startTime, zones, laserSex)
+                  // Seed the primary line's subtotal from the price base (láser lines
+                  // fill in once zonas are picked, via applyAutoPrice).
+                  const sub = String(suggestedSubtotalFor(v) || '')
+                  setPrimarySubtotal(sub)
+                  recalcTotal(sub, primaryDiscount, extraTreatments)
                   applyAutoPrice(v, zones, laserSex)
                 }}
                 colorFor={treatmentColor}
@@ -1905,27 +2022,125 @@ function EventDialog({
                   )}
                 </div>
               )}
+            </div>
+          )}
 
-              <label className='block'>
-                <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.laser.totalEditable')}</span>
-                <div className='mt-1 flex items-center gap-2'>
+          {/* Tratamientos y valores del turno (línea firmada 269-271): el tratamiento
+              primario (elegido arriba) + adicionales, cada uno con subtotal (arranca
+              en el sugerido) y descuento; el total final es editable. */}
+          {treatmentSlug && (
+            <div className='rounded-md border border-border dark:border-darkborder bg-muted/20 px-3 py-2.5 space-y-2'>
+              <div className='flex items-center justify-between'>
+                <div className='flex items-center gap-1.5 text-xs font-semibold text-dark dark:text-white'>
+                  <Icon icon='solar:bill-list-line-duotone' height={15} width={15} className='text-primary' />
+                  {t('turno.treatments.title')}
+                </div>
+                <button
+                  type='button'
+                  onClick={addExtraTreatment}
+                  className='inline-flex items-center gap-1 text-xs text-primary hover:underline'>
+                  <Icon icon='tabler:plus' height={13} width={13} />
+                  {t('turno.treatments.add')}
+                </button>
+              </div>
+
+              {/* Column headers */}
+              <div className='hidden sm:grid grid-cols-[1fr_88px_88px_24px] gap-2 text-[10px] uppercase tracking-wide text-link dark:text-darklink'>
+                <span>{t('turno.treatments.treatment')}</span>
+                <span className='text-right'>{t('turno.treatments.subtotal')}</span>
+                <span className='text-right'>{t('turno.treatments.discount')}</span>
+                <span />
+              </div>
+
+              {/* Primary line (treatment chosen above, read-only here) */}
+              <div className='grid grid-cols-[1fr_88px_88px_24px] gap-2 items-center'>
+                <span className='text-sm text-dark dark:text-white truncate' title={treatments.find((o) => o.value === treatmentSlug)?.label ?? treatmentSlug}>
+                  {treatments.find((o) => o.value === treatmentSlug)?.label ?? treatmentSlug}
+                  {isLaser && <span className='ml-1 text-[10px] text-link dark:text-darklink'>({t('turno.treatments.byZones')})</span>}
+                </span>
+                <input
+                  type='text'
+                  inputMode='decimal'
+                  value={primarySubtotal}
+                  onChange={(e) => {
+                    setPrimarySubtotal(e.target.value)
+                    recalcTotal(e.target.value, primaryDiscount, extraTreatments)
+                  }}
+                  placeholder='0'
+                  className='w-full px-2 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-right text-dark dark:text-white focus:outline-none focus:border-primary'
+                />
+                <input
+                  type='text'
+                  inputMode='decimal'
+                  value={primaryDiscount}
+                  onChange={(e) => {
+                    setPrimaryDiscount(e.target.value)
+                    recalcTotal(primarySubtotal, e.target.value, extraTreatments)
+                  }}
+                  placeholder='0'
+                  className='w-full px-2 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-right text-dark dark:text-white focus:outline-none focus:border-primary'
+                />
+                <span />
+              </div>
+
+              {/* Additional lines */}
+              {extraTreatments.map((line, idx) => (
+                <div key={idx} className='grid grid-cols-[1fr_88px_88px_24px] gap-2 items-center'>
+                  <select
+                    value={line.slug}
+                    onChange={(e) => changeExtraTreatment(idx, { slug: e.target.value })}
+                    className='w-full pl-2 pr-7 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary'>
+                    <option value=''>{t('turno.treatments.choose')}</option>
+                    {treatments.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                  <input
+                    type='text'
+                    inputMode='decimal'
+                    value={line.subtotal}
+                    onChange={(e) => changeExtraTreatment(idx, { subtotal: e.target.value })}
+                    placeholder='0'
+                    className='w-full px-2 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-right text-dark dark:text-white focus:outline-none focus:border-primary'
+                  />
+                  <input
+                    type='text'
+                    inputMode='decimal'
+                    value={line.discount}
+                    onChange={(e) => changeExtraTreatment(idx, { discount: e.target.value })}
+                    placeholder='0'
+                    className='w-full px-2 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-right text-dark dark:text-white focus:outline-none focus:border-primary'
+                  />
+                  <button
+                    type='button'
+                    onClick={() => removeExtraTreatment(idx)}
+                    title={t('turno.treatments.remove')}
+                    className='flex items-center justify-center text-link dark:text-darklink hover:text-error'>
+                    <Icon icon='tabler:x' height={15} width={15} />
+                  </button>
+                </div>
+              ))}
+
+              {/* Grand total (editable) */}
+              <div className='flex items-center justify-between gap-2 pt-1.5 border-t border-border dark:border-darkborder'>
+                <span className='text-xs font-semibold text-dark dark:text-white'>{t('turno.treatments.total')}</span>
+                <div className='flex items-center gap-2'>
+                  <button
+                    type='button'
+                    onClick={() => recalcTotal(primarySubtotal, primaryDiscount, extraTreatments)}
+                    className='px-2 py-1.5 rounded-md border border-border dark:border-darkborder text-[11px] text-link dark:text-darklink hover:bg-lightprimary/40 whitespace-nowrap'>
+                    {t('turno.laser.useSuggested')}
+                  </button>
                   <input
                     type='text'
                     inputMode='decimal'
                     value={totalAmount}
                     onChange={(e) => setTotalAmount(e.target.value)}
                     placeholder='0'
-                    className='flex-1 px-2.5 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary transition-colors'
+                    className='w-32 px-2.5 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-right font-semibold text-dark dark:text-white focus:outline-none focus:border-primary'
                   />
-                  <button
-                    type='button'
-                    onClick={() => applyAutoPrice(treatmentSlug, laserZones, laserSex)}
-                    disabled={laserZones.length === 0}
-                    className='px-2.5 py-2 rounded-md border border-border dark:border-darkborder text-xs text-link dark:text-darklink hover:bg-lightprimary/40 disabled:opacity-50 whitespace-nowrap'>
-                    {t('turno.laser.useSuggested')}
-                  </button>
                 </div>
-              </label>
+              </div>
             </div>
           )}
 
@@ -2378,6 +2593,10 @@ export function CalendarView() {
   // Per-treatment self-managed duration (Autogestión → Catálogo, migration 0051).
   // slug -> minutes; overrides the slug heuristic when auto-blocking a turno.
   const [treatmentDurations, setTreatmentDurations] = useState<Map<string, number>>(new Map())
+  // Suggested per-treatment price (slug → list value) from treatment_prices, for the
+  // multi-tratamiento subtotals (Etapa 2, línea 269). Láser prices come from the zone
+  // engine instead.
+  const [treatmentPrices, setTreatmentPrices] = useState<Map<string, number>>(new Map())
   const [treatmentFilterSlugs, setTreatmentFilterSlugs] = useState<string[]>([])
   const [blocks, setBlocks] = useState<AgendaBlock[]>([])
   // Pack totals (id -> {total,label}) to render "Sesión N/M" on turno cards.
@@ -2488,6 +2707,9 @@ export function CalendarView() {
     // tatuajes and verrugas are bookable — not just the photo-eval treatments.
     void Promise.all([fetchMenuOverrides(), fetchTreatmentPrices(), fetchTreatmentCatalog()]).then(
       ([mo, tp, cat]) => {
+        // Suggested prices for the multi-tratamiento subtotals (línea 269): flat
+        // list value per treatment slug, regardless of which catalog source wins.
+        setTreatmentPrices(new Map(tp.data.map((p) => [p.slug, p.listAmount])))
         // Prefer the autogestionable catalog (0051) when it has been imported:
         // active treatments only, in the configured order. Falls back to the code
         // catalog (menu_overrides + prices) until the clinic imports it.
@@ -3993,6 +4215,7 @@ export function CalendarView() {
       totalAmount: ev.totalAmount != null ? String(ev.totalAmount) : '',
       rescheduleReason: ev.rescheduleReason,
       rescheduleHistory: ev.rescheduleHistory,
+      treatments: ev.treatments,
       laserSex: ev.laserSex,
       laserZones: ev.laserZones,
     })
@@ -4679,6 +4902,7 @@ export function CalendarView() {
           exclusions={availExclusions}
           catalogSlugs={catalogSlugs}
           treatmentDurations={treatmentDurations}
+          treatmentPrices={treatmentPrices}
           laserConfig={laserConfig}
           laserPriceConfig={laserPriceConfig}
           lunchFor={lunchFor}

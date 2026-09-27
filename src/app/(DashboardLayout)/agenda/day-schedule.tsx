@@ -290,6 +290,7 @@ export function DaySchedule({
                   <span className='text-[12px] font-semibold truncate max-w-[220px]'>
                     {e.patientName || e.title}
                     {e.treatmentSlug ? ` · ${treatmentName(e.treatmentSlug)}` : ''}
+                    {e.treatments && e.treatments.length > 1 ? ` +${e.treatments.length - 1}` : ''}
                   </span>
                 </button>
               )
@@ -492,6 +493,7 @@ export function DaySchedule({
                           {tall && e.treatmentSlug && (
                             <span className='block text-[10px] leading-tight truncate opacity-90'>
                               {treatmentName(e.treatmentSlug)}
+                              {e.treatments && e.treatments.length > 1 ? ` +${e.treatments.length - 1}` : ''}
                             </span>
                           )}
                         </span>

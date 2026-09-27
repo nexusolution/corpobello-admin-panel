@@ -501,6 +501,7 @@ export function WeekSchedule({
                   {tall && e.treatmentSlug && (
                     <span className='block text-[9px] leading-tight truncate opacity-90'>
                       {treatmentName(e.treatmentSlug)}
+                      {e.treatments && e.treatments.length > 1 ? ` +${e.treatments.length - 1}` : ''}
                     </span>
                   )}
                 </span>

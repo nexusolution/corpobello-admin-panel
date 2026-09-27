@@ -20,6 +20,18 @@ export type RescheduleEntry = {
   reason: string | null // motivo, when the user provided one
 }
 
+// One treatment line of a turno (línea firmada 269-271: múltiples tratamientos por
+// turno). `subtotal` starts at the suggested price (laser: zone calc; others: the
+// treatment_prices list value) and stays editable; `discount` is the configurable
+// per-line discount. Line total = subtotal − discount. The turno's grand total is
+// the (editable) total_amount. The FIRST line's slug is the turno's PRIMARY
+// treatment (== treatment_slug) that drives colour/availability/capability/láser.
+export type TurnoTreatment = {
+  slug: string
+  subtotal: number | null
+  discount: number | null
+}
+
 // The full turno-state machine. Superset of the 10 signed Etapa-2 states (the
 // signed set: Consulta, Presupuestado, Pre-reservado, Pendiente de depósito,
 // Pendiente de completar depósito, Confirmado, Reprogramado, Atendido, Cancelado,
@@ -126,6 +138,10 @@ export type CalendarEvent = {
   // reprogramó.
   rescheduleReason: string | null
   rescheduleHistory: RescheduleEntry[]
+  // Tratamientos del turno (migration 0060, línea firmada 269-271). The 1st entry's
+  // slug mirrors treatmentSlug (the primary). Empty for legacy turnos → the reader
+  // synthesizes a single line from treatmentSlug so the UI is always consistent.
+  treatments: TurnoTreatment[]
   // Depilación láser (migration 0055): the sex table used + the zonas selected by
   // click, so the internal duration engine can recompute and a reprogramación
   // keeps the zonas. Empty/null for non-láser turnos.
@@ -154,6 +170,7 @@ type Row = {
   total_amount: number | string | null
   reschedule_reason: string | null
   reschedule_history: RescheduleEntry[] | null
+  treatments: TurnoTreatment[] | null
   laser_sex: string | null
   laser_zones: string[] | null
   created_at: string
@@ -193,6 +210,14 @@ function rowToEvent(r: Row): CalendarEvent {
     totalAmount: r.total_amount == null ? null : Number(r.total_amount),
     rescheduleReason: r.reschedule_reason,
     rescheduleHistory: Array.isArray(r.reschedule_history) ? r.reschedule_history : [],
+    // Legacy turnos (no treatments[] yet) synthesize a single line from the primary
+    // slug so every consumer sees a consistent list.
+    treatments:
+      Array.isArray(r.treatments) && r.treatments.length > 0
+        ? r.treatments
+        : r.treatment_slug
+          ? [{ slug: r.treatment_slug, subtotal: null, discount: null }]
+          : [],
     laserSex: r.laser_sex === 'mujer' || r.laser_sex === 'varon' ? r.laser_sex : null,
     laserZones: r.laser_zones ?? [],
     createdAt: new Date(r.created_at),
@@ -231,7 +256,7 @@ export async function autoCancelExpiredReservas(): Promise<{
 }
 
 const SELECT =
-  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, observaciones, pack_id, deposit_amount, deposit_date, deposit_received, total_amount, reschedule_reason, reschedule_history, laser_sex, laser_zones, created_at, patient:patient_id (full_name)'
+  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, observaciones, pack_id, deposit_amount, deposit_date, deposit_received, total_amount, reschedule_reason, reschedule_history, treatments, laser_sex, laser_zones, created_at, patient:patient_id (full_name)'
 
 export async function fetchCalendarEvents(): Promise<{
   data: CalendarEvent[]
@@ -270,6 +295,9 @@ export type CalendarEventInput = {
   // only the reschedule flows set them.
   rescheduleReason?: string | null
   rescheduleHistory?: RescheduleEntry[]
+  // Tratamientos del turno (línea firmada 269-271). OPTIONAL: a mover/drag that does
+  // not touch treatments leaves it undefined so toPayload preserves the column.
+  treatments?: TurnoTreatment[]
 }
 
 function toPayload(input: CalendarEventInput) {
@@ -298,6 +326,12 @@ function toPayload(input: CalendarEventInput) {
   // flow), so a normal edit-save never wipes the history (línea firmada 284).
   if (input.rescheduleReason !== undefined) payload.reschedule_reason = input.rescheduleReason
   if (input.rescheduleHistory !== undefined) payload.reschedule_history = input.rescheduleHistory
+  // Tratamientos: only when provided (the dialog), so a drag/move preserves them.
+  // Keep the primary treatment_slug in sync with the first line.
+  if (input.treatments !== undefined) {
+    payload.treatments = input.treatments
+    if (input.treatments.length > 0) payload.treatment_slug = input.treatments[0]!.slug
+  }
   return payload
 }
 
