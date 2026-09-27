@@ -65,7 +65,7 @@ export function RescheduleDialog({
   professionalLabel: string
   onClose: () => void
   // Persist the move (also handles the confirm summary + undo in the parent).
-  onConfirm: (next: { dateStr: string; startTime: string; endTime: string; sucursal: string }) => void
+  onConfirm: (next: { dateStr: string; startTime: string; endTime: string; sucursal: string; reason?: string }) => void
   // Open Vista Día on that date keeping this turno's context (optional).
   onViewDay?: (dateStr: string) => void
   t: TFn
@@ -73,6 +73,8 @@ export function RescheduleDialog({
 }) {
   const [selected, setSelected] = useState<Date | undefined>(undefined)
   const [pickedTime, setPickedTime] = useState<string>('')
+  // Motivo de la reprogramación (línea firmada 284) — opcional, queda en el historial.
+  const [reason, setReason] = useState('')
   // Match the times panel height to the calendar column, then scroll inside it.
   const leftColRef = useRef<HTMLDivElement>(null)
   const [leftH, setLeftH] = useState<number | undefined>(undefined)
@@ -149,6 +151,7 @@ export function RescheduleDialog({
       startTime: pickedTime,
       endTime: endFrom(pickedTime),
       sucursal: targetSucursal,
+      reason: reason.trim() || undefined,
     })
   }
 
@@ -324,6 +327,19 @@ export function RescheduleDialog({
                   </div>
                 </div>
               </div>
+              {/* Motivo de la reprogramación (línea firmada 284) — opcional. */}
+              <label className='block mt-3'>
+                <span className='text-[10px] uppercase tracking-wide text-link dark:text-darklink'>
+                  {t('reschedule.reasonLabel')}
+                </span>
+                <textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  rows={2}
+                  placeholder={t('reschedule.reasonPlaceholder')}
+                  className='mt-1 w-full rounded-md border border-border dark:border-darkborder bg-background px-2.5 py-1.5 text-sm text-dark dark:text-white focus:outline-none focus:border-primary resize-y'
+                />
+              </label>
             </div>
           )}
         </div>

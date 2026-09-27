@@ -56,6 +56,7 @@ import {
   type TurnoStatus,
   type PatientOption,
   type PatientBasics,
+  type RescheduleEntry,
 } from '@/lib/data/calendar-events'
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
 import { fetchMenuOverrides } from '@/lib/data/menu-overrides'
@@ -552,6 +553,10 @@ type Draft = {
   // Valor total del turno (Etapa 2): sugerido automáticamente para láser desde las
   // zonas, editable a mano. '' = sin total.
   totalAmount: string
+  // Historial de reprogramaciones (línea firmada 284) — solo lectura, para mostrar
+  // el turno original + motivos en el diálogo. No se escribe desde acá.
+  rescheduleReason?: string | null
+  rescheduleHistory?: RescheduleEntry[]
   // Depilación láser: sex table + zonas selected by click (Etapa 2). null/[] for
   // non-láser turnos. Drive the internal duration engine.
   laserSex: LaserSex | null
@@ -2091,6 +2096,51 @@ function EventDialog({
             />
           </label>
 
+          {/* Historial de reprogramaciones (línea firmada 284): turno original +
+              cada movimiento con su motivo. Solo lectura. */}
+          {(draft.rescheduleHistory?.length ?? 0) > 0 && (
+            <div className='rounded-md border border-border dark:border-darkborder bg-lightprimary/20 px-3 py-2.5 space-y-2'>
+              <div className='flex items-center gap-1.5 text-xs font-semibold text-dark dark:text-white'>
+                <Icon icon='solar:history-line-duotone' height={15} width={15} className='text-primary' />
+                {t('turno.reschedule.historyTitle')}
+              </div>
+              {(() => {
+                const hist = draft.rescheduleHistory!
+                const fmt = (iso: string) => {
+                  const d = new Date(iso)
+                  return `${ymdToDMY(toDateInput(d))} ${toTimeInput(d)}`
+                }
+                const profLabel = (id: string | null) =>
+                  id ? professionals.find((p) => p.value === id)?.label ?? id : t('turno.none')
+                const first = hist[0]!
+                return (
+                  <>
+                    <div className='text-xs text-link dark:text-darklink'>
+                      <span className='font-medium text-dark dark:text-white'>
+                        {t('turno.reschedule.original')}:
+                      </span>{' '}
+                      {fmt(first.fromStart)} ·{' '}
+                      {first.fromSucursal ? sucursalLabel(first.fromSucursal) : t('turno.none')} ·{' '}
+                      {profLabel(first.fromProfessionalId)}
+                    </div>
+                    <ul className='space-y-1'>
+                      {hist.map((h, i) => (
+                        <li key={i} className='text-xs text-link dark:text-darklink flex flex-col'>
+                          <span>
+                            <span className='tabular-nums'>{fmt(h.fromStart)}</span> {'→'}{' '}
+                            <span className='tabular-nums text-dark dark:text-white'>{fmt(h.toStart)}</span>
+                            {h.byName ? ` · ${h.byName}` : ''}
+                          </span>
+                          {h.reason && <span className='italic'>“{h.reason}”</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )
+              })()}
+            </div>
+          )}
+
           {inlineIssues.length > 0 && (
             <div className='space-y-1'>
               {inlineIssues.map((msg, i) => (
@@ -2907,6 +2957,7 @@ export function CalendarView() {
       turnoId: string,
       next: { start: Date; end: Date; sucursal: string | null; professionalId: string | null },
       forcedBy?: string | null,
+      reason?: string | null,
     ) => {
       const orig = events.find((e) => e.id === turnoId)
       if (!orig) return
@@ -2928,12 +2979,28 @@ export function CalendarView() {
         laserZones: orig.laserZones,
         allDay: false,
       }
+      // Reprogramación (#284): append the turno's previous state to the history (the
+      // 1st entry keeps the turno original) + record the motivo. Undo restores the
+      // original reschedule fields so the appended entry disappears.
+      const entry: RescheduleEntry = {
+        at: new Date().toISOString(),
+        by: actorId,
+        byName: forcedBy || actorName,
+        fromStart: orig.start.toISOString(),
+        fromEnd: orig.end.toISOString(),
+        fromSucursal: orig.sucursal,
+        fromProfessionalId: orig.professionalId,
+        toStart: next.start.toISOString(),
+        reason: reason?.trim() ? reason.trim() : null,
+      }
       const err = await updateCalendarEvent(turnoId, {
         ...base,
         start: next.start,
         end: next.end,
         sucursal: next.sucursal,
         professionalId: next.professionalId,
+        rescheduleReason: entry.reason ?? orig.rescheduleReason,
+        rescheduleHistory: [...orig.rescheduleHistory, entry],
       })
       if (err) {
         void Swal.fire({ icon: 'error', title: t('reschedule.error'), text: err, width: '360px' })
@@ -2980,6 +3047,9 @@ export function CalendarView() {
           end: orig.end,
           sucursal: orig.sucursal,
           professionalId: orig.professionalId,
+          // Restore the pre-move history so Undo drops the appended entry (#284).
+          rescheduleReason: orig.rescheduleReason,
+          rescheduleHistory: orig.rescheduleHistory,
         })
         reload()
       }
@@ -2990,17 +3060,22 @@ export function CalendarView() {
   // Contextual calendar (Andrés #19-E): the dialog already showed the before/after
   // summary, so just persist (same professional; only date/time/sucursal move).
   const confirmReschedule = useCallback(
-    async (next: { dateStr: string; startTime: string; endTime: string; sucursal: string }) => {
+    async (next: { dateStr: string; startTime: string; endTime: string; sucursal: string; reason?: string }) => {
       const turno = rescheduleTurno
       setRescheduleTurno(null)
       if (!turno) return
       const orig = events.find((e) => e.id === turno.id)
-      await applyMoveWithUndo(turno.id, {
-        start: dateTime(next.dateStr, next.startTime),
-        end: dateTime(next.dateStr, next.endTime),
-        sucursal: next.sucursal,
-        professionalId: orig?.professionalId ?? null,
-      })
+      await applyMoveWithUndo(
+        turno.id,
+        {
+          start: dateTime(next.dateStr, next.startTime),
+          end: dateTime(next.dateStr, next.endTime),
+          sucursal: next.sucursal,
+          professionalId: orig?.professionalId ?? null,
+        },
+        null,
+        next.reason,
+      )
       // Land on the DESTINATION so the change is visible right away, keeping the
       // current view (Mes → destination month, Día → destination day). Andrés #19.3.
       setDate(new Date(`${next.dateStr}T00:00:00`))
@@ -3916,6 +3991,8 @@ export function CalendarView() {
       depositDate: ev.depositDate ?? '',
       depositReceived: ev.depositReceived,
       totalAmount: ev.totalAmount != null ? String(ev.totalAmount) : '',
+      rescheduleReason: ev.rescheduleReason,
+      rescheduleHistory: ev.rescheduleHistory,
       laserSex: ev.laserSex,
       laserZones: ev.laserZones,
     })

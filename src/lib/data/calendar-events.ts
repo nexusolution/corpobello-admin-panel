@@ -6,11 +6,34 @@
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 
-// The full 10-state turno machine (signed Etapa-2 scope). Colour follows the
-// status: full event background = estado, per Andrés' agenda scheme.
+// One reprogramación: the turno's state BEFORE this move (the 1st entry = the
+// turno original) + when/who/why. Stored as a jsonb array on the turno.
+export type RescheduleEntry = {
+  at: string // ISO timestamp of the reschedule
+  by: string | null // actor id
+  byName: string | null // actor display name
+  fromStart: string // ISO start before the move
+  fromEnd: string // ISO end before the move
+  fromSucursal: string | null
+  fromProfessionalId: string | null
+  toStart: string // ISO start after the move
+  reason: string | null // motivo, when the user provided one
+}
+
+// The full turno-state machine. Superset of the 10 signed Etapa-2 states (the
+// signed set: Consulta, Presupuestado, Pre-reservado, Pendiente de depósito,
+// Pendiente de completar depósito, Confirmado, Reprogramado, Atendido, Cancelado,
+// No asistió) plus extra operational granularity (confirmado_paciente, en_sala…).
+// `sena_parcial` is the signed "Pendiente de completar depósito" (label carries
+// the depósito terminology); `pendiente_deposito` is the signed "Pendiente de
+// depósito" (a prior deposit from another treatment applies to a new turno).
+// Colour follows the status: full event background = estado, per Andrés' scheme.
 export const TURNO_STATUSES = [
+  'consulta',
+  'presupuestado',
   'pre_reserva',
   'reservado',
+  'pendiente_deposito',
   'sena_parcial',
   'pendiente',
   'confirmado',
@@ -26,8 +49,11 @@ export const TURNO_STATUSES = [
 export type TurnoStatus = (typeof TURNO_STATUSES)[number]
 
 export const STATUS_COLORS: Record<TurnoStatus, string> = {
+  consulta: '#38bdf8', // sky — consulta inicial (aún sin presupuesto)
+  presupuestado: '#eab308', // gold — presupuestado, sin reservar
   pre_reserva: '#b0bec5', // grey — horario en espera del depósito (auto-reserva)
   reservado: '#7c4dff', // violet — pre-reserva / seña
+  pendiente_deposito: '#f59e0b', // amber-fuerte — pendiente de depósito (previo de otro tratamiento)
   sena_parcial: '#ec4899', // pink — seña parcial (falta completar depósito)
   pendiente: '#ffae1f', // amber — a confirmar
   confirmado: '#13deb9', // teal — confirmado
@@ -44,8 +70,11 @@ export const STATUS_COLORS: Record<TurnoStatus, string> = {
 // One place mapping each status to its i18n label key (reused by the agenda +
 // both dashboards, so all 10 states are covered everywhere).
 export const STATUS_LABEL_KEY: Record<TurnoStatus, TranslationKey> = {
+  consulta: 'agenda.status.consulta',
+  presupuestado: 'agenda.status.presupuestado',
   pre_reserva: 'agenda.status.preReserva',
   reservado: 'agenda.status.reserved',
+  pendiente_deposito: 'agenda.status.pendingDeposit',
   sena_parcial: 'agenda.status.partialDeposit',
   pendiente: 'agenda.status.pending',
   confirmado: 'agenda.status.confirmed',
@@ -91,6 +120,12 @@ export type CalendarEvent = {
   // Valor total del turno (migration 0057): sugerido automáticamente para láser a
   // partir de las zonas, pero editable a mano. NULL = sin total cargado.
   totalAmount: number | null
+  // Reprogramación (migration 0059, línea firmada 284): motivo de la última
+  // reprogramación + historial de reprogramaciones (la 1ª entrada conserva el turno
+  // ORIGINAL: fecha/hora/sucursal/profesional previos). '' / [] cuando nunca se
+  // reprogramó.
+  rescheduleReason: string | null
+  rescheduleHistory: RescheduleEntry[]
   // Depilación láser (migration 0055): the sex table used + the zonas selected by
   // click, so the internal duration engine can recompute and a reprogramación
   // keeps the zonas. Empty/null for non-láser turnos.
@@ -117,6 +152,8 @@ type Row = {
   deposit_date: string | null
   deposit_received: boolean | null
   total_amount: number | string | null
+  reschedule_reason: string | null
+  reschedule_history: RescheduleEntry[] | null
   laser_sex: string | null
   laser_zones: string[] | null
   created_at: string
@@ -154,6 +191,8 @@ function rowToEvent(r: Row): CalendarEvent {
     depositDate: r.deposit_date,
     depositReceived: !!r.deposit_received,
     totalAmount: r.total_amount == null ? null : Number(r.total_amount),
+    rescheduleReason: r.reschedule_reason,
+    rescheduleHistory: Array.isArray(r.reschedule_history) ? r.reschedule_history : [],
     laserSex: r.laser_sex === 'mujer' || r.laser_sex === 'varon' ? r.laser_sex : null,
     laserZones: r.laser_zones ?? [],
     createdAt: new Date(r.created_at),
@@ -192,7 +231,7 @@ export async function autoCancelExpiredReservas(): Promise<{
 }
 
 const SELECT =
-  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, observaciones, pack_id, deposit_amount, deposit_date, deposit_received, total_amount, laser_sex, laser_zones, created_at, patient:patient_id (full_name)'
+  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, observaciones, pack_id, deposit_amount, deposit_date, deposit_received, total_amount, reschedule_reason, reschedule_history, laser_sex, laser_zones, created_at, patient:patient_id (full_name)'
 
 export async function fetchCalendarEvents(): Promise<{
   data: CalendarEvent[]
@@ -226,10 +265,15 @@ export type CalendarEventInput = {
   totalAmount: number | null
   laserSex: 'mujer' | 'varon' | null
   laserZones: string[]
+  // Reprogramación (línea firmada 284). OPTIONAL on purpose: a normal save leaves
+  // them undefined so toPayload does NOT touch the columns (history is preserved);
+  // only the reschedule flows set them.
+  rescheduleReason?: string | null
+  rescheduleHistory?: RescheduleEntry[]
 }
 
 function toPayload(input: CalendarEventInput) {
-  return {
+  const payload: Record<string, unknown> = {
     title: input.title,
     starts_at: input.start.toISOString(),
     ends_at: input.end.toISOString(),
@@ -248,8 +292,13 @@ function toPayload(input: CalendarEventInput) {
     total_amount: input.totalAmount,
     laser_sex: input.laserSex,
     laser_zones: input.laserZones,
-    color: STATUS_COLORS[input.status],
+    color: STATUS_COLORS[input.status] ?? '#8a94a6',
   }
+  // Reprogramación: only touch these columns when the caller sets them (a reschedule
+  // flow), so a normal edit-save never wipes the history (línea firmada 284).
+  if (input.rescheduleReason !== undefined) payload.reschedule_reason = input.rescheduleReason
+  if (input.rescheduleHistory !== undefined) payload.reschedule_history = input.rescheduleHistory
+  return payload
 }
 
 /** Insert a new turno. Returns the created event or an error string. */
