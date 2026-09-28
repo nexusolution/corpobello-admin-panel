@@ -79,6 +79,7 @@ import { computeLaserDuration, defaultLaserDurationConfig, type LaserSex, type L
 import { computeLaserPrice, fetchLaserPriceConfig, LASER_PRICE_KEY_BY_ZONE } from '@/lib/scheduling/laser-price'
 import { LASER_DEFAULT, type LaserRulesJson } from '@/lib/data/quoting-defaults'
 import { fetchLaserDurationConfig } from '@/lib/data/laser-duration-config'
+import { CursorTooltip, type CursorTooltipHandle } from '@/components/ui/cursor-tooltip'
 import {
   fetchLunch,
   resolveLunch,
@@ -3888,6 +3889,10 @@ export function CalendarView() {
   laserZonesLabelRef.current = laserZonesLabel
   const packLabelForRef = useRef(packLabelFor)
   packLabelForRef.current = packLabelFor
+  // Friendly hover tooltip for the Month circles (Andrés 2026-09-28) — replaces the
+  // native title on the dots. Driven imperatively so hovering never re-renders the
+  // calendar.
+  const monthTipRef = useRef<CursorTooltipHandle>(null)
 
   // Week/Day column header: default label + a coloured dot per open sucursal.
   const dayHeader = useCallback(
@@ -4617,6 +4622,7 @@ export function CalendarView() {
                     onDragStart={(ev) => {
                       ev.dataTransfer.setData('text/plain', tt.id)
                       ev.dataTransfer.effectAllowed = 'move'
+                      monthTipRef.current?.hide()
                     }}
                     // Stop RBC's slot-selection (mousedown based) so clicking a
                     // circle ONLY opens its turno and never also drills to the day.
@@ -4637,21 +4643,45 @@ export function CalendarView() {
                       const id = ev.dataTransfer.getData('text/plain')
                       if (id) void attemptMoveRef.current(id, { dateStr: ds })
                     }}
-                    // Rich tooltip (Andrés #19-D / #23): hora · paciente · tratamiento
-                    // · zonas láser · pack · profesional · sucursal · estado. Vista Mes
-                    // keeps the circles clean; the extra detail lives here (Andrés #23.4).
-                    title={[
-                      toTimeInput(tt.start),
-                      tt.patientName || tt.title,
-                      treatmentNameRef.current(tt.treatmentSlug),
-                      laserZonesLabelRef.current(tt),
-                      packLabelForRef.current(tt),
-                      tt.professionalId ? professionalNameRef.current(tt.professionalId) : '',
-                      tt.sucursal ? sucursalLabel(tt.sucursal) : t('agenda.noSucursal'),
-                      statusLabelRef.current(tt.status),
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
+                    // Friendly hover tooltip (Andrés #19-D / #23, 2026-09-28): hora ·
+                    // paciente · tratamiento · zonas láser · pack · profesional ·
+                    // sucursal · estado. Vista Mes keeps the circles clean; the detail
+                    // lives in this styled tooltip (replaces the native title).
+                    onMouseEnter={(ev) =>
+                      monthTipRef.current?.show(
+                        [
+                          toTimeInput(tt.start),
+                          tt.patientName || tt.title,
+                          treatmentNameRef.current(tt.treatmentSlug),
+                          laserZonesLabelRef.current(tt),
+                          packLabelForRef.current(tt),
+                          tt.professionalId ? professionalNameRef.current(tt.professionalId) : '',
+                          tt.sucursal ? sucursalLabel(tt.sucursal) : t('agenda.noSucursal'),
+                          statusLabelRef.current(tt.status),
+                        ]
+                          .filter(Boolean)
+                          .join(' · '),
+                        ev,
+                      )
+                    }
+                    onMouseMove={(ev) =>
+                      monthTipRef.current?.show(
+                        [
+                          toTimeInput(tt.start),
+                          tt.patientName || tt.title,
+                          treatmentNameRef.current(tt.treatmentSlug),
+                          laserZonesLabelRef.current(tt),
+                          packLabelForRef.current(tt),
+                          tt.professionalId ? professionalNameRef.current(tt.professionalId) : '',
+                          tt.sucursal ? sucursalLabel(tt.sucursal) : t('agenda.noSucursal'),
+                          statusLabelRef.current(tt.status),
+                        ]
+                          .filter(Boolean)
+                          .join(' · '),
+                        ev,
+                      )
+                    }
+                    onMouseLeave={() => monthTipRef.current?.hide()}
                     style={{
                       backgroundColor: statusColorRef.current(tt.status),
                       pointerEvents: 'auto',
@@ -5201,6 +5231,7 @@ export function CalendarView() {
           }}
         />
       )}
+      <CursorTooltip ref={monthTipRef} />
     </div>
   )
 }

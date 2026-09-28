@@ -12,6 +12,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import type { CalendarEvent } from '@/lib/data/calendar-events'
 import type { LunchWindow } from '@/lib/data/lunch'
 import type { DayColumn } from './day-schedule'
+import { CursorTooltip, type CursorTooltipHandle } from '@/components/ui/cursor-tooltip'
 
 interface WeekScheduleProps {
   days: Date[]
@@ -92,6 +93,8 @@ export function WeekSchedule({
   laserZonesText,
   packText,
 }: WeekScheduleProps) {
+  // Friendly hover tooltip for the cards (Andrés 2026-09-28) — replaces native title.
+  const tipRef = useRef<CursorTooltipHandle>(null)
   const dayData = days.map((day) => ({ day, ds: toKey(day), cols: columnsForDay(day) }))
 
   // Center the selected day horizontally when the week (or the selected day)
@@ -502,11 +505,14 @@ export function WeekSchedule({
                 key={e.id}
                 type='button'
                 data-eventid={e.id}
-                title={cardTitle}
+                onMouseEnter={(ev) => tipRef.current?.show(cardTitle, ev)}
+                onMouseMove={(ev) => tipRef.current?.show(cardTitle, ev)}
+                onMouseLeave={() => tipRef.current?.hide()}
                 draggable={!!onMoveTurno}
                 onDragStart={(ev) => {
                   ev.dataTransfer.setData('text/plain', e.id)
                   ev.dataTransfer.effectAllowed = 'move'
+                  tipRef.current?.hide()
                 }}
                 onClick={(ev) => {
                   ev.stopPropagation()
@@ -572,12 +578,15 @@ export function WeekSchedule({
     // Bounded, self-contained scroll box: both scrollbars stay on screen so a wide
     // (many professionals) week is reachable without scrolling the whole page down,
     // while the day + subcolumn headers (top) and the time column (left) stay pinned.
-    <div
-      ref={scrollRef}
-      className='rounded-lg border border-border dark:border-darkborder bg-card overflow-auto max-h-[calc(100vh-210px)] cb-hscroll'>
-      <div className='grid' style={{ gridTemplateColumns, gridTemplateRows, minWidth }}>
-        {cells}
+    <>
+      <div
+        ref={scrollRef}
+        className='rounded-lg border border-border dark:border-darkborder bg-card overflow-auto max-h-[calc(100vh-210px)] cb-hscroll'>
+        <div className='grid' style={{ gridTemplateColumns, gridTemplateRows, minWidth }}>
+          {cells}
+        </div>
       </div>
-    </div>
+      <CursorTooltip ref={tipRef} />
+    </>
   )
 }

@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { CalendarEvent } from '@/lib/data/calendar-events'
 import type { LunchWindow } from '@/lib/data/lunch'
 import { useHorizontalDragScroll } from './use-hscroll'
+import { CursorTooltip, type CursorTooltipHandle } from '@/components/ui/cursor-tooltip'
 
 export interface DayColumn {
   resourceId: string
@@ -116,6 +117,8 @@ export function DaySchedule({
   laserZonesText,
   packText,
 }: DayScheduleProps) {
+  // Friendly hover tooltip for the cards (Andrés 2026-09-28) — replaces native title.
+  const tipRef = useRef<CursorTooltipHandle>(null)
   // Column → professional id (sp:<suc>:<prof> or sp::<prof>); undefined otherwise.
   const profIdOfCol = (c: DayColumn): string | null =>
     c.resourceId.startsWith('sp:') ? c.resourceId.slice(c.resourceId.indexOf(':', 3) + 1) || null : null
@@ -480,11 +483,14 @@ export function DaySchedule({
                         key={e.id}
                         type='button'
                         data-eventid={e.id}
-                        title={cardTitle}
+                        onMouseEnter={(ev) => tipRef.current?.show(cardTitle, ev)}
+                        onMouseMove={(ev) => tipRef.current?.show(cardTitle, ev)}
+                        onMouseLeave={() => tipRef.current?.hide()}
                         draggable={!!onMoveTurno}
                         onDragStart={(ev) => {
                           ev.dataTransfer.setData('text/plain', e.id)
                           ev.dataTransfer.effectAllowed = 'move'
+                          tipRef.current?.hide()
                         }}
                         onClick={(ev) => {
                           ev.stopPropagation()
@@ -541,6 +547,7 @@ export function DaySchedule({
           </div>
         </div>
       </div>
+      <CursorTooltip ref={tipRef} />
     </div>
   )
 }
