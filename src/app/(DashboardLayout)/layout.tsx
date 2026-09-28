@@ -75,7 +75,7 @@ export default function Layout({
           {/* Top Header  */}
           <Header onToggleSidebar={() => setCollapsed((c) => !c)} />
           {/* Body Content  */}
-          <div className={`w-full px-6 pb-30 ${isAgenda ? 'pt-6' : 'pt-30'}`}>{children}</div>
+          <div className={`w-full px-6 pb-30 ${isAgenda ? 'pt-0' : 'pt-30'}`}>{children}</div>
         </div>
       </div>
     </div>
