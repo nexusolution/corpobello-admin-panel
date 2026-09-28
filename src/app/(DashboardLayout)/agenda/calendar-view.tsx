@@ -3285,6 +3285,7 @@ export function CalendarView() {
       next: { start: Date; end: Date; sucursal: string | null; professionalId: string | null },
       forcedBy?: string | null,
       reason?: string | null,
+      opts?: { navToDestDay?: boolean },
     ) => {
       const orig = events.find((e) => e.id === turnoId)
       if (!orig) return
@@ -3354,6 +3355,16 @@ export function CalendarView() {
         changedByName: forcedBy || actorName,
       })
       reload()
+      // Navigate to the DESTINATION's Vista Día and flash the moved turno (Andrés
+      // #19, 2026-09-28): a Month drag confirm must ALWAYS land on the destination
+      // day (no more spurious jumps), with the card highlighted for a few seconds.
+      // Done BEFORE the undo toast so it is immediate (the toast await is 6s).
+      if (opts?.navToDestDay) {
+        setDate(new Date(next.start))
+        setView(Views.DAY)
+        setColumnMode('professional')
+        setFlashEventId(turnoId)
+      }
       const res = await Swal.fire({
         toast: true,
         position: 'bottom-end',
@@ -3493,7 +3504,9 @@ export function CalendarView() {
           cancelButtonColor: isDarkNow ? '#3f4a5d' : '#e5e7eb',
         })
         if (!res.isConfirmed) return
-        await applyMoveWithUndo(turnoId, { start, end, sucursal, professionalId })
+        await applyMoveWithUndo(turnoId, { start, end, sucursal, professionalId }, undefined, undefined, {
+          navToDestDay: view === Views.MONTH,
+        })
         return
       }
 
@@ -3550,7 +3563,9 @@ export function CalendarView() {
           return
         }
         if (!res.isConfirmed) return
-        await applyMoveWithUndo(turnoId, { start, end, sucursal, professionalId }, actorName)
+        await applyMoveWithUndo(turnoId, { start, end, sucursal, professionalId }, actorName, undefined, {
+          navToDestDay: view === Views.MONTH,
+        })
       } else {
         await Swal.fire({
           ...commonSwal,
@@ -3572,6 +3587,7 @@ export function CalendarView() {
       treatments,
       sucursalLabel,
       actorName,
+      view,
       t,
     ],
   )
@@ -4540,6 +4556,10 @@ export function CalendarView() {
         const id = ev.dataTransfer.getData('text/plain')
         if (id) void attemptMoveRef.current(id, { dateStr: ds })
       },
+      // Empty-cell click → Vista Día of this day (Andrés #19.5). Dots, "+N" and the
+      // date number stopPropagation their own onClick, so this fires only for the
+      // free space of the cell. Replaces RBC's slot selection (disabled in Month).
+      onClick: () => openDayFromMonthRef.current(props.value),
     }
     if (bandKeys.length === 0) {
       // No bands, but still render our own date number (RBC's is hidden) and keep
@@ -4879,7 +4899,7 @@ export function CalendarView() {
           resourceTitleAccessor: (item: object) =>
             (item as { resourceTitle?: string }).resourceTitle ?? '',
         })}
-        selectable
+        selectable={view !== Views.MONTH}
         popup
         resizable
         step={scaleMin}
