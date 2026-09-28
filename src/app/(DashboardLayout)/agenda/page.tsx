@@ -23,8 +23,12 @@ export default function AgendaPage() {
   const { t } = useTranslation()
   return (
     // Compact header (Andrés #22): a subtle title instead of the tall hero block,
-    // so more of the screen is the calendar itself.
-    <div className='space-y-3'>
+    // so more of the screen is the calendar itself. The negative top margin pulls the
+    // Agenda title closer to the top bar, reclaiming the empty vertical space from the
+    // layout's large `py-30` gap — ONLY on this page, leaving other pages untouched
+    // (Andrés 2026-09-28). The layout header is sticky (in-flow), so this never slides
+    // content under it.
+    <div className='space-y-3 -mt-16 sm:-mt-20'>
       <h1 className='flex items-center gap-2 text-lg font-semibold text-dark dark:text-white'>
         <Icon icon='solar:calendar-mark-line-duotone' height={20} width={20} className='text-primary' />
         {t('agendaCal.pageTitle')}
