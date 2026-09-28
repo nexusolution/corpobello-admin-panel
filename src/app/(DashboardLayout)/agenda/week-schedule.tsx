@@ -360,7 +360,7 @@ export function WeekSchedule({
         onClick={() => onOpenDay(f.day)}
         title={dayTitle(f.day)}
         data-daycol={f.ds}
-        className='text-center px-1 border-b border-l border-border dark:border-darkborder cursor-pointer hover:brightness-95 transition sticky z-20 flex flex-col items-center justify-center'
+        className='text-center px-1 border-b border-l border-border dark:border-darkborder cursor-pointer hover:brightness-95 transition sticky z-30 flex flex-col items-center justify-center'
         style={{ gridColumn: `${f.startCol} / span ${f.cols.length}`, gridRow: 1, top: 0, height: DAY_H, background: dayBg }}>
         <div className='text-sm font-bold text-dark dark:text-white capitalize leading-tight'>{dayTitle(f.day)}</div>
         {sucs.length > 0 && (
@@ -379,7 +379,7 @@ export function WeekSchedule({
       cells.push(
         <div
           key={`sh-${f.ds}-${col}`}
-          className={`px-1 flex items-center justify-center gap-1 text-[11px] font-semibold text-dark dark:text-white border-b border-border dark:border-darkborder bg-card sticky z-20 ${
+          className={`px-1 flex items-center justify-center gap-1 text-[11px] font-semibold text-dark dark:text-white border-b border-border dark:border-darkborder bg-card sticky z-30 ${
             j === 0 ? 'border-l border-border dark:border-darkborder' : 'border-l border-border/40 dark:border-darkborder/40'
           }`}
           style={{ gridColumn: col, gridRow: 2, top: DAY_H, height: SUB_H }}>
@@ -400,7 +400,7 @@ export function WeekSchedule({
   cells.push(
     <div
       key='gutter-body'
-      className='relative sticky left-0 z-10 bg-card border-r border-border dark:border-darkborder'
+      className='relative sticky left-0 z-30 bg-card border-r border-border dark:border-darkborder'
       style={{ gridColumn: 1, gridRow: 3 }}>
       {slots.map((m, i) => (
         <div
