@@ -3868,6 +3868,27 @@ export function CalendarView() {
   const packSessionLabelsRef = useRef(packSessionLabels)
   packSessionLabelsRef.current = packSessionLabels
 
+  // Extra card info for Semana/Día (Andrés #23): the láser zonas (as labels) and the
+  // pack label of the turno, shown on the card + tooltip. Empty string when N/A, so
+  // the card only shows them "cuando corresponde". Never used in Vista Mes.
+  const laserZonesLabel = useCallback(
+    (e: CalendarEvent): string => {
+      if (!e.laserSex || !e.laserZones || e.laserZones.length === 0) return ''
+      const zmap = new Map(laserConfig[e.laserSex].zones.map((z) => [z.key, z.label]))
+      return e.laserZones.map((k) => zmap.get(k) ?? k).join(' + ')
+    },
+    [laserConfig],
+  )
+  const packLabelFor = useCallback(
+    (e: CalendarEvent): string => (e.packId ? packTotals.get(e.packId)?.label ?? '' : ''),
+    [packTotals],
+  )
+  // Refs so the empty-deps Month dateCellWrapper tooltip reads the latest resolvers.
+  const laserZonesLabelRef = useRef(laserZonesLabel)
+  laserZonesLabelRef.current = laserZonesLabel
+  const packLabelForRef = useRef(packLabelFor)
+  packLabelForRef.current = packLabelFor
+
   // Week/Day column header: default label + a coloured dot per open sucursal.
   const dayHeader = useCallback(
     ({ date, label }: { date: Date; label: string }) => {
@@ -4616,12 +4637,15 @@ export function CalendarView() {
                       const id = ev.dataTransfer.getData('text/plain')
                       if (id) void attemptMoveRef.current(id, { dateStr: ds })
                     }}
-                    // Rich tooltip (Andrés #19-D): hora · paciente · tratamiento ·
-                    // profesional · sucursal · estado.
+                    // Rich tooltip (Andrés #19-D / #23): hora · paciente · tratamiento
+                    // · zonas láser · pack · profesional · sucursal · estado. Vista Mes
+                    // keeps the circles clean; the extra detail lives here (Andrés #23.4).
                     title={[
                       toTimeInput(tt.start),
                       tt.patientName || tt.title,
                       treatmentNameRef.current(tt.treatmentSlug),
+                      laserZonesLabelRef.current(tt),
+                      packLabelForRef.current(tt),
                       tt.professionalId ? professionalNameRef.current(tt.professionalId) : '',
                       tt.sucursal ? sucursalLabel(tt.sucursal) : t('agenda.noSucursal'),
                       statusLabelRef.current(tt.status),
@@ -4975,6 +4999,8 @@ export function CalendarView() {
             emptyLabel={t('agenda.noProfessional')}
             scaleMin={scaleMin}
             onMoveTurno={(id, target) => void attemptMove(id, target)}
+            laserZonesText={laserZonesLabel}
+            packText={packLabelFor}
           />
         </div>
       )}
@@ -5014,6 +5040,8 @@ export function CalendarView() {
             lunchFor={(col) => lunchFor(col.sucursal, profIdOfResource(col.resourceId), toDateInput(date))}
             onEditLunch={openLunchEditor}
             onMoveTurno={(id, target) => void attemptMove(id, target)}
+            laserZonesText={laserZonesLabel}
+            packText={packLabelFor}
           />
         </div>
       )}

@@ -68,6 +68,10 @@ interface DayScheduleProps {
   // Drag-reschedule (Andrés #19-A): dropping a card onto a cell moves it to that
   // slot (startMin) + column (professional/sucursal); the parent validates + confirms.
   onMoveTurno?: (turnoId: string, target: { startMin: number; sucursal: string | null; professionalId: string | null }) => void
+  // Extra card info (Andrés #23): láser zonas (as a "A + B + C" label) and the pack
+  // label, shown on the card when there is room + always in the tooltip. '' = none.
+  laserZonesText?: (e: CalendarEvent) => string
+  packText?: (e: CalendarEvent) => string
 }
 
 // Solid green cobro block on the right of a charged turno (matches the reference).
@@ -109,6 +113,8 @@ export function DaySchedule({
   lunchFor,
   onEditLunch,
   onMoveTurno,
+  laserZonesText,
+  packText,
 }: DayScheduleProps) {
   // Column → professional id (sp:<suc>:<prof> or sp::<prof>); undefined otherwise.
   const profIdOfCol = (c: DayColumn): string | null =>
@@ -457,11 +463,24 @@ export function DaySchedule({
                     const leftPct = lay.lane * widthPct
                     const tc = treatmentColor(e.treatmentSlug, treatmentName(e.treatmentSlug))
                     const tall = height >= 44
+                    const zonesTxt = laserZonesText?.(e) ?? ''
+                    const packTxt = packText?.(e) ?? ''
+                    // Full detail on hover, regardless of card size (Andrés #23).
+                    const cardTitle = [
+                      `${fmtTime(e.start)} · ${fmtTime(e.end)}`,
+                      e.patientName || e.title,
+                      e.treatmentSlug ? treatmentName(e.treatmentSlug) : '',
+                      zonesTxt,
+                      packTxt,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')
                     return (
                       <button
                         key={e.id}
                         type='button'
                         data-eventid={e.id}
+                        title={cardTitle}
                         draggable={!!onMoveTurno}
                         onDragStart={(ev) => {
                           ev.dataTransfer.setData('text/plain', e.id)
@@ -494,6 +513,14 @@ export function DaySchedule({
                             <span className='block text-[10px] leading-tight truncate opacity-90'>
                               {treatmentName(e.treatmentSlug)}
                               {e.treatments && e.treatments.length > 1 ? ` +${e.treatments.length - 1}` : ''}
+                            </span>
+                          )}
+                          {tall && zonesTxt && (
+                            <span className='block text-[9px] leading-tight truncate opacity-80'>{zonesTxt}</span>
+                          )}
+                          {tall && packTxt && (
+                            <span className='inline-block mt-0.5 px-1 rounded text-[9px] font-semibold leading-tight bg-black/10 dark:bg-white/15'>
+                              {packTxt}
                             </span>
                           )}
                         </span>

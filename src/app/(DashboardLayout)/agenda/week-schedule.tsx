@@ -46,6 +46,10 @@ interface WeekScheduleProps {
     turnoId: string,
     target: { dateStr: string; startMin: number; sucursal: string | null; professionalId: string | null },
   ) => void
+  // Extra card info (Andrés #23): láser zonas (as a "A + B + C" label) and the pack
+  // label, shown on the card when there is room + always in the tooltip. '' = none.
+  laserZonesText?: (e: CalendarEvent) => string
+  packText?: (e: CalendarEvent) => string
 }
 
 const PAY_GREEN = '#16a34a'
@@ -85,6 +89,8 @@ export function WeekSchedule({
   emptyLabel,
   scaleMin,
   onMoveTurno,
+  laserZonesText,
+  packText,
 }: WeekScheduleProps) {
   const dayData = days.map((day) => ({ day, ds: toKey(day), cols: columnsForDay(day) }))
 
@@ -480,11 +486,23 @@ export function WeekSchedule({
             const leftPct = lay.lane * widthPct
             const tc = treatmentColor(e.treatmentSlug, treatmentName(e.treatmentSlug))
             const tall = height >= 42
+            const zonesTxt = laserZonesText?.(e) ?? ''
+            const packTxt = packText?.(e) ?? ''
+            const cardTitle = [
+              `${fmtTime(e.start)} · ${fmtTime(e.end)}`,
+              e.patientName || e.title,
+              e.treatmentSlug ? treatmentName(e.treatmentSlug) : '',
+              zonesTxt,
+              packTxt,
+            ]
+              .filter(Boolean)
+              .join(' · ')
             return (
               <button
                 key={e.id}
                 type='button'
                 data-eventid={e.id}
+                title={cardTitle}
                 draggable={!!onMoveTurno}
                 onDragStart={(ev) => {
                   ev.dataTransfer.setData('text/plain', e.id)
@@ -515,6 +533,14 @@ export function WeekSchedule({
                     <span className='block text-[9px] leading-tight truncate opacity-90'>
                       {treatmentName(e.treatmentSlug)}
                       {e.treatments && e.treatments.length > 1 ? ` +${e.treatments.length - 1}` : ''}
+                    </span>
+                  )}
+                  {tall && zonesTxt && (
+                    <span className='block text-[8px] leading-tight truncate opacity-80'>{zonesTxt}</span>
+                  )}
+                  {tall && packTxt && (
+                    <span className='inline-block mt-0.5 px-1 rounded text-[8px] font-semibold leading-tight bg-black/10 dark:bg-white/15'>
+                      {packTxt}
                     </span>
                   )}
                 </span>
