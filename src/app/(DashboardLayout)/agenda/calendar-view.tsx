@@ -1051,10 +1051,11 @@ function EventDialog({
     sex: LaserSex = laserSex,
     extras: { slug: string }[] = extraTreatments,
   ) => {
-    // Skip while the date is still empty (Andrés punto 20): the general "Nuevo
-    // evento" opens with no date, so a time picked first must not compute an end
-    // off an invalid date. The end is recomputed once a date is chosen.
-    if (allDay || !slug || !sStr) return
+    // Skip while the date/time is still empty (Andrés punto 20): the general "Nuevo
+    // evento" opens with no date/time, so picking zonas first must not compute an end
+    // off an invalid start. The end is recomputed once the start date + time exist
+    // (the start-time field's onChange calls this too).
+    if (allDay || !slug || !sStr || !sTime) return
     // Multi-tratamiento (línea 269): the turno duration is the PRIMARY treatment's
     // suggested time + each additional treatment's suggested time.
     const extraMin = extras.reduce(
@@ -1088,12 +1089,13 @@ function EventDialog({
   // Toggle a láser zona and recompute the duration + suggested total immediately
   // (Etapa 2 spec: recalcular al agregar/quitar zonas). Both stay editable after.
   const toggleLaserZone = (key: string) => {
-    setLaserZones((prev) => {
-      const next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
-      applyAutoDuration(treatmentSlug, firstSession, startStr, startTime, next, laserSex)
-      applyAutoPrice(treatmentSlug, next, laserSex)
-      return next
-    })
+    // Compute the next zonas from the current state and run the side-effects at the
+    // top level (NOT inside a setState updater — nesting setState in an updater is
+    // fragile and could drop the end-time/price update, Andrés 2026-09-28).
+    const next = laserZones.includes(key) ? laserZones.filter((k) => k !== key) : [...laserZones, key]
+    setLaserZones(next)
+    applyAutoDuration(treatmentSlug, firstSession, startStr, startTime, next, laserSex)
+    applyAutoPrice(treatmentSlug, next, laserSex)
   }
   const changeLaserSex = (sex: LaserSex) => {
     setLaserSex(sex)
@@ -1151,24 +1153,20 @@ function EventDialog({
   }
   const addExtraTreatment = () => setExtraTreatments((prev) => [...prev, { slug: '', subtotal: '', discount: '' }])
   const removeExtraTreatment = (idx: number) => {
-    setExtraTreatments((prev) => {
-      const next = prev.filter((_, i) => i !== idx)
-      recalcTotal(primarySubtotal, primaryDiscount, next)
-      applyAutoDuration(treatmentSlug, firstSession, startStr, startTime, laserZones, laserSex, next)
-      return next
-    })
+    const next = extraTreatments.filter((_, i) => i !== idx)
+    setExtraTreatments(next)
+    recalcTotal(primarySubtotal, primaryDiscount, next)
+    applyAutoDuration(treatmentSlug, firstSession, startStr, startTime, laserZones, laserSex, next)
   }
   const changeExtraTreatment = (idx: number, patch: Partial<ExtraLine>) => {
-    setExtraTreatments((prev) => {
-      const next = prev.map((e, i) => (i === idx ? { ...e, ...patch } : e))
-      // Picking a treatment auto-fills its suggested subtotal (editable).
-      if (patch.slug !== undefined) {
-        next[idx] = { ...next[idx]!, subtotal: String(suggestedSubtotalFor(patch.slug) || '') }
-      }
-      recalcTotal(primarySubtotal, primaryDiscount, next)
-      applyAutoDuration(treatmentSlug, firstSession, startStr, startTime, laserZones, laserSex, next)
-      return next
-    })
+    const next = extraTreatments.map((e, i) => (i === idx ? { ...e, ...patch } : e))
+    // Picking a treatment auto-fills its suggested subtotal (editable).
+    if (patch.slug !== undefined) {
+      next[idx] = { ...next[idx]!, subtotal: String(suggestedSubtotalFor(patch.slug) || '') }
+    }
+    setExtraTreatments(next)
+    recalcTotal(primarySubtotal, primaryDiscount, next)
+    applyAutoDuration(treatmentSlug, firstSession, startStr, startTime, laserZones, laserSex, next)
   }
 
   // ── Zona corporal (tratamientos no láser, línea firmada 276) ────────────────────
@@ -1669,7 +1667,7 @@ function EventDialog({
         draft.endTime !== endTime ||
         draft.allDay !== allDay
       if (dateChanged)
-        changes.push(`${t('turnoAudit.rescheduledTo')} ${startStr}${allDay ? '' : ' ' + startTime}`)
+        changes.push(`${t('turnoAudit.rescheduledTo')} ${ymdToDMY(startStr)}${allDay ? '' : ' ' + startTime}`)
       if (draft.status !== status)
         changes.push(`${t('turnoAudit.status')}: ${statusLabel(draft.status)} → ${statusLabel(status)}`)
       if (draft.sucursal !== sucursal)
@@ -3334,7 +3332,7 @@ export function CalendarView() {
         void Swal.fire({ icon: 'error', title: t('reschedule.error'), text: err, width: '360px' })
         return
       }
-      const parts = [`${t('turnoAudit.rescheduledTo')} ${toDateInput(next.start)} ${toTimeInput(next.start)}`]
+      const parts = [`${t('turnoAudit.rescheduledTo')} ${ymdToDMY(toDateInput(next.start))} ${toTimeInput(next.start)}`]
       if (next.sucursal !== orig.sucursal)
         parts.push(`${t('turnoAudit.sucursal')}: ${next.sucursal ? sucursalLabel(next.sucursal) : t('turno.none')}`)
       if (next.professionalId !== orig.professionalId)
@@ -4199,7 +4197,7 @@ export function CalendarView() {
         laserZones: event.laserZones,
       })
       // Audit the drag/resize (reschedule + any column reassign).
-      const changes = [`${t('turnoAudit.rescheduledTo')} ${toDateInput(s)}${allDay ? '' : ' ' + toTimeInput(s)}`]
+      const changes = [`${t('turnoAudit.rescheduledTo')} ${ymdToDMY(toDateInput(s))}${allDay ? '' : ' ' + toTimeInput(s)}`]
       if (newSucursal !== undefined && newSucursal !== event.sucursal)
         changes.push(`${t('turnoAudit.sucursal')}: ${sucursal ? sucursalLabel(sucursal) : t('turno.none')}`)
       if (newProfessional !== undefined && newProfessional !== event.professionalId)
