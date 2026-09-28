@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import Header from './layout/header/Header'
 import Sidebar from './layout/sidebar/Sidebar'
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
@@ -13,6 +13,12 @@ export default function Layout({
   children: React.ReactNode
 }>) {
   const router = useRouter()
+  const pathname = usePathname()
+  // Agenda reclaims the big empty gap below the top bar with a smaller top padding
+  // (Andrés 2026-09-28). Scoped to /agenda so every other page keeps its spacing, and
+  // done with PADDING (not a negative margin) so the title never slides under the
+  // sticky header. Bottom padding stays generous.
+  const isAgenda = pathname === '/agenda' || (pathname?.startsWith('/agenda/') ?? false)
   const [collapsed, setCollapsed] = useState(false)
   const [hovered, setHovered] = useState(false)
   const [authChecked, setAuthChecked] = useState(false)
@@ -69,7 +75,7 @@ export default function Layout({
           {/* Top Header  */}
           <Header onToggleSidebar={() => setCollapsed((c) => !c)} />
           {/* Body Content  */}
-          <div className='w-full px-6 py-30'>{children}</div>
+          <div className={`w-full px-6 pb-30 ${isAgenda ? 'pt-6' : 'pt-30'}`}>{children}</div>
         </div>
       </div>
     </div>
