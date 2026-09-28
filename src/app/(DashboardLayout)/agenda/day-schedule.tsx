@@ -533,8 +533,7 @@ export function DaySchedule({
                         {e.charged && (
                           <span
                             className='shrink-0 self-stretch flex items-center justify-center text-white font-bold'
-                            style={{ width: 20, backgroundColor: PAY_GREEN }}
-                            title='$'>
+                            style={{ width: 20, backgroundColor: PAY_GREEN }}>
                             $
                           </span>
                         )}

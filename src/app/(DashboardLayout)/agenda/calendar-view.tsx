@@ -4611,8 +4611,7 @@ export function CalendarView() {
               className='cb-month-band'
               style={{
                 background: !isNone && openSucs.has(key) ? hexToRgba(sucursalColor(key), 0.16) : 'transparent',
-              }}
-              title={isNone ? t('agenda.noSucursal') : sucursalLabel(key)}>
+              }}>
               <div className='cb-month-circles'>
                 {shown.map((tt) => (
                   <span
@@ -4711,14 +4710,7 @@ export function CalendarView() {
         })}
       </div>
     )
-    return cloneElement(
-      el,
-      {
-        title: bandKeys.map((k) => (k === NONE_RESOURCE ? t('agenda.noSucursal') : sucursalLabel(k))).join(' · '),
-        ...dropProps,
-      },
-      overlay,
-    )
+    return cloneElement(el, { ...dropProps }, overlay)
   }, [])
   // Week-list / Agenda date column: same per-sucursal availability colours as the
   // Month, so both views match (Andrés 2026-09-15). Fills the date cell.
