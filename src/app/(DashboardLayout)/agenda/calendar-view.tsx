@@ -4832,10 +4832,12 @@ export function CalendarView() {
         )}
       </div>
 
-      {/* Compact colour legends (Andrés #22): collapsed into "▾" chips so they stop
-          occupying two or three permanent lines. Disponibilidad = sucursal colours
-          (+ white = exceptional); then Estados (Mes) or Tratamientos (Semana/Día/
-          Agenda), matching how the colours are used in each view. */}
+      {/* Compact colour legends (Andrés #22): collapsed into "▾" chips. Disponibilidad
+          = sucursal colours (+ white = exceptional). In Semana/Día/Agenda the bar =
+          tratamiento AND the background = estado, so both legends are shown; in Mes the
+          circle colour = estado (Andrés 2026-09-28: added "Estados (color de fondo)"
+          to Semana/Día alongside "Tratamientos (color de barra)"). Order:
+          Disponibilidad | Tratamientos (barra) | Estados (fondo). */}
       <div className='flex items-center gap-2 flex-wrap mb-3'>
         {!sucursalFilter && (
           <LegendDropdown
@@ -4846,17 +4848,16 @@ export function CalendarView() {
             ]}
           />
         )}
-        {view === Views.MONTH ? (
-          <LegendDropdown
-            label={t('agenda.statusLegend')}
-            items={statusLegend.map((sl) => ({ label: sl.label, color: sl.color, shape: 'dot' as const }))}
-          />
-        ) : (
+        {view !== Views.MONTH && (
           <LegendDropdown
             label={t('agenda.treatmentLegend')}
             items={treatmentLegend.map((tl) => ({ label: tl.label, color: tl.color, shape: 'bar' as const }))}
           />
         )}
+        <LegendDropdown
+          label={view === Views.MONTH ? t('agenda.statusLegend') : t('agenda.statusLegendBg')}
+          items={statusLegend.map((sl) => ({ label: sl.label, color: sl.color, shape: 'dot' as const }))}
+        />
       </div>
 
       <div
