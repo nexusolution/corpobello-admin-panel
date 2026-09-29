@@ -98,8 +98,11 @@ import { validateMove, minToHHMM, type RescheduleCtx } from '@/lib/scheduling/re
 import {
   fetchPackConfigs,
   fetchActivePacks,
+  fetchPatientPacks,
   createPatientPack,
   deletePatientPack,
+  updatePatientPack,
+  fetchPacksConsumed,
   fetchPackTurnos,
   fetchPackTotals,
   packProgress,
@@ -687,6 +690,19 @@ function TreatmentSelect({
   isAdmin?: boolean
 }) {
   const [open, setOpen] = useState(false)
+  // On open, scroll the list to the currently-selected treatment so you don't have
+  // to scroll from the top again (Andrés 2026-09-29).
+  const listRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const raf = requestAnimationFrame(() => {
+      const cont = listRef.current
+      const el = cont?.querySelector<HTMLElement>('[data-selected="true"]')
+      if (!cont || !el) return
+      cont.scrollTop = el.offsetTop - cont.clientHeight / 2 + el.clientHeight / 2
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [open])
   const current = options.find((o) => o.value === value)
   const filtering = enabledValues != null
   // The currently-selected value always stays visible so an existing turno reads
@@ -701,6 +717,7 @@ function TreatmentSelect({
     <button
       key={o.value}
       type='button'
+      data-selected={o.value === value}
       onClick={() => { onChange(o.value); setOpen(false) }}
       className={`w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded text-sm hover:bg-lightprimary text-dark dark:text-white ${o.value === value ? 'bg-lightprimary/60' : ''}`}>
       <span className='h-2.5 w-2.5 rounded-sm shrink-0' style={{ backgroundColor: colorFor(o.value, o.label) }} />
@@ -724,7 +741,7 @@ function TreatmentSelect({
         </button>
       </PopoverTrigger>
       <PopoverContent className='w-[260px] p-1' align='start'>
-        <div className='max-h-72 overflow-y-auto'>
+        <div ref={listRef} className='max-h-72 overflow-y-auto'>
           <button
             type='button'
             onClick={() => { onChange(''); setOpen(false) }}
@@ -924,6 +941,9 @@ function EventDialog({
   // Zona corporal para tratamientos NO láser (línea firmada 276) — opcional.
   const [bodyZones, setBodyZones] = useState<string[]>(draft.bodyZones ?? [])
   const [bodyZoneInput, setBodyZoneInput] = useState('')
+  // Collapsed by default so the zona-corporal chips don't take permanent vertical
+  // space; when closed it shows a summary of the chosen zones (Andrés 2026-09-29).
+  const [bodyZoneOpen, setBodyZoneOpen] = useState(false)
 
   // Multi-tratamiento por turno (línea firmada 269-271). The PRIMARY treatment is
   // `treatmentSlug` above (drives colour/disponibilidad/capacidad/láser); its price
@@ -998,20 +1018,41 @@ function EventDialog({
       active = false
     }
   }, [])
-  // The patient's active packs for the selected treatment (for the linker).
+  // The patient's active packs for the selected treatment (for the linker). A pack
+  // that reached its total (done >= total) is auto-CLOSED (status 'completed') and
+  // dropped from the selectable list so it can't take a 5th turno (Andrés 2026-09-29);
+  // it stays in history + linked to its turnos. The currently-linked pack stays
+  // visible even if completed, so editing one of its turnos still shows the pack.
   useEffect(() => {
     if (!patientId || !treatmentSlug) {
       setActivePacks([])
       return
     }
     let active = true
-    void fetchActivePacks(patientId, treatmentSlug).then((packs) => {
-      if (active) setActivePacks(packs)
-    })
+    void (async () => {
+      const packs = await fetchActivePacks(patientId, treatmentSlug)
+      const consumed = await fetchPacksConsumed(packs.map((p) => p.id))
+      const selectable: PatientPack[] = []
+      for (const p of packs) {
+        const done = Math.min(p.totalSessions, (consumed.get(p.id) ?? 0) + p.manualAdjustment)
+        if (done >= p.totalSessions) {
+          void updatePatientPack(p.id, { status: 'completed' }) // close it (best-effort)
+        } else {
+          selectable.push(p)
+        }
+      }
+      // Keep the turno's currently-linked pack visible even if it just completed.
+      if (draft.packId && !selectable.some((p) => p.id === draft.packId)) {
+        const all = await fetchPatientPacks(patientId)
+        const linked = all.data.find((p) => p.id === draft.packId)
+        if (linked) selectable.unshift({ ...linked, status: 'completed' })
+      }
+      if (active) setActivePacks(selectable)
+    })()
     return () => {
       active = false
     }
-  }, [patientId, treatmentSlug])
+  }, [patientId, treatmentSlug, draft.packId])
   // Attended-session count of the linked pack (drives the progress line).
   useEffect(() => {
     if (!packId) {
@@ -1939,7 +1980,18 @@ function EventDialog({
 
           <div className='grid grid-cols-2 gap-3'>
             <label className='block'>
-              <span className='text-xs font-medium text-dark dark:text-white'>{t('turno.treatment')}</span>
+              <span className='flex items-center gap-1.5 text-xs font-medium text-dark dark:text-white'>
+                {t('turno.treatment')}
+                {/* Pack badge next to the treatment so the turno is instantly identified
+                    as part of a pack, without adding height (Andrés 2026-09-29). */}
+                {selectedPack && (
+                  <span
+                    className='inline-block rounded px-1 text-[10px] font-extrabold leading-tight'
+                    style={{ backgroundColor: '#c026d3', color: '#ffffff' }}>
+                    {selectedPack.label}
+                  </span>
+                )}
+              </span>
               <TreatmentSelect
                 value={treatmentSlug}
                 options={treatments}
@@ -2037,6 +2089,7 @@ function EventDialog({
                   {activePacks.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.label} · {t('turno.pack.createdOn', { date: new Date(p.createdAt).toLocaleDateString() })}
+                      {p.status === 'completed' ? ` · ${t('turno.pack.completed')}` : ''}
                     </option>
                   ))}
                 </select>
@@ -2203,57 +2256,75 @@ function EventDialog({
               de zonas arriba. */}
           {!isLaser && treatmentSlug && (
             <div className='rounded-md border border-border dark:border-darkborder bg-muted/20 px-3 py-2.5 space-y-2'>
-              <div className='flex items-center gap-1.5 text-xs font-semibold text-dark dark:text-white'>
-                <Icon icon='solar:map-point-line-duotone' height={15} width={15} className='text-primary' />
+              {/* Collapsible header: closed shows a summary of the chosen zones. */}
+              <button
+                type='button'
+                onClick={() => setBodyZoneOpen((o) => !o)}
+                className='w-full flex items-center gap-1.5 text-xs font-semibold text-dark dark:text-white'>
+                <Icon icon='solar:map-point-line-duotone' height={15} width={15} className='text-primary shrink-0' />
                 {t('turno.bodyZone.title')}
-                <span className='font-normal text-link dark:text-darklink'>· {t('turno.bodyZone.optional')}</span>
-              </div>
-              {bodyZones.length > 0 && (
-                <div className='flex flex-wrap gap-1.5'>
-                  {bodyZones.map((z) => (
-                    <button
-                      key={z}
-                      type='button'
-                      onClick={() => toggleBodyZone(z)}
-                      className='inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary text-white text-xs'>
-                      {z}
-                      <Icon icon='tabler:x' height={12} width={12} />
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div className='flex flex-wrap gap-1.5'>
-                {BODY_ZONE_PRESETS.filter((z) => !bodyZones.includes(z)).map((z) => (
-                  <button
-                    key={z}
-                    type='button'
-                    onClick={() => toggleBodyZone(z)}
-                    className='inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-border dark:border-darkborder text-xs text-link dark:text-darklink hover:bg-lightprimary/40'>
-                    <Icon icon='tabler:plus' height={11} width={11} />
-                    {z}
-                  </button>
-                ))}
-              </div>
-              <div className='flex items-center gap-2'>
-                <input
-                  value={bodyZoneInput}
-                  onChange={(e) => setBodyZoneInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      addBodyZoneFromInput()
-                    }
-                  }}
-                  placeholder={t('turno.bodyZone.addPlaceholder')}
-                  className='flex-1 px-2.5 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary'
+                {!bodyZoneOpen && bodyZones.length > 0 ? (
+                  <span className='font-normal text-dark dark:text-white truncate'>: {bodyZones.join(' + ')}</span>
+                ) : (
+                  <span className='font-normal text-link dark:text-darklink'>· {t('turno.bodyZone.optional')}</span>
+                )}
+                <Icon
+                  icon='tabler:chevron-down'
+                  height={14}
+                  width={14}
+                  className={`ml-auto shrink-0 text-link dark:text-darklink transition-transform ${bodyZoneOpen ? 'rotate-180' : ''}`}
                 />
-                <button
-                  type='button'
-                  onClick={addBodyZoneFromInput}
-                  className='px-2.5 py-1.5 rounded-md border border-border dark:border-darkborder text-xs text-link dark:text-darklink hover:bg-lightprimary/40'>
-                  {t('turno.bodyZone.add')}
-                </button>
-              </div>
+              </button>
+              {bodyZoneOpen && (
+                <>
+                  {bodyZones.length > 0 && (
+                    <div className='flex flex-wrap gap-1.5'>
+                      {bodyZones.map((z) => (
+                        <button
+                          key={z}
+                          type='button'
+                          onClick={() => toggleBodyZone(z)}
+                          className='inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary text-white text-xs'>
+                          {z}
+                          <Icon icon='tabler:x' height={12} width={12} />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className='flex flex-wrap gap-1.5'>
+                    {BODY_ZONE_PRESETS.filter((z) => !bodyZones.includes(z)).map((z) => (
+                      <button
+                        key={z}
+                        type='button'
+                        onClick={() => toggleBodyZone(z)}
+                        className='inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-border dark:border-darkborder text-xs text-link dark:text-darklink hover:bg-lightprimary/40'>
+                        <Icon icon='tabler:plus' height={11} width={11} />
+                        {z}
+                      </button>
+                    ))}
+                  </div>
+                  <div className='flex items-center gap-2'>
+                    <input
+                      value={bodyZoneInput}
+                      onChange={(e) => setBodyZoneInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          addBodyZoneFromInput()
+                        }
+                      }}
+                      placeholder={t('turno.bodyZone.addPlaceholder')}
+                      className='flex-1 px-2.5 py-1.5 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary'
+                    />
+                    <button
+                      type='button'
+                      onClick={addBodyZoneFromInput}
+                      className='px-2.5 py-1.5 rounded-md border border-border dark:border-darkborder text-xs text-link dark:text-darklink hover:bg-lightprimary/40'>
+                      {t('turno.bodyZone.add')}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 

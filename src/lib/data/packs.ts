@@ -243,6 +243,23 @@ export async function fetchPackTurnos(packId: string): Promise<PackTurno[]> {
   )
 }
 
+/** packId -> number of linked turnos already 'atendido' (consumed sessions), in one
+ *  query. Used to detect a full pack (done >= total) so it can be auto-completed. */
+export async function fetchPacksConsumed(packIds: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>()
+  if (!isSupabaseConfigured() || packIds.length === 0) return out
+  const { data, error } = await getSupabase()
+    .from('calendar_events')
+    .select('pack_id, status')
+    .in('pack_id', packIds)
+    .eq('status', 'atendido')
+  if (error || !data) return out
+  for (const r of data as { pack_id: string | null }[]) {
+    if (r.pack_id) out.set(r.pack_id, (out.get(r.pack_id) ?? 0) + 1)
+  }
+  return out
+}
+
 // ── Progress helpers (pure) ───────────────────────────────────────────────────
 
 /** A turno consumes a pack session only when it has been attended. */

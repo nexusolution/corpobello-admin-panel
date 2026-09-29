@@ -29,8 +29,13 @@ export const defaultDurationRule: DurationRule = {
 }
 
 // Same heuristic the bot uses: depilación / láser slugs run the base+zona model.
+// EXCLUDES laserpeel — it contains "laser" but is a fixed facial treatment with no
+// zone selection ("laserpeel sin selección de zona", signed scope; Andrés 2026-09-29
+// saw the depilación-láser zone block appear on laserpeel).
 export function isLaserSlug(slug: string): boolean {
-  return /laser|láser|depilacion|depilación/.test(slug.toLowerCase())
+  const s = slug.toLowerCase()
+  if (/peel/.test(s)) return false
+  return /laser|láser|depilacion|depilación/.test(s)
 }
 
 // Suggested minutes to block for a turno of `slug`. `firstSession` bumps the
