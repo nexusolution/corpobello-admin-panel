@@ -386,8 +386,10 @@ function Toolbar({
         )}
       </div>
 
-      <h5 className='text-base font-semibold text-dark dark:text-white capitalize order-first w-full text-center sm:order-none sm:w-auto'>
-        {label}
+      {/* Capitalize only the FIRST letter (not every word) so the Día label reads
+          "Miércoles 7 de octubre" and not "Miércoles 7 De Octubre" (Andrés 2026-09-29). */}
+      <h5 className='text-base font-semibold text-dark dark:text-white order-first w-full text-center sm:order-none sm:w-auto'>
+        {label ? label.charAt(0).toUpperCase() + label.slice(1) : label}
       </h5>
 
       <div className={groupCls}>
@@ -1958,6 +1960,61 @@ function EventDialog({
             </label>
           </div>
 
+          {/* Pack linker — shown right under the treatment when it is sold as a pack,
+              so assigning/creating the pack (4x3 / 5x4) is easy to find (Andrés
+              2026-09-29: it had been pushed too far down by the newer sections). */}
+          {packConfig && patientId && (
+            <div className='rounded-md border border-secondary/30 bg-secondary/5 px-3 py-2.5 space-y-2'>
+              <div className='flex items-center gap-1.5 text-xs font-semibold text-dark dark:text-white'>
+                <Icon icon='solar:box-line-duotone' height={15} width={15} className='text-secondary' />
+                {t('turno.pack.title')} · {packConfig.label}
+              </div>
+              {activePacks.length > 0 ? (
+                <select
+                  value={packId ?? ''}
+                  onChange={(e) => setPackId(e.target.value || null)}
+                  className={SELECT_CLS}>
+                  <option value=''>{t('turno.pack.none')}</option>
+                  {activePacks.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label} · {new Date(p.createdAt).toLocaleDateString()}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className='text-xs text-link dark:text-darklink'>{t('turno.pack.noneYet')}</p>
+              )}
+              {packStats && (
+                <p className='text-xs text-link dark:text-darklink'>
+                  {t('turno.pack.progress', {
+                    done: String(packStats.done),
+                    total: String(selectedPack?.totalSessions ?? 0),
+                    remaining: String(packStats.remaining),
+                  })}
+                  {packStats.next != null && (
+                    <>
+                      {' · '}
+                      <span className='font-medium text-secondary'>
+                        {t('turno.pack.next', {
+                          n: String(packStats.next),
+                          total: String(selectedPack?.totalSessions ?? 0),
+                        })}
+                      </span>
+                    </>
+                  )}
+                </p>
+              )}
+              <button
+                type='button'
+                onClick={createPack}
+                disabled={creatingPack}
+                className='inline-flex items-center gap-1.5 text-xs font-medium text-secondary hover:underline disabled:opacity-50'>
+                <Icon icon='tabler:plus' height={13} width={13} />
+                {t('turno.pack.create', { label: packConfig.label })}
+              </button>
+            </div>
+          )}
+
           {/* Depilación láser: zonas por click → duración interna (Etapa 2, spec
               "Tiempos_depilacion"). Internal times, never shown to the patient. */}
           {isLaser && (
@@ -2245,59 +2302,6 @@ function EventDialog({
                   />
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Pack linker — shown only when the treatment is sold as a pack. */}
-          {packConfig && patientId && (
-            <div className='rounded-md border border-secondary/30 bg-secondary/5 px-3 py-2.5 space-y-2'>
-              <div className='flex items-center gap-1.5 text-xs font-semibold text-dark dark:text-white'>
-                <Icon icon='solar:box-line-duotone' height={15} width={15} className='text-secondary' />
-                {t('turno.pack.title')} · {packConfig.label}
-              </div>
-              {activePacks.length > 0 ? (
-                <select
-                  value={packId ?? ''}
-                  onChange={(e) => setPackId(e.target.value || null)}
-                  className={SELECT_CLS}>
-                  <option value=''>{t('turno.pack.none')}</option>
-                  {activePacks.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.label} · {new Date(p.createdAt).toLocaleDateString()}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <p className='text-xs text-link dark:text-darklink'>{t('turno.pack.noneYet')}</p>
-              )}
-              {packStats && (
-                <p className='text-xs text-link dark:text-darklink'>
-                  {t('turno.pack.progress', {
-                    done: String(packStats.done),
-                    total: String(selectedPack?.totalSessions ?? 0),
-                    remaining: String(packStats.remaining),
-                  })}
-                  {packStats.next != null && (
-                    <>
-                      {' · '}
-                      <span className='font-medium text-secondary'>
-                        {t('turno.pack.next', {
-                          n: String(packStats.next),
-                          total: String(selectedPack?.totalSessions ?? 0),
-                        })}
-                      </span>
-                    </>
-                  )}
-                </p>
-              )}
-              <button
-                type='button'
-                onClick={createPack}
-                disabled={creatingPack}
-                className='inline-flex items-center gap-1.5 text-xs font-medium text-secondary hover:underline disabled:opacity-50'>
-                <Icon icon='tabler:plus' height={13} width={13} />
-                {t('turno.pack.create', { label: packConfig.label })}
-              </button>
             </div>
           )}
 
@@ -2762,6 +2766,9 @@ export function CalendarView() {
     const dmy = (d: Date, c: string | undefined, l: Loc) => l.format(d, 'DD/MM/YYYY', c)
     return {
       timeGutterFormat: 'HH:mm',
+      // Vista Día title: "Miércoles 7 de octubre" (Andrés 2026-09-29), not "Oct. 07".
+      // The toolbar capitalizes the first letter.
+      dayHeaderFormat: locale === 'es' ? 'dddd D [de] MMMM' : 'dddd, MMMM D',
       eventTimeRangeFormat: ({ start, end }: Rng, c: string, l: Loc) =>
         `${hm(start, c, l)}${sep}${hm(end, c, l)}`,
       agendaTimeRangeFormat: ({ start, end }: Rng, c: string, l: Loc) =>
