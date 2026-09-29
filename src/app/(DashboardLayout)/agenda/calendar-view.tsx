@@ -3601,6 +3601,17 @@ export function CalendarView() {
             ? t('turno.noAvailWho', { name: profLabel, sucursal: sucLabel })
             : t('turno.noAvailBranch', { sucursal: sucLabel }),
         )
+      else if (check.outsideHours)
+        // The day is open but the chosen time is before opening / after closing —
+        // say so with the actual hours, not the misleading "no time for duration"
+        // (Andrés 2026-09-29: moving to 10:00 when the window opens later).
+        issues.push(
+          check.window
+            ? t('reschedule.outsideHours', {
+                range: `${minToHHMM(check.window.openMin)} a ${minToHHMM(check.window.closeMin)}`,
+              })
+            : t('reschedule.incompatDuration'),
+        )
       else if (!check.fitsWindow) issues.push(t('reschedule.incompatDuration'))
       if (check.lunchConflict) issues.push(t('reschedule.incompatLunch'))
       if (check.overlap)

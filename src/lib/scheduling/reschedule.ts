@@ -144,7 +144,12 @@ export type MoveCheck = {
   ok: boolean
   performsTreatment: boolean
   hasAvailability: boolean // programmed availability for prof+suc+date
-  fitsWindow: boolean // the full duration fits before closing
+  fitsWindow: boolean // the full duration fits inside [open, close)
+  // The day IS open, but the chosen start is BEFORE opening or AT/AFTER closing —
+  // i.e. outside the working hours, distinct from "not enough time before close".
+  outsideHours: boolean
+  // The resolved working window for that prof+suc+date (minutes), when open.
+  window: { openMin: number; closeMin: number } | null
   lunchConflict: boolean
   overlap: { name: string; range: string } | null
 }
@@ -177,7 +182,15 @@ export function validateMove(
     !!target.professionalId,
   )
   const hasAvailability = win.open && !ctx.isSucursalClosed(target.dateStr, target.sucursal)
-  const fitsWindow = hasAvailability && win.closeMin != null && endMin <= win.closeMin && win.openMin != null && target.startMin >= win.openMin
+  const window =
+    hasAvailability && win.openMin != null && win.closeMin != null
+      ? { openMin: win.openMin, closeMin: win.closeMin }
+      : null
+  // Outside working hours = starts before open or at/after close (a distinct cause
+  // from "the duration doesn't fit before close").
+  const outsideHours =
+    !!window && (target.startMin < window.openMin || target.startMin >= window.closeMin)
+  const fitsWindow = !!window && !outsideHours && endMin <= window.closeMin
   const lunch = resolveLunch(
     target.sucursal,
     target.professionalId ?? null,
@@ -203,5 +216,5 @@ export function validateMove(
     }
   }
   const ok = performs && hasAvailability && fitsWindow && !lunchConflict && !overlap
-  return { ok, performsTreatment: performs, hasAvailability, fitsWindow, lunchConflict, overlap }
+  return { ok, performsTreatment: performs, hasAvailability, fitsWindow, outsideHours, window, lunchConflict, overlap }
 }

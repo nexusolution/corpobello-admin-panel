@@ -62,8 +62,20 @@ export function useHorizontalDragScroll(
         window.addEventListener('click', swallow, true)
       }
     }
+    // A turno HTML5-drag starts with the same pointerdown as a pan, but the browser
+    // then suppresses pointerup during the drag, so `down` would stay stuck true —
+    // making the grid pan behind the confirmation dialog and its trailing-click
+    // swallow eat the first Cancel/Confirm click (Andrés 2026-09-29, Vista Día).
+    // Aborting the pan on dragstart clears that state cleanly.
+    const onDragStartCancel = () => {
+      down = false
+      moved = false
+      cont.style.cursor = ''
+      cont.style.userSelect = ''
+    }
     if (drag) {
       cont.addEventListener('pointerdown', onDown)
+      cont.addEventListener('dragstart', onDragStartCancel)
       window.addEventListener('pointermove', onMove)
       window.addEventListener('pointerup', endDrag)
     }
@@ -71,6 +83,7 @@ export function useHorizontalDragScroll(
     return () => {
       cont.removeEventListener('wheel', onWheel)
       cont.removeEventListener('pointerdown', onDown)
+      cont.removeEventListener('dragstart', onDragStartCancel)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', endDrag)
     }
