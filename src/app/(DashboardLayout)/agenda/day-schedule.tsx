@@ -275,7 +275,7 @@ export function DaySchedule({
   return (
     <div className='rounded-lg border border-border dark:border-darkborder bg-card overflow-hidden'>
       <div className='px-4 py-3 border-b border-border dark:border-darkborder'>
-        <div className='text-lg font-bold text-dark dark:text-white capitalize'>{headerDate}</div>
+        <div className='text-lg font-bold text-dark dark:text-white'>{headerDate}</div>
         <div className='text-xs text-link dark:text-darklink mt-0.5'>{subtitle}</div>
       </div>
 
