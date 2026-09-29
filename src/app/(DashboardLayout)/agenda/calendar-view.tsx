@@ -99,6 +99,7 @@ import {
   fetchPackConfigs,
   fetchActivePacks,
   createPatientPack,
+  deletePatientPack,
   fetchPackTurnos,
   fetchPackTotals,
   packProgress,
@@ -1194,6 +1195,30 @@ function EventDialog({
 
   async function createPack() {
     if (!patientId || !packConfig || creatingPack) return
+    // Guard against accidental duplicates (Andrés 2026-09-29: clicking "Crear pack"
+    // repeatedly made a dozen 4x3 for the same patient). A pack is created ONCE per
+    // contract and then reused for each turno; only confirm a second if there is
+    // already an active one.
+    const isDarkNow =
+      typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+    if (activePacks.length > 0) {
+      const res = await Swal.fire({
+        icon: 'question',
+        iconColor: '#5d87ff',
+        title: t('turno.pack.dupTitle'),
+        text: t('turno.pack.dupBody', { label: packConfig.label }),
+        showCancelButton: true,
+        confirmButtonText: t('turno.pack.dupConfirm'),
+        cancelButtonText: t('agendaCal.cancel'),
+        confirmButtonColor: '#5d87ff',
+        cancelButtonColor: isDarkNow ? '#3f4a5d' : '#e5e7eb',
+        background: isDarkNow ? '#2a3547' : '#ffffff',
+        color: isDarkNow ? '#ffffff' : '#2a3547',
+        width: '400px',
+        customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
+      })
+      if (!res.isConfirmed) return
+    }
     setCreatingPack(true)
     const { data, error: err } = await createPatientPack({
       patientId,
@@ -1208,6 +1233,37 @@ function EventDialog({
     }
     setActivePacks((prev) => [data, ...prev])
     setPackId(data.id)
+  }
+  // Delete the currently-selected pack — used to clean up empty/duplicate packs
+  // created by mistake. Only offered when the pack has no consumed sessions.
+  async function removeSelectedPack() {
+    if (!selectedPack) return
+    const isDarkNow =
+      typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+    const res = await Swal.fire({
+      icon: 'warning',
+      iconColor: '#fa896b',
+      title: t('turno.pack.deleteTitle'),
+      text: t('turno.pack.deleteBody'),
+      showCancelButton: true,
+      confirmButtonText: t('turno.pack.deleteConfirm'),
+      cancelButtonText: t('agendaCal.cancel'),
+      confirmButtonColor: '#fa896b',
+      cancelButtonColor: isDarkNow ? '#3f4a5d' : '#e5e7eb',
+      background: isDarkNow ? '#2a3547' : '#ffffff',
+      color: isDarkNow ? '#ffffff' : '#2a3547',
+      width: '400px',
+      customClass: { popup: '!rounded-lg', title: '!text-base', htmlContainer: '!text-sm' },
+    })
+    if (!res.isConfirmed) return
+    const id = selectedPack.id
+    const err = await deletePatientPack(id)
+    if (err) {
+      setError(err)
+      return
+    }
+    setActivePacks((prev) => prev.filter((p) => p.id !== id))
+    setPackId(null)
   }
 
   const valid =
@@ -1971,6 +2027,7 @@ function EventDialog({
                 <Icon icon='solar:box-line-duotone' height={15} width={15} className='text-secondary' />
                 {t('turno.pack.title')} · {packConfig.label}
               </div>
+              <p className='text-[11px] text-link dark:text-darklink'>{t('turno.pack.pickHint')}</p>
               {activePacks.length > 0 ? (
                 <select
                   value={packId ?? ''}
@@ -1979,7 +2036,7 @@ function EventDialog({
                   <option value=''>{t('turno.pack.none')}</option>
                   {activePacks.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.label} · {new Date(p.createdAt).toLocaleDateString()}
+                      {p.label} · {t('turno.pack.createdOn', { date: new Date(p.createdAt).toLocaleDateString() })}
                     </option>
                   ))}
                 </select>
@@ -2006,14 +2063,26 @@ function EventDialog({
                   )}
                 </p>
               )}
-              <button
-                type='button'
-                onClick={createPack}
-                disabled={creatingPack}
-                className='inline-flex items-center gap-1.5 text-xs font-medium text-secondary hover:underline disabled:opacity-50'>
-                <Icon icon='tabler:plus' height={13} width={13} />
-                {t('turno.pack.create', { label: packConfig.label })}
-              </button>
+              <div className='flex items-center justify-between gap-2 flex-wrap'>
+                <button
+                  type='button'
+                  onClick={createPack}
+                  disabled={creatingPack}
+                  className='inline-flex items-center gap-1.5 text-xs font-medium text-secondary hover:underline disabled:opacity-50'>
+                  <Icon icon='tabler:plus' height={13} width={13} />
+                  {activePacks.length > 0 ? t('turno.pack.createAnother') : t('turno.pack.create', { label: packConfig.label })}
+                </button>
+                {/* Clean up an empty/duplicate pack (no consumed sessions yet). */}
+                {selectedPack && packStats && packStats.done === 0 && (
+                  <button
+                    type='button'
+                    onClick={removeSelectedPack}
+                    className='inline-flex items-center gap-1.5 text-xs font-medium text-error hover:underline'>
+                    <Icon icon='tabler:trash' height={13} width={13} />
+                    {t('turno.pack.deleteLink')}
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
