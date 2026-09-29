@@ -387,8 +387,10 @@ function Toolbar({
       </div>
 
       {/* Capitalize only the FIRST letter (not every word) so the Día label reads
-          "Miércoles 7 de octubre" and not "Miércoles 7 De Octubre" (Andrés 2026-09-29). */}
-      <h5 className='text-base font-semibold text-dark dark:text-white order-first w-full text-center sm:order-none sm:w-auto'>
+          "Miércoles 7 de octubre" and not "Miércoles 7 De Octubre" (Andrés 2026-09-29).
+          On desktop the label is a centered flex-1 region so its width changing with
+          the date (Back/Next) re-centers the text without pushing the buttons. */}
+      <h5 className='text-base font-semibold text-dark dark:text-white order-first w-full text-center sm:order-none sm:flex-1 sm:min-w-0'>
         {label ? label.charAt(0).toUpperCase() + label.slice(1) : label}
       </h5>
 
@@ -4478,6 +4480,12 @@ export function CalendarView() {
   // Stable RBC components — identities never change (volatile data read via the
   // refs above), so toggling a filter re-renders cells WITHOUT remounting the
   // toolbar/cells (which was the "Nuevo evento" + month + cells blink).
+  // openAdd depends on `date`, so it changes on every Today/Back/Next; reading it via
+  // a ref keeps toolbarComp's identity stable across navigation, otherwise RBC
+  // REMOUNTED the toolbar and the "New event" + date label flickered/shifted (Andrés
+  // 2026-09-29).
+  const openAddRef = useRef(openAdd)
+  openAddRef.current = openAdd
   const toolbarComp = useCallback(
     (props: ToolbarProps<CalendarEvent, object>) => (
       <Toolbar
@@ -4485,12 +4493,12 @@ export function CalendarView() {
         view={props.view}
         onView={props.onView}
         onNavigate={props.onNavigate}
-        onAdd={() => openAdd()}
+        onAdd={() => openAddRef.current()}
         canAdd={!isProfesional}
         t={t}
       />
     ),
-    [t, openAdd, isProfesional],
+    [t, isProfesional],
   )
   const eventComp = useCallback(
     ({ event }: { event: CalendarEvent }) => {
