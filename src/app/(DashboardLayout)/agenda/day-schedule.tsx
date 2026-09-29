@@ -11,7 +11,7 @@
 // finer scale (10/15) makes it clearly visible. Clicking empty space creates a
 // turno snapped to the scale slot; dragging a card drops it at the exact minute.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import type { CalendarEvent } from '@/lib/data/calendar-events'
 import type { LunchWindow } from '@/lib/data/lunch'
 import { useHorizontalDragScroll } from './use-hscroll'
@@ -77,6 +77,11 @@ interface DayScheduleProps {
 
 // Solid green cobro block on the right of a charged turno (matches the reference).
 const PAY_GREEN = '#16a34a'
+
+// PACK badge (Andrés 2026-09-29): a strong, estado-independent highlight so the pack
+// (4x3 / 5x4) is detectable at a glance on any card colour. Fuchsia is not a turno
+// status colour, so it never blends with the card background.
+const PACK_BADGE: CSSProperties = { backgroundColor: '#c026d3', color: '#ffffff' }
 
 function pad2(n: number): string {
   return n < 10 ? `0${n}` : String(n)
@@ -507,8 +512,18 @@ export function DaySchedule({
                         }}>
                         <span className='shrink-0 self-stretch' style={{ width: 6, backgroundColor: tc }} />
                         <span className='flex-1 min-w-0 py-0.5 px-2 overflow-hidden'>
-                          <span className='block font-bold text-[12px] leading-tight truncate'>
-                            {e.patientName || e.title}
+                          {/* Patient name + PACK badge on the same top line so the pack
+                              is detectable at a glance even on a short (10/15-min) card
+                              where the lines below are hidden (Andrés 2026-09-29). */}
+                          <span className='flex items-center gap-1'>
+                            <span className='font-bold text-[12px] leading-tight truncate'>
+                              {e.patientName || e.title}
+                            </span>
+                            {packTxt && (
+                              <span className='shrink-0 rounded px-1 text-[9px] font-extrabold leading-tight' style={PACK_BADGE}>
+                                {packTxt}
+                              </span>
+                            )}
                           </span>
                           {tall && (
                             <span className='block text-[10px] font-semibold leading-tight'>
@@ -523,11 +538,6 @@ export function DaySchedule({
                           )}
                           {tall && zonesTxt && (
                             <span className='block text-[9px] leading-tight truncate opacity-80'>{zonesTxt}</span>
-                          )}
-                          {tall && packTxt && (
-                            <span className='inline-block mt-0.5 px-1 rounded text-[9px] font-semibold leading-tight bg-black/10 dark:bg-white/15'>
-                              {packTxt}
-                            </span>
                           )}
                         </span>
                         {e.charged && (

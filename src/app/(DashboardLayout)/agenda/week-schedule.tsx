@@ -8,7 +8,7 @@
 // ALMUERZO band spans each day. Cards: treatment-colour bar, patient (black bold),
 // treatment (black), prof · sucursal, and a green "$" block when charged.
 
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react'
 import type { CalendarEvent } from '@/lib/data/calendar-events'
 import type { LunchWindow } from '@/lib/data/lunch'
 import type { DayColumn } from './day-schedule'
@@ -54,6 +54,10 @@ interface WeekScheduleProps {
 }
 
 const PAY_GREEN = '#16a34a'
+
+// PACK badge highlight — estado-independent fuchsia so the pack is spotted at a
+// glance on any card colour (Andrés 2026-09-29).
+const PACK_BADGE: CSSProperties = { backgroundColor: '#c026d3', color: '#ffffff' }
 
 function pad2(n: number): string {
   return n < 10 ? `0${n}` : String(n)
@@ -529,7 +533,16 @@ export function WeekSchedule({
                 }}>
                 <span className='shrink-0 self-stretch' style={{ width: 5, backgroundColor: tc }} />
                 <span className='flex-1 min-w-0 py-0.5 px-1 overflow-hidden'>
-                  <span className='block font-bold text-[10px] leading-tight truncate'>{e.patientName || e.title}</span>
+                  {/* Name + PACK badge on the top line so the pack is visible at a
+                      glance even on a short card (Andrés 2026-09-29). */}
+                  <span className='flex items-center gap-1'>
+                    <span className='font-bold text-[10px] leading-tight truncate'>{e.patientName || e.title}</span>
+                    {packTxt && (
+                      <span className='shrink-0 rounded px-1 text-[8px] font-extrabold leading-tight' style={PACK_BADGE}>
+                        {packTxt}
+                      </span>
+                    )}
+                  </span>
                   {tall && (
                     <span className='block text-[9px] font-semibold leading-tight'>
                       {fmtTime(e.start)} · {fmtTime(e.end)}
@@ -543,11 +556,6 @@ export function WeekSchedule({
                   )}
                   {tall && zonesTxt && (
                     <span className='block text-[8px] leading-tight truncate opacity-80'>{zonesTxt}</span>
-                  )}
-                  {tall && packTxt && (
-                    <span className='inline-block mt-0.5 px-1 rounded text-[8px] font-semibold leading-tight bg-black/10 dark:bg-white/15'>
-                      {packTxt}
-                    </span>
                   )}
                 </span>
                 {e.charged && (
