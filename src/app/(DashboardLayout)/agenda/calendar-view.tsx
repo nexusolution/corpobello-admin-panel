@@ -3118,8 +3118,6 @@ export function CalendarView() {
       // Resolve per REAL professional (not "any professional") so a special jornada
       // REPLACES the habitual one and a professional never shows in two branches the
       // same day (Andrés #11). Generic (unassigned) rules are OR'd in separately.
-      // Cross-sucursal EXCLUSIONS stay ignored here (booking-time concern, and two
-      // DIFFERENT professionals can work two branches the same day — #11/#12).
       // isHoliday enables the 2nd-Monday feriado shift (monthly_cycle, #10).
       const realProfs = professionals.map((p) => p.value)
       // When the view is scoped to specific professional(s) via the professional
@@ -3146,13 +3144,20 @@ export function CalendarView() {
         openMin = Math.min(openMin, w.openMin ?? openMin)
         closeMin = Math.max(closeMin, w.closeMin ?? closeMin)
       }
+      // In the scoped view, also apply the (now professional-scoped) cross-sucursal
+      // exclusions so the shading matches booking exactly — a professional who works
+      // two mutually-excluded branches the same day yields the secondary one on the
+      // calendar too. In the overview (no filter) exclusions stay off: they're a
+      // per-professional concern and two DIFFERENT professionals can legitimately work
+      // two branches at once (#11/#12).
+      const exForShade = scoped ? availExclusions : []
       for (const slug of slugs) {
         if (!scoped) take(genericAvailability(ds, sucursal, slug, availRules, hol))
-        for (const p of profs) take(availabilityFor(ds, sucursal, slug, availRules, [], p, hol, scoped))
+        for (const p of profs) take(availabilityFor(ds, sucursal, slug, availRules, exForShade, p, hol, scoped))
       }
       return open ? { open: true, openMin, closeMin } : { open: false }
     },
-    [treatmentFilterSlugs, professionalFilterIds, professionals, catalogSlugs, availRules, isSucursalClosed],
+    [treatmentFilterSlugs, professionalFilterIds, professionals, catalogSlugs, availRules, availExclusions, isSucursalClosed],
   )
 
   const shadeWindow = useCallback(

@@ -220,8 +220,9 @@ export function isTreatmentActive(
   rules: readonly AvailabilityRule[],
   professionalId?: string,
   isHoliday?: (dateStr: string) => boolean,
+  requireOwnRule?: boolean,
 ): boolean {
-  return openWindowsFor(dateStr, sucursal, slug, rules, professionalId, isHoliday).length > 0
+  return openWindowsFor(dateStr, sucursal, slug, rules, professionalId, isHoliday, requireOwnRule).length > 0
 }
 
 // A special jornada (monthly cycle / alternating / week-of-month) REPLACES a
@@ -301,10 +302,10 @@ export function availabilityFor(
   // sucursal only counts if it's the one their special jornada resolves to that
   // day — a special day (Caballito cycle, Merlo/Moreno alternation) replaces the
   // habitual one, so the professional is never "in two branches at once".
-  if (professionalId) {
-    const resolved = professionalSucursalesOn(dateStr, professionalId, rules, isHoliday)
-    if (resolved.size > 0 && !resolved.has(sucursal)) return { open: false }
-  }
+  const resolved = professionalId
+    ? professionalSucursalesOn(dateStr, professionalId, rules, isHoliday)
+    : null
+  if (resolved && resolved.size > 0 && !resolved.has(sucursal)) return { open: false }
 
   for (const ex of exclusions) {
     if (!ex.active || ex.sucursal !== sucursal) continue
@@ -315,8 +316,22 @@ export function availabilityFor(
         : ex.treatmentSlugs.length > 0
           ? ex.treatmentSlugs
           : [slug]
+    // Cross-sucursal exclusions are PROFESSIONAL-scoped when booking a specific
+    // professional (Andrés 2026-10 #3): the block only fires when THAT SAME
+    // professional also works one of the `whenActiveIn` branches that day (their own
+    // rule there, and after the #11 replacement — `resolved.has(other)`). A trigger
+    // active elsewhere by a DIFFERENT professional (or a generic rule) must NOT block
+    // them, so the other branches keep working for their own professionals — this
+    // scales as more professionals are added. With no professional in context
+    // (overview / bot auto-reserva by sucursal), the exclusion keeps its sucursal-level
+    // meaning: activity anywhere in `whenActiveIn` yields this branch.
     const blockedElsewhere = ex.whenActiveIn.some((other) =>
-      triggers.some((ts) => isTreatmentActive(dateStr, other, ts, rules)),
+      triggers.some((ts) =>
+        resolved
+          ? resolved.has(other) &&
+            isTreatmentActive(dateStr, other, ts, rules, professionalId, isHoliday, true)
+          : isTreatmentActive(dateStr, other, ts, rules),
+      ),
     )
     if (blockedElsewhere) return { open: false }
   }
