@@ -634,6 +634,19 @@ function StatusSelect({
   colorFor: (key: string) => string
 }) {
   const [open, setOpen] = useState(false)
+  // On open, scroll the list to the currently-selected estado so you don't have to
+  // scroll from the top again — same behaviour as the tratamiento picker (Andrés 2026-09-30).
+  const listRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const raf = requestAnimationFrame(() => {
+      const cont = listRef.current
+      const el = cont?.querySelector<HTMLElement>('[data-selected="true"]')
+      if (!cont || !el) return
+      cont.scrollTop = el.offsetTop - cont.clientHeight / 2 + el.clientHeight / 2
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [open])
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -646,11 +659,12 @@ function StatusSelect({
         </button>
       </PopoverTrigger>
       <PopoverContent className='w-[240px] p-1' align='start'>
-        <div className='max-h-72 overflow-y-auto'>
+        <div ref={listRef} className='max-h-72 overflow-y-auto'>
           {options.map((s) => (
             <button
               key={s.key}
               type='button'
+              data-selected={s.key === value}
               onClick={() => {
                 onChange(s.key)
                 setOpen(false)
@@ -4029,14 +4043,21 @@ export function CalendarView() {
   const packSessionLabelsRef = useRef(packSessionLabels)
   packSessionLabelsRef.current = packSessionLabels
 
-  // Extra card info for Semana/Día (Andrés #23): the láser zonas (as labels) and the
-  // pack label of the turno, shown on the card + tooltip. Empty string when N/A, so
-  // the card only shows them "cuando corresponde". Never used in Vista Mes.
+  // Extra card info for Semana/Día (Andrés #23 + 2026-09-30): the zonas of the turno
+  // (as labels) shown on the card + tooltip. Empty string when N/A, so the card only
+  // shows them "cuando corresponde". Never used to draw the Vista Mes circles.
+  // Two zone models coexist: depilación láser uses laserZones (keyed by sex config),
+  // and every other zoned treatment (eliminación de tatuajes, foliculitis,
+  // blanqueamiento, …) uses the generic bodyZones free-text list. Show whichever the
+  // turno carries so both surface the same way on the card + hover.
   const laserZonesLabel = useCallback(
     (e: CalendarEvent): string => {
-      if (!e.laserSex || !e.laserZones || e.laserZones.length === 0) return ''
-      const zmap = new Map(laserConfig[e.laserSex].zones.map((z) => [z.key, z.label]))
-      return e.laserZones.map((k) => zmap.get(k) ?? k).join(' + ')
+      if (e.laserSex && e.laserZones && e.laserZones.length > 0) {
+        const zmap = new Map(laserConfig[e.laserSex].zones.map((z) => [z.key, z.label]))
+        return e.laserZones.map((k) => zmap.get(k) ?? k).join(' + ')
+      }
+      if (e.bodyZones && e.bodyZones.length > 0) return e.bodyZones.join(' + ')
+      return ''
     },
     [laserConfig],
   )
