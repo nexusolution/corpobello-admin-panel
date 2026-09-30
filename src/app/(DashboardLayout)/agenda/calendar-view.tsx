@@ -3122,7 +3122,16 @@ export function CalendarView() {
       // DIFFERENT professionals can work two branches the same day — #11/#12).
       // isHoliday enables the 2nd-Monday feriado shift (monthly_cycle, #10).
       const realProfs = professionals.map((p) => p.value)
-      const profs: (string | undefined)[] = professionalFilterIds.length
+      // When the view is scoped to specific professional(s) via the professional
+      // filter, shade with the SAME semantics booking uses (Andrés 2026-10 #3 —
+      // Month vs create-turno consistency): require each professional's OWN rule
+      // (requireOwnRule) and ignore generic (unassigned) openings, so the calendar
+      // shows exactly where that professional can actually be booked. A branch kept
+      // open only by a generic rule or by ANOTHER professional no longer lights up
+      // for the filtered one. In the all-professionals overview (no filter), keep
+      // sucursal-level semantics so a genuinely open branch still shows.
+      const scoped = professionalFilterIds.length > 0
+      const profs: (string | undefined)[] = scoped
         ? professionalFilterIds
         : realProfs.length
           ? realProfs
@@ -3138,8 +3147,8 @@ export function CalendarView() {
         closeMin = Math.max(closeMin, w.closeMin ?? closeMin)
       }
       for (const slug of slugs) {
-        take(genericAvailability(ds, sucursal, slug, availRules, hol))
-        for (const p of profs) take(availabilityFor(ds, sucursal, slug, availRules, [], p, hol))
+        if (!scoped) take(genericAvailability(ds, sucursal, slug, availRules, hol))
+        for (const p of profs) take(availabilityFor(ds, sucursal, slug, availRules, [], p, hol, scoped))
       }
       return open ? { open: true, openMin, closeMin } : { open: false }
     },
