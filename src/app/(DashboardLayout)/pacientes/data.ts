@@ -83,6 +83,122 @@ export async function fetchPatients(): Promise<PatientsResult> {
   return { data: patients, error: null }
 }
 
+// ---------- KPI summary (real data, replaces the old hardcoded cards) ----------
+
+export type PatientKpis = {
+  // Sign-ups in the last 30 days.
+  newLast30: number
+  // Patients with a (non-cancelled) turno in the last 60 days.
+  active60: number
+  // Patients with no activity (turno or sign-up) in over 90 days.
+  uncontacted90: number
+  // Average days between consecutive attended visits over the last 6 months.
+  avgBetweenVisits: number
+  // Total patients (for the progress bars + sanity).
+  total: number
+}
+
+const EMPTY_KPIS: PatientKpis = {
+  newLast30: 0,
+  active60: 0,
+  uncontacted90: 0,
+  avgBetweenVisits: 0,
+  total: 0,
+}
+
+const DAY_MS = 86_400_000
+
+/**
+ * Compute the Pacientes header KPIs from live data. One read of `patients`
+ * (created_at) + one of `calendar_events` (patient_id, starts_at, status) over
+ * the last 6 months — enough for the 60d/90d windows and the visit-gap average.
+ * Returns zeros when Supabase isn't configured or on error, so the cards never
+ * show stale/mock numbers (Andrés 2026-10-02: cards must reflect the real DB).
+ */
+export async function fetchPatientKpis(): Promise<PatientKpis> {
+  if (!isSupabaseConfigured()) return EMPTY_KPIS
+  const now = Date.now()
+  const sixMonthsAgoIso = new Date(now - 182 * DAY_MS).toISOString()
+
+  const [patientsRes, eventsRes] = await Promise.all([
+    getSupabase().from('patients').select('id, created_at'),
+    getSupabase()
+      .from('calendar_events')
+      .select('patient_id, starts_at, status')
+      .not('patient_id', 'is', null)
+      .gte('starts_at', sixMonthsAgoIso),
+  ])
+  if (patientsRes.error || eventsRes.error) return EMPTY_KPIS
+
+  const patients = (patientsRes.data ?? []) as { id: string; created_at: string | null }[]
+  const events = (eventsRes.data ?? []) as {
+    patient_id: string | null
+    starts_at: string | null
+    status: string | null
+  }[]
+  const total = patients.length
+
+  // New sign-ups in the last 30 days.
+  const newLast30 = patients.filter((p) => {
+    const d = daysSince(p.created_at)
+    return d != null && d <= 30
+  }).length
+
+  // Per-patient most-recent turno time (ms), ignoring cancelled turnos.
+  const lastTurnoMs = new Map<string, number>()
+  // Attended visits per patient (ms), for the gap average.
+  const attendedByPatient = new Map<string, number[]>()
+  for (const e of events) {
+    if (!e.patient_id || !e.starts_at) continue
+    const ms = new Date(e.starts_at).getTime()
+    if (Number.isNaN(ms)) continue
+    const status = (e.status ?? '').toLowerCase()
+    if (status !== 'cancelado') {
+      const prev = lastTurnoMs.get(e.patient_id)
+      if (prev == null || ms > prev) lastTurnoMs.set(e.patient_id, ms)
+    }
+    if (status === 'atendido') {
+      const list = attendedByPatient.get(e.patient_id) ?? []
+      list.push(ms)
+      attendedByPatient.set(e.patient_id, list)
+    }
+  }
+
+  const sixtyDaysAgo = now - 60 * DAY_MS
+  const ninetyDaysAgo = now - 90 * DAY_MS
+
+  // Active: a non-cancelled turno in the last 60 days.
+  let active60 = 0
+  for (const ms of lastTurnoMs.values()) if (ms >= sixtyDaysAgo) active60++
+
+  // Uncontacted: last activity (most recent turno, else sign-up) older than 90 days.
+  let uncontacted90 = 0
+  for (const p of patients) {
+    const turno = lastTurnoMs.get(p.id)
+    const created = p.created_at ? new Date(p.created_at).getTime() : NaN
+    const lastActivity = Math.max(
+      turno ?? Number.NEGATIVE_INFINITY,
+      Number.isNaN(created) ? Number.NEGATIVE_INFINITY : created,
+    )
+    if (lastActivity < ninetyDaysAgo) uncontacted90++
+  }
+
+  // Average days between consecutive attended visits (last 6 months).
+  let gapSum = 0
+  let gapCount = 0
+  for (const times of attendedByPatient.values()) {
+    if (times.length < 2) continue
+    times.sort((a, b) => a - b)
+    for (let i = 1; i < times.length; i++) {
+      gapSum += (times[i]! - times[i - 1]!) / DAY_MS
+      gapCount++
+    }
+  }
+  const avgBetweenVisits = gapCount > 0 ? Math.round(gapSum / gapCount) : 0
+
+  return { newLast30, active60, uncontacted90, avgBetweenVisits, total }
+}
+
 /** Create a patient manually from the panel. RLS allows operators to insert. */
 export async function createPatient(fields: {
   fullName: string
