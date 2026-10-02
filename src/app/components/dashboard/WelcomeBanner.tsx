@@ -1,26 +1,34 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Icon } from '@iconify/react'
 
 import CardBox from '../shared/CardBox'
+import { fetchTodaySummary, type TodaySummary } from './data'
 import { useTranslation } from '@/lib/i18n/context'
 import type { TranslationKey } from '@/lib/i18n/dictionaries'
 import {
   TREATMENT_SLUGS_ORDERED,
+  getTreatmentColor,
   getTreatmentColorBySlug,
 } from '@/lib/treatment-colors'
 
-// MOCK STATE: today's count per treatment category. When agenda + Supabase
-// land, derive from today's confirmed/pending turnos grouped by treatment_id.
-const TODAYS_LOAD: Record<string, number> = {
-  tatuaje: 4,
-  depilacion: 8,
-  melasma: 2,
-  endolift: 1,
-  acne: 0,
-  microblading: 0,
-  facial: 0,
+// Today's turno count per treatment CATEGORY, derived from live data (Andrés
+// 2026-10-02 — replaces the old hardcoded sample load). Real turno slugs
+// (e.g. 'depilacion-laser', 'tatuajes', 'faciales-...') are folded into the
+// palette categories via the same substring matcher used elsewhere.
+function categoryLoad(perTreatment: Record<string, number>): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const [slug, count] of Object.entries(perTreatment)) {
+    const cat = getTreatmentColor(slug).slug
+    out[cat] = (out[cat] ?? 0) + count
+  }
+  return out
+}
+
+function formatARS(n: number): string {
+  return `$${Math.round(n).toLocaleString('es-AR')}`
 }
 
 // Three-dot progress indicator (first one active) — mirrors the sample cards.
@@ -62,11 +70,23 @@ export function WelcomeBanner({
 } = {}) {
   const { t } = useTranslation()
 
+  // Live today summary (attended / cancellations / income / per-treatment load).
+  const [today, setToday] = useState<TodaySummary | null>(null)
+  useEffect(() => {
+    let alive = true
+    void fetchTodaySummary().then((s) => {
+      if (alive) setToday(s)
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  const load = categoryLoad(today?.perTreatment ?? {})
   // Only chips for categories with at least 1 scheduled today.
-  const treatmentChips = TREATMENT_SLUGS_ORDERED.filter(
-    (slug) => (TODAYS_LOAD[slug] ?? 0) > 0
-  )
-  const totalTurnos = treatmentChips.reduce((sum, slug) => sum + (TODAYS_LOAD[slug] ?? 0), 0)
+  const treatmentChips = TREATMENT_SLUGS_ORDERED.filter((slug) => (load[slug] ?? 0) > 0)
+  // Subtitle counts ALL non-cancelled turnos today (incl. any uncategorised).
+  const totalTurnos = today?.scheduled ?? 0
 
   return (
     <>
@@ -87,12 +107,12 @@ export function WelcomeBanner({
                 <Icon icon='solar:chart-square-line-duotone' height={32} width={32} className='text-primary' />
               </div>
               <div className='flex flex-col gap-3 min-w-0'>
-                <StatRow value='2' label={t('welcome.patientsAttended')} />
-                <StatRow value='1' label={t('welcome.cancellations')} />
+                <StatRow value={String(today?.attended ?? 0)} label={t('welcome.patientsAttended')} />
+                <StatRow value={String(today?.cancellations ?? 0)} label={t('welcome.cancellations')} />
                 {showFinancials && (
                   <>
-                    <StatRow value='$84.500' label={t('welcome.dailyIncome')} />
-                    <StatRow value='$31.000' label={t('welcome.pendingCharges')} />
+                    <StatRow value={formatARS(today?.dailyIncomeCash ?? 0)} label={t('welcome.dailyIncome')} />
+                    <StatRow value={formatARS(today?.pendingCharges ?? 0)} label={t('welcome.pendingCharges')} />
                   </>
                 )}
               </div>
@@ -147,7 +167,7 @@ export function WelcomeBanner({
                     return (
                       <StatRow
                         key={slug}
-                        value={String(TODAYS_LOAD[slug])}
+                        value={String(load[slug] ?? 0)}
                         label={t(color.labelKey as TranslationKey)}
                       />
                     )
