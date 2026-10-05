@@ -35,6 +35,7 @@ import {
   persistLeadStatus,
   fetchColumnColors,
   saveColumnColors,
+  addLeadNote,
 } from './data'
 import { LeadDetailDialog } from './lead-detail-dialog'
 import { getTreatmentColor } from '@/lib/treatment-colors'
@@ -731,14 +732,18 @@ export function KanbanBoard() {
           ? {
               ...l,
               internalNotes: [
+                { text, author: 'Equipo', createdAtHoursAgo: 0 },
                 ...(l.internalNotes ?? []),
-                { text, author: 'Andrés', createdAtHoursAgo: 0 },
               ],
               notesCount: (l.notesCount ?? 0) + 1,
             }
           : l
       )
     )
+    // Persist to the linked patient's notes (promoted leads). Un-promoted leads
+    // have no patient_notes target, so the note stays optimistic for the session.
+    const lead = leads.find((l) => l.id === id)
+    void addLeadNote(lead?.patientId, text)
   }
 
   const sensors = useSensors(

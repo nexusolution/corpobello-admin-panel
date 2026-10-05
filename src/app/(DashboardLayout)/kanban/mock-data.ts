@@ -53,6 +53,9 @@ export type LeadNote = {
 
 export type Lead = {
   id: string
+  // Linked patient (set once a lead is promoted on reservation); null otherwise.
+  // Internal notes hang off the patient, so note read/write needs this id.
+  patientId?: string | null
   patientName: string
   phoneLast4: string
   phoneFull: string

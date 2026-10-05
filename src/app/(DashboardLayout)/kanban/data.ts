@@ -9,10 +9,11 @@
 
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 import { hoursSince, normalizeSucursal, phoneLast4 } from '@/lib/data/helpers'
-import type { Lead, LeadStatus } from './mock-data'
+import type { Lead, LeadNote, LeadStatus } from './mock-data'
 
 type LeadRow = {
   id: string
+  patient_id: string | null
   whatsapp_phone: string | null
   display_name: string | null
   status: string | null
@@ -62,38 +63,97 @@ export async function fetchLeads(): Promise<LeadsResult> {
   const { data, error } = await getSupabase()
     .from('leads')
     .select(
-      'id, whatsapp_phone, display_name, status, metadata, created_at, last_message_at, treatments:current_treatment_id (display_name)',
+      'id, patient_id, whatsapp_phone, display_name, status, metadata, created_at, last_message_at, treatments:current_treatment_id (display_name)',
     )
     .order('last_message_at', { ascending: false, nullsFirst: false })
 
   if (error) return { data: [], error: error.message }
 
   const rows = data as LeadRow[]
-  // Real photo counts per lead (the card badge). Batched once for the board.
+  // Real badge data, batched once for the whole board: photos (inbound media) and
+  // internal notes (hang off the lead's linked patient, when promoted).
   const photoCounts = await fetchLeadPhotoCounts(rows.map((r) => r.id))
+  const notesByPatient = await fetchLeadNotes(
+    rows.map((r) => r.patient_id).filter((id): id is string => !!id),
+  )
 
-  const leads: Lead[] = rows.map((row) => ({
-    id: row.id,
-    patientName: row.display_name?.trim() || row.whatsapp_phone || 'Sin nombre',
-    phoneLast4: phoneLast4(row.whatsapp_phone),
-    phoneFull: row.whatsapp_phone ?? '',
-    sucursal:
-      normalizeSucursal(metaReservationSucursal(row.metadata)) ??
-      normalizeSucursal(row.metadata?.['sucursal']),
-    treatmentLabel: metaTreatmentName(row.metadata) || treatmentLabel(row.treatments),
-    lastActivityHoursAgo: hoursSince(row.last_message_at ?? row.created_at),
-    // No tags/notes columns yet — neutral defaults; photos are counted below.
-    tags: [],
-    notesCount: 0,
-    photosCount: photoCounts.get(row.id) ?? 0,
-    status: mapStatus(row.status),
-    ...(metaQuote(row.metadata) && { quote: metaQuote(row.metadata)! }),
-    ...(metaReservation(row.metadata) && {
-      reservation: metaReservation(row.metadata)!,
-    }),
-  }))
+  const leads: Lead[] = rows.map((row) => {
+    const notes = row.patient_id ? notesByPatient.get(row.patient_id) ?? [] : []
+    return {
+      id: row.id,
+      patientId: row.patient_id,
+      patientName: row.display_name?.trim() || row.whatsapp_phone || 'Sin nombre',
+      phoneLast4: phoneLast4(row.whatsapp_phone),
+      phoneFull: row.whatsapp_phone ?? '',
+      sucursal:
+        normalizeSucursal(metaReservationSucursal(row.metadata)) ??
+        normalizeSucursal(row.metadata?.['sucursal']),
+      treatmentLabel: metaTreatmentName(row.metadata) || treatmentLabel(row.treatments),
+      lastActivityHoursAgo: hoursSince(row.last_message_at ?? row.created_at),
+      // No tags column yet; notes + photos are real counts below.
+      tags: [],
+      notesCount: notes.length,
+      photosCount: photoCounts.get(row.id) ?? 0,
+      status: mapStatus(row.status),
+      ...(notes.length > 0 && { internalNotes: notes }),
+      ...(metaQuote(row.metadata) && { quote: metaQuote(row.metadata)! }),
+      ...(metaReservation(row.metadata) && {
+        reservation: metaReservation(row.metadata)!,
+      }),
+    }
+  })
 
   return { data: leads, error: null }
+}
+
+// Load the internal notes for the given patients (leads reach notes through
+// leads.patient_id → patient_notes.patient_id). Newest first, grouped by
+// patient. Best-effort; an empty map leaves every badge at 0.
+async function fetchLeadNotes(patientIds: string[]): Promise<Map<string, LeadNote[]>> {
+  const byPatient = new Map<string, LeadNote[]>()
+  const ids = [...new Set(patientIds)]
+  if (ids.length === 0 || !isSupabaseConfigured()) return byPatient
+  try {
+    const { data } = await getSupabase()
+      .from('patient_notes')
+      .select('patient_id, body, created_at, author:author_id (display_name)')
+      .in('patient_id', ids)
+      .order('created_at', { ascending: false })
+    for (const r of (data as any[]) ?? []) {
+      const author = Array.isArray(r.author) ? r.author[0] : r.author
+      const note: LeadNote = {
+        text: r.body as string,
+        author: author?.display_name?.trim() || 'Equipo',
+        createdAtHoursAgo: hoursSince(r.created_at),
+      }
+      const arr = byPatient.get(r.patient_id) ?? []
+      arr.push(note)
+      byPatient.set(r.patient_id, arr)
+    }
+  } catch {
+    // Best-effort — badges fall back to 0.
+  }
+  return byPatient
+}
+
+/** Persist an internal note on a lead's linked patient. Returns an error string
+ *  on failure, or null on success / when the lead has no patient yet (nothing to
+ *  write to — un-promoted leads have no patient_notes target). */
+export async function addLeadNote(
+  patientId: string | null | undefined,
+  body: string,
+): Promise<string | null> {
+  if (!patientId) return 'no-patient'
+  if (!isSupabaseConfigured()) return null
+  const supabase = getSupabase()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return 'no-session'
+  const { error } = await supabase
+    .from('patient_notes')
+    .insert({ patient_id: patientId, author_id: user.id, body })
+  return error ? error.message : null
 }
 
 // Count the photos each lead sent, for the card badge. A "photo" is an inbound
