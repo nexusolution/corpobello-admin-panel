@@ -168,6 +168,11 @@ export function LeadDetailDialog({
   const statusColumn = COLUMNS.find((c) => c.id === lead.status)
   const statusLabel = statusColumn ? t(statusColumn.nameKey) : lead.status
 
+  // Patient-sent photos, derived from the transcript (inbound messages carrying
+  // an attached image). fetchLeads never populates lead.photos, so deriving from
+  // the same media the conversation shows keeps PHOTOS and the chat in sync.
+  const photos = transcript.filter((m) => m.direction === 'in' && m.imageUrl)
+
   function copyPhone() {
     if (!lead?.phoneFull) return
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -315,24 +320,28 @@ export function LeadDetailDialog({
           {/* ---------- 3. Photos ---------- */}
           <section>
             <SectionTitle icon='solar:gallery-line-duotone'>{t('kanban.detail.section.photos')}</SectionTitle>
-            {lead.photos && lead.photos.length > 0 ? (
+            {transcriptLoading ? (
+              <p className='text-sm text-link dark:text-darklink italic'>
+                {t('kanban.detail.conversation.loading')}
+              </p>
+            ) : photos.length > 0 ? (
               <div className='grid grid-cols-3 gap-2'>
-                {lead.photos.map((photo, idx) => (
+                {photos.map((photo) => (
                   <a
-                    key={`${photo.url}-${idx}`}
-                    href={photo.url}
+                    key={photo.id}
+                    href={photo.imageUrl}
                     target='_blank'
                     rel='noopener noreferrer'
                     className='group relative aspect-square rounded-md overflow-hidden border border-border dark:border-darkborder'>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={photo.url}
-                      alt={photo.label}
+                      src={photo.imageUrl}
+                      alt={photo.text}
                       className='h-full w-full object-cover group-hover:scale-105 transition-transform'
                     />
                     <div className='absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5'>
                       <span className='text-xs text-white truncate block'>
-                        {photo.label}
+                        {formatMsgTimestamp(photo.createdAt)}
                       </span>
                     </div>
                   </a>
