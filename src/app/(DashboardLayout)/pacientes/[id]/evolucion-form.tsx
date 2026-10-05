@@ -297,6 +297,18 @@ export function EvolucionForm({
   }
 
   async function handleSignClose() {
+    // A signed clinical record needs real content. Block closing an empty draft
+    // (no treatment or no notes) so the firmed comprobante isn't a hollow artifact.
+    if (!treatmentSlug || !notes.trim()) {
+      await Swal.fire({
+        ...SWAL_OVER_DIALOG,
+        icon: 'warning',
+        title: t('ficha.form.closeValidationTitle'),
+        text: t('ficha.form.closeValidationText'),
+        confirmButtonColor: '#5d87ff',
+      })
+      return
+    }
     const confirm = await Swal.fire({
       ...SWAL_OVER_DIALOG,
       icon: 'question',
@@ -318,9 +330,19 @@ export function EvolucionForm({
         await Swal.fire({ icon: 'error', title: t('ficha.form.saveError'), text: error, ...SWAL_OVER_DIALOG })
         return
       }
-      // Generate + store the signed comprobante PDF (best-effort — the session
-      // is already closed even if the PDF fails; it can be regenerated).
-      await generateComprobante(id)
+      // Generate + store the signed comprobante PDF. The session is already
+      // closed even if the PDF fails, so surface a non-blocking warning and let
+      // the profesional regenerate it from the ficha instead of failing silently.
+      const { error: pdfError } = await generateComprobante(id)
+      if (pdfError) {
+        await Swal.fire({
+          ...SWAL_OVER_DIALOG,
+          icon: 'warning',
+          title: t('ficha.form.saveError'),
+          text: t('ficha.form.comprobanteWarning'),
+          confirmButtonColor: '#5d87ff',
+        })
+      }
     }
     setSaving(false)
     if (id) {

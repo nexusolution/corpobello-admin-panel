@@ -19,6 +19,7 @@ import {
   followupState,
   type Evolucion,
 } from '@/lib/data/evoluciones'
+import { generateComprobante } from '@/lib/data/comprobante-pdf'
 import { EvolucionForm } from './evolucion-form'
 import {
   fetchPatientPacks,
@@ -742,6 +743,7 @@ function FichaTab({
     { treatmentSlug?: string; professionalId?: string; notes?: string; nextFollowup?: string } | undefined
   >(undefined)
   const [compareOpen, setCompareOpen] = useState(false)
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
 
   const reload = useCallback(() => {
     setLoading(true)
@@ -789,6 +791,18 @@ function FichaTab({
     setEditing(ev)
     setPrefill(undefined)
     setFormOpen(true)
+  }
+  // Recover a closed session whose comprobante PDF is missing (the generation at
+  // close time failed, or never ran). Rebuilds + stores it, then reloads.
+  async function regenerateComprobante(ev: Evolucion) {
+    setRegeneratingId(ev.id)
+    const { error } = await generateComprobante(ev.id)
+    setRegeneratingId(null)
+    if (error) {
+      await Swal.fire({ icon: 'error', title: t('ficha.comprobanteError'), text: error })
+      return
+    }
+    void reload()
   }
 
   return (
@@ -886,7 +900,7 @@ function FichaTab({
                 {ev.nextFollowup && (
                   <FollowupChip dateStr={ev.nextFollowup} t={t} locale={locale} />
                 )}
-                {ev.pdfUrl && (
+                {ev.pdfUrl ? (
                   <a
                     href={ev.pdfUrl}
                     target='_blank'
@@ -895,6 +909,19 @@ function FichaTab({
                     <Icon icon='solar:file-text-line-duotone' height={14} width={14} />
                     {t('ficha.viewComprobante')}
                   </a>
+                ) : (
+                  closed && (
+                    <button
+                      type='button'
+                      onClick={() => void regenerateComprobante(ev)}
+                      disabled={regeneratingId === ev.id}
+                      className='inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline disabled:opacity-50'>
+                      <Icon icon='solar:refresh-line-duotone' height={14} width={14} />
+                      {regeneratingId === ev.id
+                        ? t('ficha.generatingComprobante')
+                        : t('ficha.generateComprobante')}
+                    </button>
+                  )
                 )}
               </div>
             </div>

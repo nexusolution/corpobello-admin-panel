@@ -2,8 +2,8 @@
 // 0028 `evoluciones`). One row per attended session. RLS scopes a profesional to
 // their own rows at the DB level; these helpers add no client-side scoping.
 //
-// Session photos + the signed PDF land in later steps; this module covers the
-// core record (create as draft, edit, close with signature).
+// This module covers the core record (create as draft, edit, close with
+// signature) plus its session photos; the signed PDF lives in comprobante-pdf.ts.
 
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 
@@ -248,7 +248,7 @@ export async function deleteEvolucionMedia(
 }
 
 /** Sign + close a session: status 'cerrada' + signature by the current user.
- *  The PDF comprobante is generated in a later step. */
+ *  The caller then generates the signed PDF comprobante (comprobante-pdf.ts). */
 export async function closeEvolucion(id: string): Promise<{ error: string | null }> {
   if (!isSupabaseConfigured()) return { error: null }
   const { data: userData } = await getSupabase().auth.getUser()
