@@ -68,7 +68,11 @@ export async function fetchLeads(): Promise<LeadsResult> {
 
   if (error) return { data: [], error: error.message }
 
-  const leads: Lead[] = (data as LeadRow[]).map((row) => ({
+  const rows = data as LeadRow[]
+  // Real photo counts per lead (the card badge). Batched once for the board.
+  const photoCounts = await fetchLeadPhotoCounts(rows.map((r) => r.id))
+
+  const leads: Lead[] = rows.map((row) => ({
     id: row.id,
     patientName: row.display_name?.trim() || row.whatsapp_phone || 'Sin nombre',
     phoneLast4: phoneLast4(row.whatsapp_phone),
@@ -78,10 +82,10 @@ export async function fetchLeads(): Promise<LeadsResult> {
       normalizeSucursal(row.metadata?.['sucursal']),
     treatmentLabel: metaTreatmentName(row.metadata) || treatmentLabel(row.treatments),
     lastActivityHoursAgo: hoursSince(row.last_message_at ?? row.created_at),
-    // No tags/notes/photos columns yet — neutral defaults.
+    // No tags/notes columns yet — neutral defaults; photos are counted below.
     tags: [],
     notesCount: 0,
-    photosCount: 0,
+    photosCount: photoCounts.get(row.id) ?? 0,
     status: mapStatus(row.status),
     ...(metaQuote(row.metadata) && { quote: metaQuote(row.metadata)! }),
     ...(metaReservation(row.metadata) && {
@@ -90,6 +94,52 @@ export async function fetchLeads(): Promise<LeadsResult> {
   }))
 
   return { data: leads, error: null }
+}
+
+// Count the photos each lead sent, for the card badge. A "photo" is an inbound
+// message that has stored media (lead → conversations → messages → media), so
+// the badge matches what the lead detail PHOTOS section renders (one per
+// message). Batched into two queries for the whole board; best-effort (any
+// failure leaves the badge at 0).
+async function fetchLeadPhotoCounts(leadIds: string[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>()
+  if (leadIds.length === 0 || !isSupabaseConfigured()) return counts
+  const supabase = getSupabase()
+  try {
+    const convRes = await supabase
+      .from('conversations')
+      .select('id, lead_id')
+      .in('lead_id', leadIds)
+    const convs = (convRes.data as { id: string; lead_id: string }[]) ?? []
+    if (convs.length === 0) return counts
+    const leadByConv = new Map(convs.map((c) => [c.id, c.lead_id]))
+
+    const mediaRes = await supabase
+      .from('media')
+      .select('message_id, messages!inner(conversation_id, direction)')
+      .eq('messages.direction', 'in')
+      .in(
+        'messages.conversation_id',
+        convs.map((c) => c.id),
+      )
+    const mediaRows = (mediaRes.data as any[]) ?? []
+
+    // Dedupe by message_id (a message may carry more than one media row) so the
+    // count is photos-shown, not raw objects. message ids are globally unique.
+    const seen = new Set<string>()
+    for (const r of mediaRows) {
+      const msgId = r.message_id as string
+      const convId = r.messages?.conversation_id as string | undefined
+      if (!convId || seen.has(msgId)) continue
+      seen.add(msgId)
+      const leadId = leadByConv.get(convId)
+      if (!leadId) continue
+      counts.set(leadId, (counts.get(leadId) ?? 0) + 1)
+    }
+  } catch {
+    // Best-effort — badge falls back to 0.
+  }
+  return counts
 }
 
 // ---------------------------------------------------------------------------
