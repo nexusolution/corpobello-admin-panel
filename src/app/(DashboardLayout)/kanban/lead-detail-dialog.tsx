@@ -91,6 +91,19 @@ const COMPROBANTE_BADGE: Record<ComprobanteStatus, { className: string; key: Tra
   verified: { className: 'bg-lightsuccess text-success', key: 'kanban.detail.comprobanteStatus.verified' },
 }
 
+// Indeterminate progress bar shown while a section's data loads (friendlier
+// than a plain "Loading..." text line). The sweep is defined in globals.css.
+function LoadingBar({ label }: { label: string }) {
+  return (
+    <div
+      role='progressbar'
+      aria-busy='true'
+      aria-label={label}
+      className='cb-progress-track h-1.5 w-full rounded-full bg-muted/60 dark:bg-darkmuted/40'
+    />
+  )
+}
+
 function SectionTitle({
   icon,
   children,
@@ -321,9 +334,7 @@ export function LeadDetailDialog({
           <section>
             <SectionTitle icon='solar:gallery-line-duotone'>{t('kanban.detail.section.photos')}</SectionTitle>
             {transcriptLoading ? (
-              <p className='text-sm text-link dark:text-darklink italic'>
-                {t('kanban.detail.conversation.loading')}
-              </p>
+              <LoadingBar label={t('kanban.detail.conversation.loading')} />
             ) : photos.length > 0 ? (
               <div className='grid grid-cols-3 gap-2'>
                 {photos.map((photo) => (
@@ -358,9 +369,7 @@ export function LeadDetailDialog({
           <section>
             <SectionTitle icon='solar:chat-round-line-duotone'>{t('kanban.detail.section.conversation')}</SectionTitle>
             {transcriptLoading ? (
-              <p className='text-sm text-link dark:text-darklink italic'>
-                {t('kanban.detail.conversation.loading')}
-              </p>
+              <LoadingBar label={t('kanban.detail.conversation.loading')} />
             ) : transcriptError ? (
               <p className='text-sm text-error italic'>
                 {t('kanban.detail.conversation.error')}

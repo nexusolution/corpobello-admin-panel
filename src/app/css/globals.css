@@ -16,6 +16,39 @@ main {
   scroll-behavior: smooth;
 }
 
+/* Indeterminate progress bar for content-loading placeholders (a friendlier
+   cue than a "Loading..." text line). The track holds a primary-colour fill
+   that sweeps across via transform, so it animates on the compositor. */
+@keyframes cb-indeterminate {
+  0% {
+    transform: translateX(-100%) scaleX(0.4);
+  }
+  50% {
+    transform: translateX(10%) scaleX(0.6);
+  }
+  100% {
+    transform: translateX(100%) scaleX(0.4);
+  }
+}
+.cb-progress-track {
+  position: relative;
+  overflow: hidden;
+}
+.cb-progress-track::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--color-primary);
+  transform-origin: left center;
+  animation: cb-indeterminate 1.25s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cb-progress-track::after {
+    animation-duration: 2.4s;
+  }
+}
+
 @theme {
   
   --shadow-lg: 0 1rem 3rem rgba(0, 0, 0, 0.175);
