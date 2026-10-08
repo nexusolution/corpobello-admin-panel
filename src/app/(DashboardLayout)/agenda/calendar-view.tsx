@@ -603,6 +603,8 @@ type Draft = {
   laserZones: string[]
   // Zona corporal (línea firmada 276) para tratamientos no láser. Opcional.
   bodyZones?: string[]
+  // Primera sesión (migration 0062): marca el check y suma el buffer a la duración.
+  firstSession?: boolean
   // Month the date picker should open on when the date is still empty (Andrés
   // punto 20): "Nuevo evento" from Month keeps the field empty but opens the
   // calendar on the month currently in view, not today.
@@ -944,7 +946,9 @@ function EventDialog({
   // (precio por zona del cotizador), editable. Preserved on reprogramación.
   const [totalAmount, setTotalAmount] = useState(draft.totalAmount)
   // Primera sesión: bumps the auto-suggested duration (charla/explicación previa).
-  const [firstSession, setFirstSession] = useState(false)
+  // Loaded from the turno (migration 0062) so a bot-created first session shows
+  // checked; defaults false for new/legacy turnos.
+  const [firstSession, setFirstSession] = useState(draft.firstSession ?? false)
   // Depilación láser (Etapa 2): sex table + zonas selected by click. When the
   // treatment is láser and zonas are picked, the internal engine sets the
   // duration (editable). Preserved on reprogramación.
@@ -1492,6 +1496,7 @@ function EventDialog({
             laserSex: isLaser ? laserSex : null,
             laserZones: isLaser ? laserZones : [],
             bodyZones: isLaser ? [] : bodyZones,
+            firstSession,
           }
           try {
             sessionStorage.setItem(
@@ -1608,6 +1613,7 @@ function EventDialog({
               laserSex: isLaser ? laserSex : null,
               laserZones: isLaser ? laserZones : [],
               bodyZones: isLaser ? [] : bodyZones,
+              firstSession,
             }
             try {
               sessionStorage.setItem(
@@ -1764,6 +1770,7 @@ function EventDialog({
       laserSex: isLaser ? laserSex : null,
       laserZones: isLaser ? laserZones : [],
       bodyZones: isLaser ? [] : bodyZones,
+      firstSession,
     }
     // Build the audit entry (who / when / what) before persisting.
     const statusLabel = (s: TurnoStatus) => statusLabelFor(s)
@@ -1959,6 +1966,7 @@ function EventDialog({
                         laserSex: isLaser ? laserSex : null,
                         laserZones: isLaser ? laserZones : [],
                         bodyZones: isLaser ? [] : bodyZones,
+                        firstSession,
                       }
                       try {
                         sessionStorage.setItem(
@@ -4559,6 +4567,7 @@ export function CalendarView() {
       laserSex: ev.laserSex,
       laserZones: ev.laserZones,
       bodyZones: ev.bodyZones,
+      firstSession: ev.firstSession,
     })
   }, [])
   openTurnoRef.current = onSelectEvent

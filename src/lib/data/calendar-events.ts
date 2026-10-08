@@ -150,6 +150,10 @@ export type CalendarEvent = {
   // Zona corporal para tratamientos NO láser (migration 0061, línea firmada 276):
   // dónde se trabaja, cuando corresponde. Independiente de laser_zones.
   bodyZones: string[]
+  // Primera sesión del tratamiento para el paciente (migration 0062): suma el buffer
+  // de charla/explicación a la duración. La auto-reserva del bot la detecta por el
+  // historial del paciente; el panel la muestra en el check "Primera sesión".
+  firstSession: boolean
   createdAt: Date
 }
 
@@ -177,6 +181,7 @@ type Row = {
   laser_sex: string | null
   laser_zones: string[] | null
   body_zones: string[] | null
+  first_session: boolean | null
   created_at: string
   patient: { full_name: string | null } | { full_name: string | null }[] | null
 }
@@ -225,6 +230,7 @@ function rowToEvent(r: Row): CalendarEvent {
     laserSex: r.laser_sex === 'mujer' || r.laser_sex === 'varon' ? r.laser_sex : null,
     laserZones: r.laser_zones ?? [],
     bodyZones: r.body_zones ?? [],
+    firstSession: r.first_session ?? false,
     createdAt: new Date(r.created_at),
   }
 }
@@ -261,7 +267,7 @@ export async function autoCancelExpiredReservas(): Promise<{
 }
 
 const SELECT =
-  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, observaciones, pack_id, deposit_amount, deposit_date, deposit_received, total_amount, reschedule_reason, reschedule_history, treatments, laser_sex, laser_zones, body_zones, created_at, patient:patient_id (full_name)'
+  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, observaciones, pack_id, deposit_amount, deposit_date, deposit_received, total_amount, reschedule_reason, reschedule_history, treatments, laser_sex, laser_zones, body_zones, first_session, created_at, patient:patient_id (full_name)'
 
 export async function fetchCalendarEvents(): Promise<{
   data: CalendarEvent[]
@@ -306,6 +312,9 @@ export type CalendarEventInput = {
   // Tratamientos del turno (línea firmada 269-271). OPTIONAL: a mover/drag that does
   // not touch treatments leaves it undefined so toPayload preserves the column.
   treatments?: TurnoTreatment[]
+  // Primera sesión (migration 0062). OPTIONAL: a drag/move leaves it undefined so
+  // toPayload preserves the column; the dialog sets it.
+  firstSession?: boolean
 }
 
 function toPayload(input: CalendarEventInput) {
@@ -342,6 +351,8 @@ function toPayload(input: CalendarEventInput) {
   }
   // Zona corporal: only when provided (the dialog), so a drag/move preserves it.
   if (input.bodyZones !== undefined) payload.body_zones = input.bodyZones
+  // Primera sesión: only when provided (the dialog), so a drag/move preserves it.
+  if (input.firstSession !== undefined) payload.first_session = input.firstSession
   return payload
 }
 
