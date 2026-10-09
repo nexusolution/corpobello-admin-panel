@@ -305,7 +305,7 @@ function ContactTab({
   const status = detail.reservations[0]?.status ?? 'nuevo'
 
   return (
-    <div className='space-y-5 max-w-3xl'>
+    <div className='space-y-5 max-w-5xl'>
       {/* Quick contact actions */}
       {!editing && (
         <div className='flex flex-wrap items-center gap-2'>
@@ -330,6 +330,8 @@ function ContactTab({
         </div>
       )}
 
+      {/* Personal details + Activity side by side on wide screens, stacked on narrow */}
+      <div className='grid grid-cols-1 lg:grid-cols-2 gap-5 items-start'>
       {/* Personal details */}
       <section className='rounded-xl border border-border dark:border-darkborder bg-background/40'>
         <div className='flex items-center justify-between gap-2 px-4 py-3 border-b border-border dark:border-darkborder'>
@@ -419,6 +421,7 @@ function ContactTab({
           </div>
         </div>
       </section>
+      </div>
     </div>
   )
 }
