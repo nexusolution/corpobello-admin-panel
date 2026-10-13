@@ -330,8 +330,9 @@ function ContactTab({
         </div>
       )}
 
-      {/* Personal details + Activity side by side on wide screens, stacked on narrow */}
-      <div className='grid grid-cols-1 lg:grid-cols-2 gap-5 items-start'>
+      {/* Personal details + Activity side by side on wide screens, stacked on narrow.
+          items-stretch so both cards share the taller card's height (aligned edges). */}
+      <div className='grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch'>
       {/* Personal details */}
       <section className='rounded-xl border border-border dark:border-darkborder bg-background/40'>
         <div className='flex items-center justify-between gap-2 px-4 py-3 border-b border-border dark:border-darkborder'>
