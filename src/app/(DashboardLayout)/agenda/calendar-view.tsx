@@ -3036,6 +3036,27 @@ export function CalendarView() {
     )
   }, [reload, t])
 
+  // Auto-refresh the agenda (Andrés 2026-10-21 #3): poll the events feed so a
+  // pre-reserva created from WhatsApp shows up WITHOUT a manual page refresh.
+  // `reload` updates events in place (no spinner), and an open turno dialog reads
+  // its own draft snapshot, so a background refresh never disrupts editing. Paused
+  // while the tab is hidden, and fired immediately when it regains focus.
+  useEffect(() => {
+    const POLL_MS = 20_000
+    const id = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+      reload()
+    }, POLL_MS)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') reload()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [reload])
+
   // Effective professional filter: the Profesional role is always locked to
   // their own turnos; everyone else uses the multi-select (empty = all).
   const effectiveProfessionalIds = useMemo(
