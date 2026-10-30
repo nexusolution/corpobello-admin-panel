@@ -482,7 +482,7 @@ function UserCard({
             icon='solar:letter-linear'
           />
           <UserCardActionButton
-            href={wa ? `https://wa.me/${wa}` : undefined}
+            href={wa ? `https://web.whatsapp.com/send?phone=${wa}` : undefined}
             target='_blank'
             ariaLabel={t('users.card.actionChat')}
             disabled={!wa}

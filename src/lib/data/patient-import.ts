@@ -130,6 +130,24 @@ export function digitsOf(phone: string): string {
   return (phone || '').replace(/\D/g, '')
 }
 
+/**
+ * Normalize an Argentine number to the WhatsApp mobile form (54 + 9 + national
+ * number). AgendaPro exports drop the mobile "9" (e.g. 54 11 3780 5114), but the
+ * bot stores — and WhatsApp addresses — mobiles as 549… So without this, an
+ * imported patient (a) would NOT dedupe against the same person's bot-created
+ * record, and (b) the "Escribir por WhatsApp" link would open the wrong/empty
+ * chat (Andrés 2026-10-30, puntos 6 y 7). Inserting the 9 after the 54 is area
+ * code agnostic and correct for every AR mobile. Numbers that already start with
+ * 549, or that are not AR (no 54 prefix), are left untouched.
+ */
+export function normalizeArMobile(digits: string): string {
+  let d = digits
+  if (d.startsWith('00')) d = d.slice(2) // drop a 00 international prefix
+  if (d.startsWith('549')) return d // already a WhatsApp mobile
+  if (d.startsWith('54')) return '549' + d.slice(2) // 54 + national, missing the 9
+  return d // not an AR number — leave as-is
+}
+
 function normalizeSucursal(v: string): string | null {
   const s = (v || '').trim().toLowerCase()
   return s === 'caballito' || s === 'merlo' || s === 'moreno' ? s : null
@@ -150,6 +168,7 @@ export function buildRecords(
   dataRows: string[][],
   mapping: Record<TargetField, number>,
   existingPhoneDigits: Set<string>,
+  normalizeAr = true,
 ): ParsedPatient[] {
   const seen = new Set<string>()
   const at = (row: string[], idx: number) => (idx >= 0 ? (row[idx] ?? '').trim() : '')
@@ -159,7 +178,8 @@ export function buildRecords(
     const last = at(row, mapping.lastName)
     const fullName = [first, last].filter(Boolean).join(' ').trim()
     const phone = at(row, mapping.phone)
-    const phoneDigits = digitsOf(phone)
+    const rawDigits = digitsOf(phone)
+    const phoneDigits = normalizeAr ? normalizeArMobile(rawDigits) : rawDigits
     const email = at(row, mapping.email)
     const dni = at(row, mapping.dni)
     const sucursal = normalizeSucursal(at(row, mapping.sucursal))
@@ -214,7 +234,9 @@ export async function importPatients(
 
   const payload = toInsert.map((r) => ({
     full_name: r.fullName,
-    whatsapp_phone: r.phone.trim() || null,
+    // Store the digits-only (normalized) phone, matching how the bot stores
+    // whatsapp_phone (e.g. 5491137805114) so dedup and the WhatsApp link line up.
+    whatsapp_phone: r.phoneDigits || null,
     email: r.email || null,
     dni: r.dni.trim() || null,
     sucursal: r.sucursal,

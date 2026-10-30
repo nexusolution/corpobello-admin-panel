@@ -232,7 +232,7 @@ function RecentUsersRail({
                       <Icon icon='solar:phone-linear' height={14} width={14} />
                     </a>
                     <a
-                      href={wa ? `https://wa.me/${wa}` : undefined}
+                      href={wa ? `https://web.whatsapp.com/send?phone=${wa}` : undefined}
                       target='_blank'
                       rel='noopener noreferrer'
                       onClick={(e) => e.stopPropagation()}

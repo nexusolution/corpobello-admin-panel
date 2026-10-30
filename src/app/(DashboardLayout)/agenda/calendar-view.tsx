@@ -14,6 +14,7 @@ import {
 } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { computeAge } from '@/lib/age'
+import { whatsappWebHref } from '@/lib/utils'
 import { Icon } from '@iconify/react'
 import Swal from 'sweetalert2'
 import {
@@ -1935,6 +1936,17 @@ function EventDialog({
             <div className='rounded-md border border-border dark:border-darkborder bg-lightprimary/30 dark:bg-white/5 px-3 py-2.5 text-xs space-y-1'>
               <div className='flex items-center justify-between gap-2'>
                 <span className='font-semibold text-dark dark:text-white text-sm'>{basics.fullName}</span>
+                <div className='flex items-center gap-3 shrink-0'>
+                {whatsappWebHref(basics.phone) && (
+                  <a
+                    href={whatsappWebHref(basics.phone)!}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='inline-flex items-center gap-1 text-success hover:underline font-medium'>
+                    <Icon icon='tabler:brand-whatsapp' height={14} width={14} />
+                    {t('turno.whatsapp')}
+                  </a>
+                )}
                 {patientId && (
                   <button
                     type='button'
@@ -1985,6 +1997,7 @@ function EventDialog({
                     {t('turno.viewFicha')}
                   </button>
                 )}
+                </div>
               </div>
               <div className='flex flex-wrap gap-x-4 gap-y-1 text-link dark:text-darklink'>
                 {basics.dni && <span>{t('turno.dni')}: {basics.dni}</span>}

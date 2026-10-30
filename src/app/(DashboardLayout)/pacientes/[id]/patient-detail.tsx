@@ -14,6 +14,7 @@ import {
 } from '../data'
 import { SUCURSAL_LABELS } from '../mock-data'
 import { computeAge } from '@/lib/age'
+import { whatsappWebHref } from '@/lib/utils'
 import {
   fetchPatientEvoluciones,
   followupState,
@@ -300,7 +301,7 @@ function ContactTab({
 
   const age = computeAge(birthdate)
 
-  const waDigits = (c.phone || '').replace(/\D/g, '')
+  const waHref = whatsappWebHref(c.phone)
   const sucursal = c.sucursal ? SUCURSAL_LABELS[c.sucursal as keyof typeof SUCURSAL_LABELS] : ''
   const status = detail.reservations[0]?.status ?? 'nuevo'
 
@@ -309,9 +310,9 @@ function ContactTab({
       {/* Quick contact actions */}
       {!editing && (
         <div className='flex flex-wrap items-center gap-2'>
-          {waDigits && (
+          {waHref && (
             <a
-              href={`https://wa.me/${waDigits}`}
+              href={waHref}
               target='_blank'
               rel='noopener noreferrer'
               className='inline-flex items-center gap-2 px-3.5 py-2 rounded-md bg-lightsuccess text-success text-sm font-medium hover:bg-success hover:text-white transition-colors'>

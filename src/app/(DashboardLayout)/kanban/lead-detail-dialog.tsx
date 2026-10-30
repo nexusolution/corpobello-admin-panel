@@ -196,8 +196,10 @@ export function LeadDetailDialog({
   }
 
   function whatsappHref(): string {
+    // WhatsApp Web (browser session), not wa.me which opens the desktop app on
+    // Mac — see whatsappWebHref (Andrés 2026-10-30 #6).
     const digits = lead!.phoneFull.replace(/[^\d]/g, '')
-    return `https://wa.me/${digits}`
+    return `https://web.whatsapp.com/send?phone=${digits}`
   }
 
   function handleAddNote() {

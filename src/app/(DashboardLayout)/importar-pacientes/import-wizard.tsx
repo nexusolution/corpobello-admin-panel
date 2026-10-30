@@ -97,6 +97,9 @@ export function ImportWizard({
     {} as Record<TargetField, number>,
   )
   const [records, setRecords] = useState<ParsedPatient[]>([])
+  // AgendaPro drops the mobile "9"; on by default so imported numbers match the
+  // bot's 549… form (dedup + WhatsApp link). Andrés 2026-10-30 #7.
+  const [normalizeAr, setNormalizeAr] = useState(true)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ inserted: number; error: string | null } | null>(null)
 
@@ -122,7 +125,7 @@ export function ImportWizard({
   async function goToPreview() {
     setBusy(true)
     const existing = await fetchExistingPhoneDigits()
-    setRecords(buildRecords(dataRows, mapping, existing))
+    setRecords(buildRecords(dataRows, mapping, existing, normalizeAr))
     setBusy(false)
     setStep('preview')
   }
@@ -202,6 +205,18 @@ export function ImportWizard({
               </div>
             ))}
           </div>
+          <label className='flex items-start gap-2.5 rounded-md border border-border dark:border-darkborder bg-lightprimary/20 dark:bg-white/5 px-3 py-2.5 cursor-pointer'>
+            <input
+              type='checkbox'
+              checked={normalizeAr}
+              onChange={(e) => setNormalizeAr(e.target.checked)}
+              className='mt-0.5 size-4 accent-primary'
+            />
+            <span className='text-xs'>
+              <span className='font-medium text-dark dark:text-white block'>{t('import.normalizeAr.label')}</span>
+              <span className='text-link dark:text-darklink'>{t('import.normalizeAr.hint')}</span>
+            </span>
+          </label>
           <div className='flex items-center justify-between'>
             <button type='button' onClick={reset} className='px-4 py-2 rounded-md border border-border dark:border-darkborder text-sm font-medium text-dark dark:text-white hover:bg-muted/40 transition-colors'>
               {t('import.back')}
@@ -243,7 +258,7 @@ export function ImportWizard({
                   return (
                     <tr key={i} className='border-t border-border dark:border-darkborder'>
                       <td className='py-2 px-3 text-dark dark:text-white'>{r.fullName || ''}</td>
-                      <td className='py-2 px-3 text-link dark:text-darklink'>{r.phone || ''}</td>
+                      <td className='py-2 px-3 text-link dark:text-darklink'>{r.phoneDigits || r.phone || ''}</td>
                       <td className='py-2 px-3 text-link dark:text-darklink'>{r.dni || ''}</td>
                       <td className='py-2 px-3 text-link dark:text-darklink truncate max-w-[180px]'>{r.email || ''}</td>
                       <td className='py-2 px-3'>

@@ -51,8 +51,10 @@ function pageRange(current: number, total: number): (number | '…')[] {
 }
 
 function whatsappHref(phone: string): string | null {
+  // WhatsApp Web (browser session), not wa.me which opens the desktop app on
+  // Mac — see whatsappWebHref (Andrés 2026-10-30 #6).
   const digits = phone.replace(/\D/g, '')
-  return digits.length >= 8 ? `https://wa.me/${digits}` : null
+  return digits.length >= 8 ? `https://web.whatsapp.com/send?phone=${digits}` : null
 }
 
 function lastActivity(hours: number | null, t: TFn): string {
