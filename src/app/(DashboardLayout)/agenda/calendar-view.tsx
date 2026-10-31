@@ -49,6 +49,8 @@ import {
   getCurrentUserId,
   isExpiredReserva,
   autoCancelExpiredReservas,
+  setDepositStatus,
+  DEPOSIT_STATUSES,
   TURNO_STATUSES,
   STATUS_COLORS,
   STATUS_LABEL_KEY,
@@ -59,6 +61,7 @@ import {
   type PatientBasics,
   type RescheduleEntry,
   type TurnoTreatment,
+  type DepositStatus,
 } from '@/lib/data/calendar-events'
 import { fetchTreatmentPrices } from '@/lib/data/treatment-prices'
 import { fetchMenuOverrides } from '@/lib/data/menu-overrides'
@@ -588,6 +591,11 @@ type Draft = {
   depositAmount: string
   depositDate: string
   depositReceived: boolean
+  // Verificación del comprobante (migration 0063, Andrés 2026-10-31). Opcional: solo
+  // los turnos abiertos desde la agenda (existentes) traen el valor real; los nuevos
+  // arrancan en 'pendiente'.
+  depositStatus?: DepositStatus
+  depositRejectionReason?: string | null
   // Valor total del turno (Etapa 2): sugerido automáticamente para láser desde las
   // zonas, editable a mano. '' = sin total.
   totalAmount: string
@@ -610,6 +618,14 @@ type Draft = {
   // punto 20): "Nuevo evento" from Month keeps the field empty but opens the
   // calendar on the month currently in view, not today.
   defaultMonth?: string
+}
+
+// Verificación del comprobante (migration 0063): color por estado para el badge.
+const DEPOSIT_STATUS_COLOR: Record<DepositStatus, string> = {
+  pendiente: '#94a3b8',
+  recibido: '#f59e0b',
+  verificado: '#16a34a',
+  rechazado: '#dc2626',
 }
 
 const SELECT_CLS =
@@ -943,6 +959,41 @@ function EventDialog({
   const [depositAmount, setDepositAmount] = useState(draft.depositAmount)
   const [depositDate, setDepositDate] = useState(draft.depositDate)
   const [depositReceived, setDepositReceived] = useState(draft.depositReceived)
+  // Verificación del comprobante (migration 0063, Andrés 2026-10-31). El bot deja el
+  // turno 'recibido' (reservado pero sin verificar) y Secretaría lo verifica o
+  // rechaza acá. Escribe de inmediato (acción enfocada con auditoría quién/cuándo),
+  // sincronizando el espejo depositReceived para que un Guardar posterior no lo pise.
+  const [depositStatus, setDepositStatusState] = useState<DepositStatus>(
+    draft.depositStatus ?? 'pendiente',
+  )
+  const [depositRejectionReason, setDepositRejectionReason] = useState(
+    draft.depositRejectionReason ?? '',
+  )
+  const [showRejectReason, setShowRejectReason] = useState(false)
+  const [depositVerifSaving, setDepositVerifSaving] = useState(false)
+  const [depositVerifError, setDepositVerifError] = useState<string | null>(null)
+  const [depositVerifSaved, setDepositVerifSaved] = useState(false)
+  const applyDepositStatus = useCallback(
+    async (next: DepositStatus, reason?: string) => {
+      if (!draft.id) return
+      setDepositVerifSaving(true)
+      setDepositVerifError(null)
+      setDepositVerifSaved(false)
+      const err = await setDepositStatus(draft.id, next, reason ?? null)
+      setDepositVerifSaving(false)
+      if (err) {
+        setDepositVerifError(err)
+        return
+      }
+      setDepositStatusState(next)
+      // Mantener el espejo en sync para que el Guardar general no revierta la columna.
+      setDepositReceived(next === 'verificado')
+      setDepositRejectionReason(next === 'rechazado' ? (reason ?? '') : '')
+      setShowRejectReason(false)
+      setDepositVerifSaved(true)
+    },
+    [draft.id],
+  )
   // Valor total del turno (Etapa 2): auto-sugerido para láser desde las zonas
   // (precio por zona del cotizador), editable. Preserved on reprogramación.
   const [totalAmount, setTotalAmount] = useState(draft.totalAmount)
@@ -2506,15 +2557,87 @@ function EventDialog({
                 onChange={setDepositDate}
               />
             </div>
-            <label className='flex items-center gap-2 cursor-pointer select-none'>
-              <input
-                type='checkbox'
-                checked={depositReceived}
-                onChange={(e) => setDepositReceived(e.target.checked)}
-                className='h-4 w-4 rounded border-border dark:border-darkborder accent-primary'
-              />
-              <span className='text-sm text-dark dark:text-white'>{t('turno.deposit.received')}</span>
-            </label>
+            {/* Verificación del comprobante (migration 0063): el bot deja el turno
+                'recibido' (reservado, sin verificar) y Secretaría verifica/rechaza. */}
+            <div className='pt-1 border-t border-border dark:border-darkborder space-y-2'>
+              <div className='flex items-center gap-2 flex-wrap'>
+                <span className='text-xs text-link dark:text-darklink'>{t('turno.deposit.verif.title')}</span>
+                <span
+                  className='inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium'
+                  style={{
+                    color: DEPOSIT_STATUS_COLOR[depositStatus],
+                    backgroundColor: `${DEPOSIT_STATUS_COLOR[depositStatus]}22`,
+                  }}>
+                  <span className='h-2 w-2 rounded-full' style={{ backgroundColor: DEPOSIT_STATUS_COLOR[depositStatus] }} />
+                  {t(`turno.deposit.status.${depositStatus}`)}
+                </span>
+              </div>
+              {draft.id ? (
+                <>
+                  <div className='flex items-center gap-2 flex-wrap'>
+                    {depositStatus !== 'recibido' && depositStatus !== 'verificado' && (
+                      <button
+                        type='button'
+                        disabled={depositVerifSaving}
+                        onClick={() => void applyDepositStatus('recibido')}
+                        className='px-2.5 py-1.5 rounded-md border border-border dark:border-darkborder text-[11px] text-dark dark:text-white hover:bg-lightprimary/40 disabled:opacity-50'>
+                        {t('turno.deposit.verif.markReceived')}
+                      </button>
+                    )}
+                    {depositStatus !== 'verificado' && (
+                      <button
+                        type='button'
+                        disabled={depositVerifSaving}
+                        onClick={() => void applyDepositStatus('verificado')}
+                        className='px-2.5 py-1.5 rounded-md bg-success text-white text-[11px] font-medium hover:opacity-90 disabled:opacity-50'>
+                        {t('turno.deposit.verif.verify')}
+                      </button>
+                    )}
+                    {depositStatus !== 'rechazado' && (
+                      <button
+                        type='button'
+                        disabled={depositVerifSaving}
+                        onClick={() => setShowRejectReason((v) => !v)}
+                        className='px-2.5 py-1.5 rounded-md border border-error text-error text-[11px] font-medium hover:bg-error/10 disabled:opacity-50'>
+                        {t('turno.deposit.verif.reject')}
+                      </button>
+                    )}
+                  </div>
+                  {showRejectReason && (
+                    <div className='space-y-1.5'>
+                      <textarea
+                        value={depositRejectionReason}
+                        onChange={(e) => setDepositRejectionReason(e.target.value)}
+                        rows={2}
+                        placeholder={t('turno.deposit.verif.reasonPlaceholder')}
+                        className='w-full px-2.5 py-2 rounded-md border border-border dark:border-darkborder bg-background text-sm text-dark dark:text-white focus:outline-none focus:border-primary'
+                      />
+                      <button
+                        type='button'
+                        disabled={depositVerifSaving}
+                        onClick={() => void applyDepositStatus('rechazado', depositRejectionReason.trim() || undefined)}
+                        className='px-2.5 py-1.5 rounded-md bg-error text-white text-[11px] font-medium hover:opacity-90 disabled:opacity-50'>
+                        {t('turno.deposit.verif.confirmReject')}
+                      </button>
+                    </div>
+                  )}
+                  {depositStatus === 'rechazado' && depositRejectionReason && !showRejectReason && (
+                    <p className='text-[11px] text-error'>
+                      {t('turno.deposit.verif.reasonLabel')}: {depositRejectionReason}
+                    </p>
+                  )}
+                  {depositStatus === 'recibido' && (
+                    <p className='text-[11px] text-link dark:text-darklink'>{t('turno.deposit.verif.pendingHint')}</p>
+                  )}
+                  {depositVerifError && <p className='text-[11px] text-error'>{depositVerifError}</p>}
+                  {depositVerifSaved && !depositVerifError && (
+                    <p className='text-[11px] text-success'>{t('turno.deposit.verif.saved')}</p>
+                  )}
+                </>
+              ) : (
+                <p className='text-[11px] text-link dark:text-darklink'>{t('turno.deposit.verif.saveFirst')}</p>
+              )}
+            </div>
           </div>
 
           {/* Patient turnos are always timed (punto 4a): single date + hora
@@ -4594,6 +4717,8 @@ export function CalendarView() {
       depositAmount: ev.depositAmount != null ? String(ev.depositAmount) : '',
       depositDate: ev.depositDate ?? '',
       depositReceived: ev.depositReceived,
+      depositStatus: ev.depositStatus,
+      depositRejectionReason: ev.depositRejectionReason,
       totalAmount: ev.totalAmount != null ? String(ev.totalAmount) : '',
       rescheduleReason: ev.rescheduleReason,
       rescheduleHistory: ev.rescheduleHistory,

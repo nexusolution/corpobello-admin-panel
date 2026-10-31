@@ -542,7 +542,11 @@ function ReservationsTab({ detail, t, locale }: { detail: PatientDetailData; t: 
                     <p className='text-xs text-secondary mt-1 font-medium'>
                       {t('turno.deposit.title')}: ${tu.depositAmount.toLocaleString('es-AR')}
                       {tu.depositDate ? ` · ${formatDepositDate(tu.depositDate)}` : ''}
-                      {tu.depositReceived ? ` · ${t('turno.deposit.received')}` : ''}
+                      {tu.depositStatus && tu.depositStatus !== 'pendiente'
+                        ? ` · ${t(`turno.deposit.status.${tu.depositStatus}`)}`
+                        : tu.depositReceived
+                          ? ` · ${t('turno.deposit.received')}`
+                          : ''}
                     </p>
                   )}
                 </div>

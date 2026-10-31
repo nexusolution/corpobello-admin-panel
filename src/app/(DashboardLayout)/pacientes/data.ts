@@ -9,6 +9,7 @@ import {
   phoneLast4,
 } from '@/lib/data/helpers'
 import { messageContentToText } from '@/lib/data/messages'
+import { DEPOSIT_STATUSES, type DepositStatus } from '@/lib/data/calendar-events'
 import type { Patient, PatientStatus } from './mock-data'
 
 type PatientRow = {
@@ -307,6 +308,7 @@ export type PatientTurno = {
   depositAmount: number | null
   depositDate: string | null
   depositReceived: boolean
+  depositStatus: DepositStatus
 }
 
 export type PatientContact = {
@@ -367,7 +369,7 @@ export async function fetchPatientDetail(
     supabase
       .from('calendar_events')
       .select(
-        'id, starts_at, ends_at, all_day, status, sucursal, treatment_slug, deposit_amount, deposit_date, deposit_received, professional:professional_id (display_name)',
+        'id, starts_at, ends_at, all_day, status, sucursal, treatment_slug, deposit_amount, deposit_date, deposit_received, deposit_status, professional:professional_id (display_name)',
       )
       .eq('patient_id', id)
       .order('starts_at', { ascending: false }),
@@ -473,6 +475,11 @@ export async function fetchPatientDetail(
         depositAmount: r.deposit_amount == null ? null : Number(r.deposit_amount),
         depositDate: r.deposit_date ?? null,
         depositReceived: !!r.deposit_received,
+        depositStatus: (DEPOSIT_STATUSES as readonly string[]).includes(
+          (r.deposit_status as string | null) ?? '',
+        )
+          ? (r.deposit_status as DepositStatus)
+          : 'pendiente',
       }))
 
   const contact: PatientContact = {

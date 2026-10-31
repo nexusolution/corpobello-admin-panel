@@ -109,6 +109,20 @@ export type Sucursal = (typeof SUCURSALES)[number]
 // policy. Measured from the turno's created_at.
 export const PRE_RESERVA_TTL_HOURS = 48
 
+// Verificación del depósito (migration 0063, Andrés 2026-10-31):
+//   · pendiente   = sin comprobante aún.
+//   · recibido    = comprobante recibido, pendiente de verificación por Secretaría
+//                   (el turno YA está reservado; el bot no libera el slot).
+//   · verificado  = Secretaría confirmó la acreditación del dinero.
+//   · rechazado   = comprobante incorrecto / no acreditado.
+export const DEPOSIT_STATUSES = [
+  'pendiente',
+  'recibido',
+  'verificado',
+  'rechazado',
+] as const
+export type DepositStatus = (typeof DEPOSIT_STATUSES)[number]
+
 // Shape react-big-calendar consumes directly (start/end are Date objects). The
 // extra turno fields ride along for rendering + edit-form repopulation.
 export type CalendarEvent = {
@@ -129,6 +143,12 @@ export type CalendarEvent = {
   depositAmount: number | null
   depositDate: string | null
   depositReceived: boolean
+  // Verificación del depósito (migration 0063, Andrés 2026-10-31). El slot queda
+  // reservado desde que el comprobante se recibe (bot 24/7), y Secretaría luego
+  // verifica o rechaza la acreditación. deposit_received es un espejo derivado
+  // (true solo en 'verificado').
+  depositStatus: DepositStatus
+  depositRejectionReason: string | null
   // Valor total del turno (migration 0057): sugerido automáticamente para láser a
   // partir de las zonas, pero editable a mano. NULL = sin total cargado.
   totalAmount: number | null
@@ -174,6 +194,8 @@ type Row = {
   deposit_amount: number | string | null
   deposit_date: string | null
   deposit_received: boolean | null
+  deposit_status: string | null
+  deposit_rejection_reason: string | null
   total_amount: number | string | null
   reschedule_reason: string | null
   reschedule_history: RescheduleEntry[] | null
@@ -184,6 +206,12 @@ type Row = {
   first_session: boolean | null
   created_at: string
   patient: { full_name: string | null } | { full_name: string | null }[] | null
+}
+
+function normalizeDepositStatus(s: string | null): DepositStatus {
+  return (DEPOSIT_STATUSES as readonly string[]).includes(s ?? '')
+    ? (s as DepositStatus)
+    : 'pendiente'
 }
 
 function normalizeStatus(s: string): TurnoStatus {
@@ -216,6 +244,8 @@ function rowToEvent(r: Row): CalendarEvent {
     depositAmount: r.deposit_amount == null ? null : Number(r.deposit_amount),
     depositDate: r.deposit_date,
     depositReceived: !!r.deposit_received,
+    depositStatus: normalizeDepositStatus(r.deposit_status),
+    depositRejectionReason: r.deposit_rejection_reason,
     totalAmount: r.total_amount == null ? null : Number(r.total_amount),
     rescheduleReason: r.reschedule_reason,
     rescheduleHistory: Array.isArray(r.reschedule_history) ? r.reschedule_history : [],
@@ -267,7 +297,7 @@ export async function autoCancelExpiredReservas(): Promise<{
 }
 
 const SELECT =
-  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, observaciones, pack_id, deposit_amount, deposit_date, deposit_received, total_amount, reschedule_reason, reschedule_history, treatments, laser_sex, laser_zones, body_zones, first_session, created_at, patient:patient_id (full_name)'
+  'id, title, starts_at, ends_at, all_day, status, charged, patient_id, professional_id, sucursal, treatment_slug, observaciones, pack_id, deposit_amount, deposit_date, deposit_received, deposit_status, deposit_rejection_reason, total_amount, reschedule_reason, reschedule_history, treatments, laser_sex, laser_zones, body_zones, first_session, created_at, patient:patient_id (full_name)'
 
 export async function fetchCalendarEvents(): Promise<{
   data: CalendarEvent[]
@@ -370,6 +400,37 @@ export async function createCalendarEvent(
     .single()
   if (error) return { data: null, error: error.message }
   return { data: rowToEvent(data as Row), error: null }
+}
+
+/**
+ * Secretaría marca la verificación del depósito (migration 0063, Andrés 2026-10-31).
+ * Acción enfocada: parchea SOLO las columnas de depósito y registra quién/cuándo,
+ * sin tocar el resto del turno. deposit_received queda como espejo (true solo en
+ * 'verificado'). Liberar el horario tras un rechazo es una acción aparte (cambiar
+ * el estado del turno), para que el rechazo no borre el registro de la operación.
+ */
+export async function setDepositStatus(
+  id: string,
+  status: DepositStatus,
+  rejectionReason?: string | null,
+): Promise<string | null> {
+  if (!isSupabaseConfigured()) return null
+  const { data: userData } = await getSupabase().auth.getUser()
+  const verifiedBy = userData?.user?.id ?? null
+  const decided = status === 'verificado' || status === 'rechazado'
+  const { error } = await getSupabase()
+    .from('calendar_events')
+    .update({
+      deposit_status: status,
+      deposit_received: status === 'verificado',
+      deposit_verified_at: decided ? new Date().toISOString() : null,
+      deposit_verified_by: decided ? verifiedBy : null,
+      deposit_rejection_reason:
+        status === 'rechazado' ? (rejectionReason ?? null) : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+  return error ? error.message : null
 }
 
 /** Update an existing turno. Returns an error string on failure. */
