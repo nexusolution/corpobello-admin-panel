@@ -5,7 +5,7 @@ import { Icon } from '@iconify/react'
 
 import { HeroBanner } from '@/app/components/shared/HeroBanner'
 import { RoleGate } from '@/lib/auth/RoleGate'
-import { fetchLeads } from '@/app/(DashboardLayout)/kanban/data'
+import { fetchLeads, setLeadRecoveryOptOut } from '@/app/(DashboardLayout)/kanban/data'
 import type { Lead, LeadStatus } from '@/app/(DashboardLayout)/kanban/mock-data'
 import {
   fetchAppSettingNumber,
@@ -63,7 +63,17 @@ function lastActivity(hours: number | null, t: TFn): string {
   return t('recovery.hoursAgo', { n: String(Math.floor(hours)) })
 }
 
-function Row({ lead, t }: { lead: Lead; t: TFn }) {
+function Row({
+  lead,
+  t,
+  onOptOut,
+  saving,
+}: {
+  lead: Lead
+  t: TFn
+  onOptOut: (lead: Lead) => void
+  saving: boolean
+}) {
   const href = whatsappHref(lead.phoneFull)
   const statusKey = STATUS_KEY[lead.status]
   return (
@@ -88,7 +98,7 @@ function Row({ lead, t }: { lead: Lead; t: TFn }) {
       <div className='w-28 shrink-0 text-xs text-link dark:text-darklink'>
         {lastActivity(lead.lastActivityHoursAgo, t)}
       </div>
-      <div className='shrink-0'>
+      <div className='shrink-0 flex items-center gap-2'>
         {href ? (
           <a
             href={href}
@@ -101,6 +111,15 @@ function Row({ lead, t }: { lead: Lead; t: TFn }) {
         ) : (
           <span className='text-xs text-link dark:text-darklink italic'>{t('recovery.noPhone')}</span>
         )}
+        <button
+          type='button'
+          onClick={() => onOptOut(lead)}
+          disabled={saving}
+          title={t('recovery.optOut.hint')}
+          className='inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border dark:border-darkborder text-xs font-medium text-link dark:text-darklink hover:bg-muted/40 disabled:opacity-40 disabled:cursor-not-allowed transition'>
+          <Icon icon={saving ? 'tabler:loader-2' : 'solar:bell-off-line-duotone'} height={15} width={15} className={saving ? 'animate-spin' : ''} />
+          {t('recovery.optOut')}
+        </button>
       </div>
     </div>
   )
@@ -130,18 +149,54 @@ export default function RecuperacionPage() {
     }
   }, [])
 
-  const cold = useMemo(
+  // A lead already stale enough to recover, before the recovery-flag filter —
+  // used to count how many are held back by baja / atención humana.
+  const staleInFunnel = useMemo(
     () =>
-      leads
-        .filter(
-          (l) =>
-            IN_FUNNEL.includes(l.status) &&
-            l.lastActivityHoursAgo != null &&
-            l.lastActivityHoursAgo >= staleHours,
-        )
-        .sort((a, b) => (b.lastActivityHoursAgo ?? 0) - (a.lastActivityHoursAgo ?? 0)),
+      leads.filter(
+        (l) =>
+          IN_FUNNEL.includes(l.status) &&
+          l.lastActivityHoursAgo != null &&
+          l.lastActivityHoursAgo >= staleHours,
+      ),
     [leads, staleHours],
   )
+
+  // Andrés #5: a lead that opted out (baja) or is under atención humana must NOT
+  // appear in the recovery list — the clinic handles it, or the patient asked us
+  // to stop.
+  const excludedCount = useMemo(
+    () => staleInFunnel.filter((l) => l.recoveryOptOut || l.humanTakeover).length,
+    [staleInFunnel],
+  )
+
+  const cold = useMemo(
+    () =>
+      staleInFunnel
+        .filter((l) => !l.recoveryOptOut && !l.humanTakeover)
+        .sort((a, b) => (b.lastActivityHoursAgo ?? 0) - (a.lastActivityHoursAgo ?? 0)),
+    [staleInFunnel],
+  )
+
+  // Per-row saving state for the "No contactar" action.
+  const [optingOut, setOptingOut] = useState<Set<string>>(new Set())
+
+  async function handleOptOut(lead: Lead) {
+    if (optingOut.has(lead.id)) return
+    setOptingOut((prev) => new Set(prev).add(lead.id))
+    const err = await setLeadRecoveryOptOut(lead.id, true)
+    if (!err) {
+      // Reflect it locally so the row drops out of the list immediately.
+      setLeads((prev) =>
+        prev.map((l) => (l.id === lead.id ? { ...l, recoveryOptOut: true } : l)),
+      )
+    }
+    setOptingOut((prev) => {
+      const next = new Set(prev)
+      next.delete(lead.id)
+      return next
+    })
+  }
 
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -228,7 +283,13 @@ export default function RecuperacionPage() {
               ) : (
               <div>
                 {pageItems.map((lead) => (
-                  <Row key={lead.id} lead={lead} t={t} />
+                  <Row
+                    key={lead.id}
+                    lead={lead}
+                    t={t}
+                    onOptOut={handleOptOut}
+                    saving={optingOut.has(lead.id)}
+                  />
                 ))}
               </div>
               )}
@@ -275,6 +336,13 @@ export default function RecuperacionPage() {
                 </div>
               )}
             </>
+          )}
+
+          {excludedCount > 0 && (
+            <p className='text-xs text-link dark:text-darklink mt-4 flex items-start gap-1.5'>
+              <Icon icon='solar:bell-off-line-duotone' height={14} width={14} className='mt-0.5 shrink-0' />
+              {t('recovery.excludedNote', { n: String(excludedCount) })}
+            </p>
           )}
 
           <p className='text-xs text-link dark:text-darklink mt-5 flex items-start gap-1.5'>

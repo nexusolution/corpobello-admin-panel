@@ -20,6 +20,8 @@ type LeadRow = {
   metadata: Record<string, unknown> | null
   created_at: string | null
   last_message_at: string | null
+  recovery_opt_out: boolean | null
+  human_takeover: boolean | null
   treatments: { display_name: string | null } | { display_name: string | null }[] | null
 }
 
@@ -63,7 +65,7 @@ export async function fetchLeads(): Promise<LeadsResult> {
   const { data, error } = await getSupabase()
     .from('leads')
     .select(
-      'id, patient_id, whatsapp_phone, display_name, status, metadata, created_at, last_message_at, treatments:current_treatment_id (display_name)',
+      'id, patient_id, whatsapp_phone, display_name, status, metadata, created_at, last_message_at, recovery_opt_out, human_takeover, treatments:current_treatment_id (display_name)',
     )
     .order('last_message_at', { ascending: false, nullsFirst: false })
 
@@ -95,6 +97,8 @@ export async function fetchLeads(): Promise<LeadsResult> {
       notesCount: notes.length,
       photosCount: photoCounts.get(row.id) ?? 0,
       status: mapStatus(row.status),
+      ...(row.recovery_opt_out === true && { recoveryOptOut: true }),
+      ...(row.human_takeover === true && { humanTakeover: true }),
       ...(notes.length > 0 && { internalNotes: notes }),
       ...(metaQuote(row.metadata) && { quote: metaQuote(row.metadata)! }),
       ...(metaReservation(row.metadata) && {
@@ -262,6 +266,46 @@ export async function persistLeadStatus(
   const { error } = await getSupabase()
     .from('leads')
     .update({ status })
+    .eq('id', id)
+  return error ? error.message : null
+}
+
+// ---------------------------------------------------------------------------
+// Recovery flags (migration 0064). Baja / opt-out + human takeover. Setting
+// either one excludes the lead from the /recuperación list; the bot also sets
+// recovery_opt_out itself when a patient asks to stop receiving messages.
+// Best-effort — returns an error string on failure, null on success.
+// ---------------------------------------------------------------------------
+
+/** Dar de baja / reactivar un lead en la recuperación (Secretaría, origen 'panel'). */
+export async function setLeadRecoveryOptOut(
+  id: string,
+  optedOut: boolean,
+): Promise<string | null> {
+  if (!isSupabaseConfigured()) return null
+  const { error } = await getSupabase()
+    .from('leads')
+    .update({
+      recovery_opt_out: optedOut,
+      recovery_opt_out_at: optedOut ? new Date().toISOString() : null,
+      recovery_opt_out_source: optedOut ? 'panel' : null,
+    })
+    .eq('id', id)
+  return error ? error.message : null
+}
+
+/** Marcar / quitar atención humana en un lead. */
+export async function setLeadHumanTakeover(
+  id: string,
+  on: boolean,
+): Promise<string | null> {
+  if (!isSupabaseConfigured()) return null
+  const { error } = await getSupabase()
+    .from('leads')
+    .update({
+      human_takeover: on,
+      human_takeover_at: on ? new Date().toISOString() : null,
+    })
     .eq('id', id)
   return error ? error.message : null
 }

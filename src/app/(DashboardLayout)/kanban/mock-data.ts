@@ -68,6 +68,11 @@ export type Lead = {
   notesCount: number
   photosCount: number
   status: LeadStatus
+  // Recovery flags (migration 0064). `recoveryOptOut` = the patient asked to stop
+  // receiving messages (baja); `humanTakeover` = Secretaría is handling the
+  // conversation manually. Either one excludes the lead from the recovery list.
+  recoveryOptOut?: boolean
+  humanTakeover?: boolean
   // Detail fields used by the lead detail dialog
   quote?: LeadQuote
   photos?: LeadPhoto[]
